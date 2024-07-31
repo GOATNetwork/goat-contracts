@@ -1,182 +1,239 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
-import {PreDeployedAddresses} from "../library/constants/Address.sol";
-import {BitcoinAddress} from "../library/codec/Address.sol";
-import {BaseAccess} from "../goat/BaseAccess.sol";
+import {SysOwners} from "../library/constants/SysOwners.sol";
+import {Network} from "../library/constants/Network.sol";
+import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
+import {Burner} from "../library/utils/Burner.sol";
 
-import {Burner} from "./Burner.sol";
+import {IBridge} from "../interfaces/bridge.sol";
 
-contract Bridge is BaseAccess {
-    using BitcoinAddress for bytes;
+// todo: add dao fee when we have a complete dao design
 
-    event Deposit(
-        bytes32 indexed _txid,
-        address indexed _target,
-        uint32 _txout,
-        uint256 _amount
-    );
+contract Bridge is IBridge {
+    // the network config
+    bytes32 internal network = Network.Mainnet;
 
-    event RequestWithrawal(
-        uint256 indexed _id,
-        address indexed _from,
-        uint256 _amount,
-        uint256 _tipFee,
-        uint256 _maxFee,
-        bytes _target
-    );
+    // the relayer address
+    address public relayer = SysOwners.Relayer;
 
-    event FinalizedWithrawal(
-        uint256 indexed _id,
-        bytes32 _txid,
-        uint32 _txout,
-        uint256 _received
-    );
+    HeaderRange public headerRange;
+    mapping(uint256 height => BlockHeader header) public btcBlockHeader;
 
-    // the total deposited value
-    uint256 public inbounds;
-
-    // the depoist utxo mapping
-    mapping(bytes32 txid => mapping(uint32 txout => uint256 amount))
-        public inbound;
+    mapping(bytes32 prove => bool exists) public deposits;
 
     mapping(uint256 id => Receipt receipt) public receipts;
 
-    Withdrawal[] public outbounds;
+    Withdrawal[] public withdrawals;
 
-    enum WithdrawalStatus {
-        Invalid,
-        Pending,
-        Canceling,
-        Canceled,
-        Finished
+    Param public param;
+
+    // 1 satoshi = 10 gwei
+    uint256 internal constant satWei = 1e10;
+
+    // 1 p2wsh input + 1 p2tr/p2wsh output + 1 change output + padding
+    uint256 internal constant avgTxSize = 300;
+
+    modifier OnlyRelayer() {
+        require(msg.sender == relayer, AccessDenied());
+        _;
     }
 
-    struct Withdrawal {
-        address sender;
-        uint256 amount; // msg.value - daoFee
-        uint256 maxTipFee;
-        uint256 maxFee; // the fee uses eip1559 mode
-        bytes reciever;
-        WithdrawalStatus status;
+    // It is only for testing
+    constructor(
+        bytes32 _network,
+        address _relayer,
+        uint128 _height,
+        Param memory _param,
+        BlockHeader memory _header
+    ) {
+        network = _network;
+        relayer = _relayer;
+        headerRange = HeaderRange(_height, _height);
+        btcBlockHeader[_height] = _header;
+        param = _param;
     }
 
-    struct Receipt {
-        bytes32 txid;
-        uint32 txout;
-        uint256 received;
+    function bech32HRP() public view returns (string memory) {
+        uint8 hrpLen = uint8(network[2]);
+        bytes memory hrp = new bytes(hrpLen);
+        for (uint8 i = 0; i < hrpLen; i++) {
+            hrp[i] = network[i + 3];
+        }
+        return string(hrp);
     }
 
+    function networkName() public view returns (string memory) {
+        uint8 start = uint8(3) + uint8(network[2]);
+        uint8 nameLen = uint8(network[start]);
+        bytes memory name = new bytes(nameLen);
+        for (uint8 i = 0; i < nameLen; i++) {
+            name[i] = network[i + start + 1];
+        }
+        return string(name);
+    }
+
+    function isAddrValid(string calldata _addr) public view returns (bool) {
+        uint8 hrpLen = uint8(network[2]);
+        bytes memory hrp = new bytes(hrpLen);
+        for (uint8 i = 0; i < hrpLen; i++) {
+            hrp[i] = network[i + 3];
+        }
+
+        (bool success, bytes memory data) = PreCompiledAddresses
+            .BitcoinAddressDecoderV0
+            .staticcall(
+                abi.encodePacked(network[0], network[1], hrpLen, hrp, _addr)
+            );
+
+        if (success && data.length > 0) {
+            return data[0] == 0x01;
+        }
+        return false;
+    }
+
+    function newBitcoinblock(BlockHeader calldata header) external OnlyRelayer {
+        uint128 height = ++headerRange.latest;
+        btcBlockHeader[height] = header;
+        emit NewBitcoinBlock(height);
+    }
+
+    // deposit adds balance to the target address
+    // goat performs the adding outside EVM to prevent the errors
     function deposit(
         bytes32 _txid,
         uint32 _txout,
         address _target,
         uint256 _amount
-    ) external OnlyPosOwner {
-        require(_amount > 0 && inbound[_txid][_txout] == 0, "deposited");
+    ) external OnlyRelayer {
+        bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
+        require(_amount > 0 && !deposits[depositHash], "deposited");
 
-        inbound[_txid][_txout] = _amount;
-        inbounds += _amount;
+        deposits[depositHash] = true;
 
-        emit Deposit(_txid, _target, _txout, _amount);
+        emit Deposit(_target, _amount, _txid, _txout);
 
         // Add balance to the _target in the runtime
     }
 
-    /**
-     * requestWithdrawal initializes a new withdrawal request
-     * @param _reciever the receiver address
-     * @param _maxTipFee the tip fee
-     * @param _maxFee the max fee for the withdrawal
-     * @dev the fee model is same with eip1559
-     *      if maxFee - tipFee < l1fee, the musiger will not process the withdrawal
-     *      the withdrawal fee = l1fee + tipfee
-     *      so the actual amount user will get is equal to <withdrawal amount - fee>
-     */
-    function requestWithdrawal(
-        bytes calldata _reciever,
-        uint256 _maxTipFee,
-        uint256 _maxFee
+    // withdraw initializes a new withdrawal request by a user
+    // the _maxTxPrice is the max allowed tx price in sat/vbyte
+    function withdraw(
+        string calldata _reciever,
+        uint256 _maxTxPrice
     ) external payable {
-        require(_reciever.isValid(), "invalid address");
-        require(msg.value % 1e10 == 0, "invalid amount");
-        require(msg.value > _maxFee && _maxFee > _maxTipFee, "invalid fee");
+        require(isAddrValid(_reciever), "invalid address");
 
-        // todo(ericlee42): fee charged for DAO
+        uint256 amount = msg.value;
 
-        uint256 id = outbounds.length;
-        outbounds.push(
+        // todo(ericlee42): fee charged for dao
+        // if (param.theDAOFeeRate > 0) { amount = ... }
+
+        require(
+            amount > param.minWithdrawal && amount % satWei == 0,
+            "invalid amount"
+        );
+        require(_maxTxPrice > param.minTxPrice, "invalid fee rate");
+        require(amount > _maxTxPrice * avgTxSize * satWei, "unaffordable");
+
+        uint256 id = withdrawals.length;
+        withdrawals.push(
             Withdrawal({
                 sender: msg.sender,
-                amount: msg.value,
-                maxTipFee: _maxTipFee,
-                maxFee: _maxFee,
+                amount: amount,
+                maxTxPrice: _maxTxPrice,
+                updatedAt: block.timestamp,
                 reciever: _reciever,
                 status: WithdrawalStatus.Pending
             })
         );
 
-        emit RequestWithrawal(
-            id,
-            msg.sender,
-            msg.value,
-            _maxTipFee,
-            _maxFee,
-            _reciever
-        );
+        emit Withdraw(id, msg.sender, amount, _maxTxPrice, _reciever);
     }
 
-    function finalizedWithdrawal(
+    // replaceByFee updates the max tx price to speed-up the withdrawal
+    function replaceByFee(uint256 _wid, uint256 _maxTxPrice) external payable {
+        WithdrawalStatus status = withdrawals[_wid].status;
+        require(status == WithdrawalStatus.Pending, Forbidden());
+
+        require(
+            withdrawals[_wid].updatedAt - block.timestamp >
+                param.throttleInSecond,
+            Throttled()
+        );
+        withdrawals[_wid].updatedAt = block.timestamp;
+        require(msg.sender == withdrawals[_wid].sender, AccessDenied());
+        require(
+            withdrawals[_wid].maxTxPrice > _maxTxPrice,
+            "the max tx price should be larger than before"
+        );
+        withdrawals[_wid].maxTxPrice = _maxTxPrice;
+
+        emit RBF(_wid, _maxTxPrice);
+    }
+
+    // cancel1 cancels the withdrawal by origin user
+    function cancel(uint256 _wid) external {
+        WithdrawalStatus status = withdrawals[_wid].status;
+        require(status == WithdrawalStatus.Pending, Forbidden());
+        require(msg.sender == withdrawals[_wid].sender, AccessDenied());
+
+        require(
+            withdrawals[_wid].updatedAt - block.timestamp >
+                param.throttleInSecond,
+            Throttled()
+        );
+        withdrawals[_wid].updatedAt = block.timestamp;
+
+        withdrawals[_wid].status = WithdrawalStatus.Canceling;
+        emit Canceling(_wid);
+    }
+
+    // cancel2 apporves the cancellation request by relayer
+    // the cancellation won't be approved if the withdrawal is paid
+    function cancel2(uint256 _wid) external OnlyRelayer {
+        require(withdrawals[_wid].status == WithdrawalStatus.Canceling);
+        withdrawals[_wid].status = WithdrawalStatus.Canceled;
+        emit Canceled(_wid);
+    }
+
+    // refund refunds the amount in the canceled withdrawal to the origin user
+    function refund(uint256 _wid) external {
+        WithdrawalStatus status = withdrawals[_wid].status;
+        require(status == WithdrawalStatus.Canceled, Forbidden());
+        withdrawals[_wid].status = WithdrawalStatus.Refunded;
+
+        address payable sender = payable(withdrawals[_wid].sender);
+        require(msg.sender == sender, AccessDenied());
+
+        // refund to the address
+        sender.transfer(withdrawals[_wid].amount);
+        emit Refund(_wid);
+    }
+
+    // paid finalizes the withdrawal request and burns the withdrawal amount from network
+    function paid(
         uint256 _wid,
         bytes32 _txid,
         uint32 _txout,
-        uint256 _received
-    ) external OnlyPosOwner {
-        receipts[_wid] = Receipt({
-            txid: _txid,
-            txout: _txout,
-            received: _received
-        });
-        outbounds[_wid].status = WithdrawalStatus.Finished;
+        uint256 _paid
+    ) external OnlyRelayer {
+        WithdrawalStatus status = withdrawals[_wid].status;
+        require(
+            status == WithdrawalStatus.Pending ||
+                status == WithdrawalStatus.Canceling,
+            "finalized"
+        );
+
+        receipts[_wid] = Receipt(_txid, _txout, _paid);
+        withdrawals[_wid].status = WithdrawalStatus.Paid;
+
+        // Burn the withdrawal value from the network
+        // todo: send the dao fee
         new Burner{
-            value: outbounds[_wid].amount,
+            value: withdrawals[_wid].amount,
             salt: bytes32(bytes20(address(this)))
         }();
-        emit FinalizedWithrawal(_wid, _txid, _txout, _received);
+        emit Paid(_wid, _txid, _txout, _paid);
     }
-
-    // todo: support it in the next version
-    // function cancelWithdrawal(uint256 _wid) external {
-    //     /**
-    //      * todo
-    //      * owner check
-    //      * status check
-    //      * fee and amount check
-    //      * user could pay more fee from msg.value
-    //      */
-    // }
-
-    // function refundCanceledWithdrawal(uint256 _wid) external {
-    //     /**
-    //      * todo
-    //      * owner check
-    //      * status check
-    //      * fee and amount check
-    //      * user could pay more fee from msg.value
-    //      */
-    // }
-
-    // function updateWithdrawal(
-    //     uint256 _wid,
-    //     uint256 _maxTipFee,
-    //     uint256 _maxFee
-    // ) external payable {
-    //     /**
-    //      * tod
-    //      * owner check
-    //      * status check
-    //      * fee and amount check
-    //      * user could pay more fee from msg.value
-    //      */
-    // }
 }
