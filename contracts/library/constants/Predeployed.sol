@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.24;
 
 library PreDeployedAddresses {
     address internal constant GoatDAO =
@@ -19,4 +19,7 @@ library PreDeployedAddresses {
 
     address internal constant Bridge =
         0xDeBc100000000000000000000000000000000004;
+
+    address internal constant GoatFoundation =
+        0xdEBC100000000000000000000000000000000005;
 }

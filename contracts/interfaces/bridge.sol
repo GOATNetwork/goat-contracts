@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.24;
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-interface IBridge {
+interface IBridge is IERC165 {
     event NewBitcoinBlock(uint128 indexed height);
 
     event Deposit(
         address indexed target,
         uint256 indexed amount,
         bytes32 txid,
-        uint32 txout
+        uint32 txout,
+        uint256 tax
     );
 
     event Withdraw(
@@ -26,8 +28,13 @@ interface IBridge {
         uint256 indexed id,
         bytes32 txid,
         uint32 txout,
-        uint256 received
+        uint256 received,
+        uint256 tax
     );
+
+    event DepositTaxUpdated(uint16 rate, uint64 max);
+    event WithdrawalTaxUpdated(uint16 rate, uint64 max);
+    event ThrottledInSecondUpdate(uint16);
 
     enum WithdrawalStatus {
         Invalid,
@@ -38,9 +45,16 @@ interface IBridge {
         Paid
     }
 
+    error AccessDenied();
+    error Forbidden();
+    error Throttled();
+
+    error TaxTooHigh();
+
+    error MalformedTax();
+
     struct BlockHeader {
-        bytes32 blockHash;
-        bytes32 prevBlockHash;
+        bytes32 prevBlock;
         bytes32 merkleRoot;
         uint32 version;
         uint32 bits;
@@ -50,7 +64,8 @@ interface IBridge {
 
     struct Withdrawal {
         address sender;
-        uint256 amount; // msg.value - daoFee
+        uint256 amount; // msg.value - tax
+        uint256 tax; // tax for goat foundation
         uint256 maxTxPrice;
         uint256 updatedAt;
         string reciever;
@@ -64,12 +79,12 @@ interface IBridge {
         uint256 paid;
     }
 
-    // todo: use uint64/uint32 instead
     struct Param {
-        uint256 minTxPrice;
-        uint256 minWithdrawal;
-        uint256 theDAOFeeRate;
-        uint256 throttleInSecond;
+        uint16 throttleSec;
+        uint16 depositTaxBP;
+        uint64 maxDepositTax;
+        uint16 withdrawalTaxBP;
+        uint64 maxWithdrawalTax;
     }
 
     struct HeaderRange {
@@ -77,7 +92,50 @@ interface IBridge {
         uint128 latest;
     }
 
-    error AccessDenied();
-    error Forbidden();
-    error Throttled();
+    function bech32HRP() external view returns (string memory);
+
+    function networkName() external view returns (string memory);
+
+    function isAddrValid(string calldata addr) external view returns (bool);
+
+    function newBitcoinBlock(BlockHeader calldata header) external;
+
+    function deposit(
+        bytes32 txid,
+        uint32 txout,
+        address target,
+        uint256 amount
+    ) external;
+
+    function withdraw(
+        string calldata reciever,
+        uint16 maxTxPrice
+    ) external payable;
+
+    function replaceByFee(uint256 wid, uint16 maxTxPrice) external payable;
+
+    function cancel1(uint256 wid) external;
+
+    function refund(uint256 wid) external;
+
+    function cancel2(uint256 wid) external;
+
+    function paid(
+        uint256 wid,
+        bytes32 txid,
+        uint32 txout,
+        uint256 paid
+    ) external;
+
+    function setDepositFee(uint16 bp, uint64 max) external;
+
+    function setWithdrawalFee(uint16 bp, uint64 max) external;
+
+    // function setTaxPayee(address) external;
+
+    function setThrottleSec(uint16 throttleSec) external;
+
+    function takeTax() external returns (uint256);
+
+    function setTaxPayee(address payee) external;
 }
