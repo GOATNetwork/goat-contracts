@@ -29,7 +29,7 @@ contract Bridge is IBridge {
     Param public param;
 
     // 1 satoshi = 10 gwei
-    uint256 internal constant satWei = 1e10;
+    uint256 internal constant satWei = 10 gwei;
 
     // 1 p2wsh input + 1 p2tr/p2wsh output + 1 change output + padding
     uint256 internal constant avgTxSize = 300;
@@ -133,7 +133,7 @@ contract Bridge is IBridge {
             amount > param.minWithdrawal && amount % satWei == 0,
             "invalid amount"
         );
-        require(_maxTxPrice > param.minTxPrice, "invalid fee rate");
+        require(_maxTxPrice > param.minTxPrice, "invalid tx price");
         require(amount > _maxTxPrice * avgTxSize * satWei, "unaffordable");
 
         uint256 id = withdrawals.length;
@@ -172,7 +172,7 @@ contract Bridge is IBridge {
         emit RBF(_wid, _maxTxPrice);
     }
 
-    // cancel1 cancels the withdrawal by origin user
+    // cancel cancels the withdrawal by origin user
     function cancel(uint256 _wid) external {
         WithdrawalStatus status = withdrawals[_wid].status;
         require(status == WithdrawalStatus.Pending, Forbidden());
