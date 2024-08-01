@@ -5,7 +5,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
-import {ITaxPayee} from "../interfaces/TaxPayee.sol";
 import {IBridge} from "../interfaces/Bridge.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -37,7 +36,7 @@ contract GoatFoundation is Ownable, IGoatFoundation {
     }
 
     // donation
-    function recieve() external payable {}
+    receive() external payable {}
 
     // testing only
     function setBridge(address _bridge) external onlyOwner {
@@ -54,15 +53,12 @@ contract GoatFoundation is Ownable, IGoatFoundation {
     }
 
     function takeBridgeTax() external onlyOwner {
-        uint256 amount = IBridge(bridge).takeTax();
-        emit Revenue(bridge, amount);
+        emit Revenue(bridge, IBridge(bridge).takeTax());
     }
 
-    function supportsInterface(
-        bytes4 interfaceId
-    ) external view virtual returns (bool) {
+    function supportsInterface(bytes4 id) external view virtual returns (bool) {
         return
-            interfaceId == type(IERC165).interfaceId ||
-            interfaceId == type(IGoatFoundation).interfaceId;
+            id == type(IERC165).interfaceId ||
+            id == type(IGoatFoundation).interfaceId;
     }
 }

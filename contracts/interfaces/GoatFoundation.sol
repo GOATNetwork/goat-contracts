@@ -7,15 +7,11 @@ interface IGoatFoundation {
 
     function transfer(address payable, uint256) external;
 
-    function transferERC20(
-        address _token,
-        address _to,
-        uint256 _amount
-    ) external;
+    function transferERC20(address token, address to, uint256 amount) external;
 
-    function setDepositFee(uint16 _bp, uint64 _max) external;
+    function setDepositFee(uint16 bp, uint64 max) external;
 
-    function setWithdrawalFee(uint16 _bp, uint64 _max) external;
+    function setWithdrawalFee(uint16 bp, uint64 max) external;
 
     function takeBridgeTax() external;
 }

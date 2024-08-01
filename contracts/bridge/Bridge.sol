@@ -3,11 +3,8 @@ pragma solidity ^0.8.24;
 
 // import {SysOwners} from "../library/constants/SysOwners.sol";
 import {Network} from "../library/constants/Network.sol";
-
 import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
-import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 import {Burner} from "../library/utils/Burner.sol";
-
 import {IBridge} from "../interfaces/Bridge.sol";
 import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
 
@@ -78,6 +75,15 @@ contract Bridge is IBridge, Ownable {
         });
     }
 
+    function base58Prefix()
+        public
+        view
+        returns (bytes1 pubKeyHashAddrID, bytes1 scriptHashAddrID)
+    {
+        pubKeyHashAddrID = network[0];
+        scriptHashAddrID = network[1];
+    }
+
     function bech32HRP() public view returns (string memory) {
         uint8 hrpLen = uint8(network[2]);
         bytes memory hrp = new bytes(hrpLen);
@@ -105,7 +111,7 @@ contract Bridge is IBridge, Ownable {
         }
 
         (bool success, bytes memory data) = PreCompiledAddresses
-            .BitcoinAddressDecoderV0
+            .BtcAddrVerifierV0
             .staticcall(
                 abi.encodePacked(network[0], network[1], hrpLen, hrp, _addr)
             );

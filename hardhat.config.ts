@@ -1,5 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomiclabs/hardhat-solhint";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -16,6 +17,7 @@ const config: HardhatUserConfig = {
       },
     },
   },
+  networks: {},
 };
 
 export default config;
