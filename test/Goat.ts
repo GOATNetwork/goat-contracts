@@ -1,3 +1,0 @@
-describe("Goat", function () {
-  // todo
-});

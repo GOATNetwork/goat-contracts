@@ -1,10 +1,26 @@
 {
   "name": "goat-contracts",
+  "license": "Business Source License 1.1",
+  "author": "Goat Foundation",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.5"
+    "@nomiclabs/hardhat-solhint": "^4.0.0",
+    "hardhat": "^2.22.5",
+    "prettier": "^3.3.3",
+    "prettier-plugin-solidity": "^1.3.1"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2"
+  },
+  "scripts": {
+    "fmt": "prettier --plugin=prettier-plugin-solidity --check test 'contracts/**/*.sol'",
+    "fmt:fix": "prettier --plugin=prettier-plugin-solidity --write test 'contracts/**/*.sol'",
+    "lint": "hardhat check",
+    "compile": "hardhat compile",
+    "build": "hardhat compile",
+    "test": "hardhat test"
+  },
+  "prettier": {
+    "trailingComma": "all"
   }
 }

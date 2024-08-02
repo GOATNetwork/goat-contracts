@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-contract Staking {
-    function delegate() external {}
-
-    function l1Delegate() external {}
-
-    function claim() external {}
-}
+// contract Staking {}
