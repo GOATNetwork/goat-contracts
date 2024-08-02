@@ -9,8 +9,8 @@ import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20P
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract WrappedBitcoin is ERC20Permit {
-    event Deposit(address indexed dst, uint wad);
-    event Withdrawal(address indexed src, uint wad);
+    event Deposit(address indexed dst, uint256 wad);
+    event Withdrawal(address indexed src, uint256 wad);
 
     using Address for address payable;
 
@@ -25,7 +25,7 @@ contract WrappedBitcoin is ERC20Permit {
         emit Deposit(_msgSender(), msg.value);
     }
 
-    function withdraw(uint wad) public {
+    function withdraw(uint256 wad) public {
         _burn(_msgSender(), wad);
         payable(_msgSender()).sendValue(wad);
         emit Withdrawal(_msgSender(), wad);
