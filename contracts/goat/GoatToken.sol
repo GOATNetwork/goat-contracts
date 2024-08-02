@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";

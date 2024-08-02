@@ -9,7 +9,6 @@ import {Burner} from "../library/utils/Burner.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {IBridge} from "../interfaces/Bridge.sol";
-import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract Bridge is IBridge {
