@@ -199,6 +199,8 @@ contract Bridge is IBridge {
             })
         );
 
+        // require(amount + tax == msg.value, "!");
+
         emit Withdraw(id, msg.sender, amount, _maxTxPrice, _reciever);
     }
 
@@ -217,12 +219,12 @@ contract Bridge is IBridge {
             revert AccessDenied();
         }
 
-        if (withdrawal.updatedAt - block.timestamp > param.rateLimit) {
+        if (block.timestamp - withdrawal.updatedAt < param.rateLimit) {
             revert RateLimitExceeded();
         }
 
         require(
-            withdrawal.maxTxPrice > _maxTxPrice,
+            _maxTxPrice > withdrawal.maxTxPrice,
             "the new tx price should be larger than before"
         );
 
@@ -249,7 +251,7 @@ contract Bridge is IBridge {
             revert AccessDenied();
         }
 
-        if (withdrawal.updatedAt - block.timestamp > param.rateLimit) {
+        if (block.timestamp - withdrawal.updatedAt < param.rateLimit) {
             revert RateLimitExceeded();
         }
 

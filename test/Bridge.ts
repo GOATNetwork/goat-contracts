@@ -5,6 +5,8 @@ import {
   loadFixture,
   setCode,
   impersonateAccount,
+  time as timeHelper,
+  setNextBlockBaseFeePerGas,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { Bridge } from "../typechain-types";
 
@@ -247,7 +249,7 @@ describe("Bridge", async () => {
     });
 
     it("default tax", async () => {
-      const { bridge, owner, precompiled, goatFoundation } =
+      const { bridge, owner, precompiled, relayer } =
         await loadFixture(fixture);
 
       await setCode(btcAddressVerifier, precompiled.valid);
@@ -255,6 +257,7 @@ describe("Bridge", async () => {
       const param = await bridge.param();
       expect(param.withdrawalTaxBP).eq(20n);
       expect(param.maxWithdrawalTax).eq((BigInt(1e18) * 20n) / BigInt(1e4));
+      expect(param.rateLimit).eq(300);
 
       const wid = 0n;
       const amount = BigInt(1e18);
@@ -266,16 +269,71 @@ describe("Bridge", async () => {
         .emit(bridge, "Withdraw")
         .withArgs(wid, owner.address, amount - tax, txPrice, addr);
 
-      const block = await ethers.provider.getBlock("latest");
+      // pending
+      {
+        const withdrawal = await bridge.withdrawals(wid);
+        expect(withdrawal.sender).eq(owner.address);
+        expect(withdrawal.amount).eq(amount - tax);
+        expect(withdrawal.tax).eq(tax);
+        expect(withdrawal.maxTxPrice).eq(txPrice);
+        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
+        expect(withdrawal.reciever).eq(addr);
+        expect(withdrawal.status).eq(1);
+        expect(withdrawal.amount + withdrawal.tax, "actual + tax = amount").eq(
+          amount,
+        );
 
-      const withdrawal = await bridge.withdrawals(wid);
-      expect(withdrawal.sender).eq(owner.address);
-      expect(withdrawal.amount).eq(amount - tax);
-      expect(withdrawal.tax).eq(tax);
-      expect(withdrawal.maxTxPrice).eq(txPrice);
-      expect(withdrawal.updatedAt).eq(block!.timestamp);
-      expect(withdrawal.reciever).eq(addr);
-      expect(withdrawal.status).eq(1);
+        expect(
+          await ethers.provider.getBalance(await bridge.getAddress()),
+          "bridge balance",
+        ).eq(amount);
+
+        expect(await bridge.unpaidTax(), "unpaid tax").eq(0);
+      }
+
+      // rbf
+      {
+        await timeHelper.increase(param.rateLimit + 1n);
+
+        const newTxPrice = txPrice + 1n;
+        expect(await bridge.replaceByFee(wid, txPrice + 1n))
+          .emit(bridge, "RBF")
+          .withArgs(wid, newTxPrice);
+
+        const withdrawal = await bridge.withdrawals(wid);
+        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
+        expect(withdrawal.maxTxPrice).eq(newTxPrice);
+        expect(withdrawal.status).eq(1);
+      }
+
+      // paid
+      {
+        const txid =
+          "0xf52fe3ace5eff20c3d2edd6559bd160f2f91f7db297d39a9ce15e836bda75e7b";
+        const txout = 0n;
+        const txfee = 1000n;
+
+        const paid = amount - tax - txfee;
+        expect(await bridge.connect(relayer).paid(wid, txid, txout, paid))
+          .emit(bridge, "Paid")
+          .withArgs(wid, txid, txout, paid, tax);
+
+        expect(
+          await ethers.provider.getBalance(await bridge.getAddress()),
+          "bridge balance after paid",
+        ).eq(tax);
+
+        const withdrawal = await bridge.withdrawals(wid);
+        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
+        expect(withdrawal.status).eq(5);
+        expect(await bridge.unpaidTax(), "unpaid tax after paid").eq(tax);
+
+        const receipt = await bridge.receipts(wid);
+
+        expect(receipt.txid).eq(txid);
+        expect(receipt.txout).eq(txout);
+        expect(receipt.paid).eq(paid);
+      }
     });
 
     it("no tax", async () => {
@@ -291,14 +349,12 @@ describe("Bridge", async () => {
         .emit(bridge, "Withdraw")
         .withArgs(0n, owner.address, amount, txPrice, addr);
 
-      const block = await ethers.provider.getBlock("latest");
-
       const withdrawal = await bridge.withdrawals(0n);
       expect(withdrawal.sender).eq(owner.address);
       expect(withdrawal.amount).eq(amount);
       expect(withdrawal.tax).eq(0n);
       expect(withdrawal.maxTxPrice).eq(txPrice);
-      expect(withdrawal.updatedAt).eq(block!.timestamp);
+      expect(withdrawal.updatedAt).eq(await timeHelper.latest());
       expect(withdrawal.reciever).eq(addr);
       expect(withdrawal.status).eq(1);
     });
@@ -317,16 +373,119 @@ describe("Bridge", async () => {
         .emit(bridge, "Withdraw")
         .withArgs(0n, owner.address, amount - dust, txPrice, addr);
 
-      const block = await ethers.provider.getBlock("latest");
-
       const withdrawal = await bridge.withdrawals(0n);
       expect(withdrawal.sender).eq(owner.address);
       expect(withdrawal.amount).eq(amount - dust);
       expect(withdrawal.tax).eq(dust);
       expect(withdrawal.maxTxPrice).eq(txPrice);
-      expect(withdrawal.updatedAt).eq(block!.timestamp);
+      expect(withdrawal.updatedAt).eq(await timeHelper.latest());
       expect(withdrawal.reciever).eq(addr);
       expect(withdrawal.status).eq(1);
+    });
+
+    it("cancel", async () => {
+      const { bridge, owner, others, precompiled, relayer, goatFoundation } =
+        await loadFixture(fixture);
+
+      await setCode(btcAddressVerifier, precompiled.valid);
+
+      const param = await bridge.param();
+
+      const amount = BigInt(1e18);
+      const txPrice = 1n;
+      const wid = 0n;
+      await bridge.withdraw(addr, txPrice, { value: amount });
+
+      // invalid
+      {
+        await expect(
+          bridge.connect(others[0]).cancel1(wid),
+        ).revertedWithCustomError(bridge, "AccessDenied");
+
+        await expect(bridge.cancel1(wid)).revertedWithCustomError(
+          bridge,
+          "RateLimitExceeded",
+        );
+
+        await expect(bridge.cancel2(wid)).revertedWithCustomError(
+          bridge,
+          "AccessDenied",
+        );
+      }
+
+      {
+        await timeHelper.increase(param.rateLimit + 1n);
+
+        expect(await bridge.cancel1(wid))
+          .emit(bridge, "Canceling")
+          .withArgs(wid);
+
+        const withdrawal = await bridge.withdrawals(wid);
+
+        expect(withdrawal.status).eq(2);
+        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
+      }
+
+      // refund
+      {
+        await expect(bridge.cancel1(wid)).revertedWithCustomError(
+          bridge,
+          "Forbidden",
+        );
+
+        await expect(bridge.refund(wid)).revertedWithCustomError(
+          bridge,
+          "Forbidden",
+        );
+      }
+
+      // cancel2
+      {
+        await expect(bridge.cancel2(wid)).revertedWithCustomError(
+          bridge,
+          "AccessDenied",
+        );
+
+        expect(await bridge.connect(relayer).cancel2(wid))
+          .emit(bridge, "Canceled")
+          .withArgs(wid);
+
+        const withdrawal = await bridge.withdrawals(wid);
+
+        expect(withdrawal.status).eq(3);
+        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
+
+        await expect(
+          bridge.connect(relayer).cancel2(wid),
+        ).revertedWithoutReason();
+      }
+
+      // refund
+      {
+        await expect(
+          bridge.connect(others[0]).refund(wid),
+        ).revertedWithCustomError(bridge, "AccessDenied");
+
+        const bb1 = await ethers.provider.getBalance(bridge);
+        const ob1 = await ethers.provider.getBalance(owner);
+        await setNextBlockBaseFeePerGas(0);
+        await expect(bridge.refund(wid, { gasPrice: 0 }))
+          .emit(bridge, "Refund")
+          .withArgs(wid);
+        const bb2 = await ethers.provider.getBalance(bridge);
+        const ob2 = await ethers.provider.getBalance(owner);
+        expect(bb1 - bb2, "refund include tax").eq(amount);
+        expect(ob2 - ob1, "refund include tax").eq(amount);
+
+        const withdrawal = await bridge.withdrawals(wid);
+        expect(withdrawal.status).eq(4);
+        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
+
+        await expect(bridge.refund(wid)).revertedWithCustomError(
+          bridge,
+          "Forbidden",
+        );
+      }
     });
   });
 });
