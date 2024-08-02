@@ -9,9 +9,11 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
 import {IBridge} from "../interfaces/Bridge.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 contract GoatFoundation is Ownable, IGoatFoundation {
     using SafeERC20 for IERC20;
+    using Address for address payable;
 
     // It's for testing only
     constructor() Ownable(msg.sender) {}
@@ -20,8 +22,7 @@ contract GoatFoundation is Ownable, IGoatFoundation {
         address payable _to,
         uint256 _amount
     ) external override onlyOwner {
-        (bool success, ) = _to.call{value: _amount}("");
-        require(success);
+        _to.sendValue(_amount);
         emit Transfer(_to, _amount);
     }
 

@@ -139,15 +139,8 @@ describe("Bridge", async () => {
     const tx1 = {
       id: "0xd825c1ec7b47a63f9e0fdc1379bd0ec9284468d7ce12d183b05718bd1b4e27ee",
       txout: 1n,
-      amount: 1,
+      amount: BigInt(1e18),
       tax: 0n,
-    };
-
-    const tx2 = {
-      id: "0x5bfcf34049a525e394870e11f79cc8d33bc9588940c7c909b13ab1339b3daa31",
-      txout: 1n,
-      amount: 100n,
-      tax: 1n,
     };
 
     it("invalid", async () => {
@@ -159,8 +152,8 @@ describe("Bridge", async () => {
       ).revertedWithCustomError(bridge, "AccessDenied");
 
       await expect(
-        bridge.connect(relayer).deposit(tx1.id, tx1.txout + 5n, owner, 0n),
-        "zero value",
+        bridge.connect(relayer).deposit(tx1.id, tx1.txout + 5n, owner, 100n),
+        "invalid amount",
       ).to.be.revertedWithoutReason();
     });
 
@@ -187,11 +180,18 @@ describe("Bridge", async () => {
       expect(await bridge.unpaidTax(), "unpaid tax").eq(0);
     });
 
-    it("1% tax", async () => {
+    it("1bp tax", async () => {
+      const tx2 = {
+        id: "0x5bfcf34049a525e394870e11f79cc8d33bc9588940c7c909b13ab1339b3daa31",
+        txout: 1n,
+        amount: BigInt(1e18),
+        tax: 10n,
+      };
+
       const { bridge, owner, relayer, goatFoundation } =
         await loadFixture(fixture);
 
-      await bridge.connect(goatFoundation).setDepositFee(100 /* 1% */, 10);
+      await bridge.connect(goatFoundation).setDepositFee(1, 10);
 
       expect(
         await bridge.isDeposited(tx2.id, tx2.txout),

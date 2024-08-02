@@ -47,9 +47,9 @@ contract Bridge is IBridge {
     }
 
     // 1 satoshi = 10 gwei
-    uint256 internal constant satWei = 10 gwei;
+    uint256 internal constant satoshi = 10 gwei;
 
-    // 2 p2wsh input + 1 p2tr/p2wsh output + 1 change output + padding
+    // 2 p2wsh input + 1 p2tr/p2wsh output + 1 change output
     uint256 internal constant baseTxSize = 300;
 
     // the max tax base points
@@ -133,7 +133,7 @@ contract Bridge is IBridge {
         uint256 _amount
     ) external override OnlyRelayer {
         bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
-        require(_amount > 0 && !deposits[depositHash]);
+        require(_amount % satoshi == 0 && !deposits[depositHash]);
 
         uint256 tax = 0;
         if (param.depositTaxBP > 0) {
@@ -176,7 +176,7 @@ contract Bridge is IBridge {
         }
 
         // dust as tax
-        uint256 dust = amount % satWei;
+        uint256 dust = amount % satoshi;
         if (dust > 0) {
             tax += dust;
             amount -= dust;
@@ -184,7 +184,7 @@ contract Bridge is IBridge {
 
         require(isAddrValid(_reciever), "invalid address");
         require(_maxTxPrice > 0, "invalid tx price");
-        require(amount > _maxTxPrice * baseTxSize * satWei, "unaffordable");
+        require(amount > _maxTxPrice * baseTxSize * satoshi, "unaffordable");
 
         uint256 id = withdrawals.length;
         withdrawals.push(
@@ -227,7 +227,7 @@ contract Bridge is IBridge {
         );
 
         require(
-            withdrawal.amount > _maxTxPrice * baseTxSize * satWei,
+            withdrawal.amount > _maxTxPrice * baseTxSize * satoshi,
             "unaffordable"
         );
 
