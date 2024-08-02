@@ -1,77 +1,73 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-// import {SysOwners} from "../library/constants/SysOwners.sol";
 import {Network} from "../library/constants/Network.sol";
 import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
+import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
+import {SysOwners} from "../library/constants/SysOwners.sol";
 import {Burner} from "../library/utils/Burner.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
 import {IBridge} from "../interfaces/Bridge.sol";
 import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
-
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-// todo: add dao fee when we have a complete dao design
+contract Bridge is IBridge {
+    using Address for address payable;
 
-contract Bridge is IBridge, Ownable {
     // the network config
     bytes32 internal network;
-
-    // the relayer
-    address public relayer;
-
-    address public taxPayee;
-
-    mapping(bytes32 prove => bool exists) public deposits;
-
-    // the withdrawal receipt
-    mapping(uint256 id => Receipt receipt) public receipts;
-
-    Withdrawal[] public withdrawals;
 
     Param public param;
 
     uint256 public unpaidTax;
 
+    mapping(bytes32 txh => bool yes) internal deposits;
+
+    Withdrawal[] public withdrawals;
+
+    // the withdrawal receipts
+    mapping(uint256 id => Receipt receipt) public receipts;
+
     HeaderRange public headerRange;
     mapping(uint256 height => BlockHeader header) public btcBlockHeader;
+
+    modifier OnlyGoatFoundation() {
+        if (msg.sender != PreDeployedAddresses.GoatFoundation) {
+            revert AccessDenied();
+        }
+        _;
+    }
+
+    modifier OnlyRelayer() {
+        if (msg.sender != SysOwners.Relayer) {
+            revert AccessDenied();
+        }
+        _;
+    }
 
     // 1 satoshi = 10 gwei
     uint256 internal constant satWei = 10 gwei;
 
     // 2 p2wsh input + 1 p2tr/p2wsh output + 1 change output + padding
-    uint256 internal constant avgTxSize = 300;
+    uint256 internal constant baseTxSize = 300;
 
-    modifier OnlyRelayer() {
-        if (msg.sender != relayer) {
-            revert AccessDenied();
-        }
-        _;
-    }
-
-    modifier OnlyTaxAuthority() {
-        if (msg.sender != taxPayee) {
-            revert AccessDenied();
-        }
-        _;
-    }
+    // the max tax base points
+    uint256 internal constant maxBasePoints = 1e4;
 
     // It is only for testing
-    constructor(
-        uint128 _height,
-        BlockHeader memory _header
-    ) Ownable(msg.sender) {
+    constructor(uint128 _height, BlockHeader memory _header) {
         headerRange = HeaderRange(_height, _height);
         btcBlockHeader[_height] = _header;
-        taxPayee = msg.sender;
-        relayer = msg.sender;
         network = Network.Mainnet;
         param = Param({
-            throttleSec: 300,
+            rateLimit: 300,
             depositTaxBP: 0,
             maxDepositTax: 0,
             withdrawalTaxBP: 20,
-            maxWithdrawalTax: 2000000 gwei // 0.002
+            maxWithdrawalTax: 2_000_000 gwei, // 0.002
+            _res1: 0,
+            _res2: 0
         });
     }
 
@@ -129,7 +125,7 @@ contract Bridge is IBridge, Ownable {
     }
 
     // deposit adds balance to the target address
-    // goat performs the adding outside EVM to prevent the errors
+    // goat performs the adding outside EVM to prevent any errors
     function deposit(
         bytes32 _txid,
         uint32 _txout,
@@ -139,11 +135,9 @@ contract Bridge is IBridge, Ownable {
         bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
         require(_amount > 0 && !deposits[depositHash]);
 
-        deposits[depositHash] = true;
-
         uint256 tax = 0;
         if (param.depositTaxBP > 0) {
-            tax = (_amount * param.depositTaxBP) / 1e4;
+            tax = (_amount * param.depositTaxBP) / maxBasePoints;
             if (tax > param.maxDepositTax) {
                 tax = param.maxDepositTax;
             }
@@ -151,8 +145,17 @@ contract Bridge is IBridge, Ownable {
             _amount -= tax;
         }
 
+        deposits[depositHash] = true;
         emit Deposit(_target, _amount, _txid, _txout, tax);
         // Add balance to the _target in the runtime
+    }
+
+    function isDeposited(
+        bytes32 _txid,
+        uint32 _txout
+    ) external view override returns (bool) {
+        bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
+        return deposits[depositHash];
     }
 
     // withdraw initializes a new withdrawal request by a user
@@ -163,23 +166,25 @@ contract Bridge is IBridge, Ownable {
     ) external payable override {
         uint256 amount = msg.value;
         uint256 tax = 0;
+
         if (param.withdrawalTaxBP > 0) {
-            tax = (amount * param.withdrawalTaxBP) / 1e4;
+            tax = (amount * param.withdrawalTaxBP) / maxBasePoints;
             if (tax > param.maxWithdrawalTax) {
                 tax = param.maxWithdrawalTax;
             }
             amount -= tax;
-            uint256 dust = amount % satWei;
-            if (dust > 0) {
-                tax += dust;
-                amount -= dust;
-            }
+        }
+
+        // dust as tax
+        uint256 dust = amount % satWei;
+        if (dust > 0) {
+            tax += dust;
+            amount -= dust;
         }
 
         require(isAddrValid(_reciever), "invalid address");
-        require(amount % satWei == 0, "invalid amount");
-        require(_maxTxPrice >= 0, "invalid tx price");
-        require(amount > _maxTxPrice * avgTxSize * satWei, "unaffordable");
+        require(_maxTxPrice > 0, "invalid tx price");
+        require(amount > _maxTxPrice * baseTxSize * satWei, "unaffordable");
 
         uint256 id = withdrawals.length;
         withdrawals.push(
@@ -212,8 +217,8 @@ contract Bridge is IBridge, Ownable {
             revert AccessDenied();
         }
 
-        if (withdrawal.updatedAt - block.timestamp > param.throttleSec) {
-            revert Throttled();
+        if (withdrawal.updatedAt - block.timestamp > param.rateLimit) {
+            revert RateLimitExceeded();
         }
 
         require(
@@ -222,7 +227,7 @@ contract Bridge is IBridge, Ownable {
         );
 
         require(
-            withdrawal.amount > _maxTxPrice * avgTxSize * satWei,
+            withdrawal.amount > _maxTxPrice * baseTxSize * satWei,
             "unaffordable"
         );
 
@@ -244,8 +249,8 @@ contract Bridge is IBridge, Ownable {
             revert AccessDenied();
         }
 
-        if (withdrawal.updatedAt - block.timestamp > param.throttleSec) {
-            revert Throttled();
+        if (withdrawal.updatedAt - block.timestamp > param.rateLimit) {
+            revert RateLimitExceeded();
         }
 
         withdrawal.updatedAt = block.timestamp;
@@ -276,10 +281,10 @@ contract Bridge is IBridge, Ownable {
         if (owner != msg.sender) {
             revert AccessDenied();
         }
-
-        // refund to the address
-        owner.transfer(withdrawal.amount);
         withdrawal.updatedAt = block.timestamp;
+
+        // refund to the owner
+        owner.sendValue(withdrawal.amount + withdrawal.tax);
         emit Refund(_wid);
     }
 
@@ -308,18 +313,15 @@ contract Bridge is IBridge, Ownable {
         }
 
         // Burn the withdrawal value from the network
-        new Burner{
-            value: withdrawal.amount,
-            salt: bytes32(bytes20(address(this)))
-        }();
+        new Burner{value: withdrawal.amount, salt: bytes32(0x00)}();
         emit Paid(_wid, _txid, _txout, _paid, tax);
     }
 
     function setDepositFee(
         uint16 _bp,
         uint64 _max
-    ) external override OnlyTaxAuthority {
-        if (_bp > 1e4) {
+    ) external override OnlyGoatFoundation {
+        if (_bp > maxBasePoints) {
             revert TaxTooHigh();
         }
 
@@ -339,8 +341,8 @@ contract Bridge is IBridge, Ownable {
     function setWithdrawalFee(
         uint16 _bp,
         uint64 _max
-    ) external override OnlyTaxAuthority {
-        if (_bp > 1e4) {
+    ) external override OnlyGoatFoundation {
+        if (_bp > maxBasePoints) {
             revert TaxTooHigh();
         }
 
@@ -357,39 +359,27 @@ contract Bridge is IBridge, Ownable {
         emit WithdrawalTaxUpdated(_bp, _max);
     }
 
-    function setThrottleSec(
-        uint16 _throttleSec
-    ) external override OnlyTaxAuthority {
-        require(_throttleSec > 0, "invalid throttle setting");
-        param.throttleSec = _throttleSec;
-        emit ThrottledInSecondUpdate(_throttleSec);
+    function setRateLimit(uint16 _sec) external override OnlyGoatFoundation {
+        require(_sec > 0, "invalid throttle setting");
+        param.rateLimit = _sec;
+        emit RateLimitUpdated(_sec);
     }
 
-    // we should have a DAO
-    function setTaxPayee(address _payee) external override onlyOwner {
-        require(
-            IERC165(_payee).supportsInterface(type(IGoatFoundation).interfaceId)
-        );
-        taxPayee = _payee;
-    }
-
-    function takeTax() external OnlyTaxAuthority returns (uint256) {
+    function takeTax() external OnlyGoatFoundation returns (uint256) {
         uint256 unpaied = unpaidTax;
         if (unpaied == 0) {
             return unpaied;
         }
 
-        (bool success, ) = taxPayee.call{value: unpaied}("");
-        require(success);
         unpaidTax = 0;
+        PreDeployedAddresses.GoatFoundation.sendValue(unpaied);
         return unpaied;
     }
 
     function supportsInterface(
-        bytes4 interfaceId
+        bytes4 id
     ) external view virtual override returns (bool) {
         return
-            interfaceId == type(IERC165).interfaceId ||
-            interfaceId == type(IBridge).interfaceId;
+            id == type(IERC165).interfaceId || id == type(IBridge).interfaceId;
     }
 }

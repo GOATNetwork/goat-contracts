@@ -1,25 +1,22 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
 library PreDeployedAddresses {
-    address internal constant GoatDAO =
-        0xDEBC100000000000000000000000000000000dA0;
+    address internal constant WrappedBitcoin =
+        0xbC10000000000000000000000000000000000000;
 
-    address internal constant Bitcoin =
-        0xdEBC100000000000000000000000000000000000;
+    address internal constant GoatDAO =
+        0xBC10000000000000000000000000000000000Da0;
 
     address internal constant GoatToken =
-        0xdEbC100000000000000000000000000000000001;
+        0xbC10000000000000000000000000000000000001;
 
-    address internal constant Relayer =
-        0xdEBc100000000000000000000000000000000002;
-
-    address internal constant Staking =
-        0xdeBC100000000000000000000000000000000003;
+    address payable internal constant GoatFoundation =
+        payable(0xBc10000000000000000000000000000000000002);
 
     address internal constant Bridge =
-        0xDeBc100000000000000000000000000000000004;
+        0xBC10000000000000000000000000000000000003;
 
-    address internal constant GoatFoundation =
-        0xdEBC100000000000000000000000000000000005;
+    address internal constant Staking =
+        0xbC10000000000000000000000000000000000004;
 }

@@ -1,7 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
@@ -11,12 +13,8 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract GoatFoundation is Ownable, IGoatFoundation {
     using SafeERC20 for IERC20;
 
-    address public bridge;
-
     // It's for testing only
-    constructor() Ownable(msg.sender) {
-        bridge = msg.sender;
-    }
+    constructor() Ownable(msg.sender) {}
 
     function transfer(
         address payable _to,
@@ -38,22 +36,17 @@ contract GoatFoundation is Ownable, IGoatFoundation {
     // donation
     receive() external payable {}
 
-    // testing only
-    function setBridge(address _bridge) external onlyOwner {
-        require(IERC165(_bridge).supportsInterface(type(IBridge).interfaceId));
-        bridge = _bridge;
-    }
-
     function setDepositFee(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridge(bridge).setDepositFee(_bp, _max);
+        IBridge(PreDeployedAddresses.Bridge).setDepositFee(_bp, _max);
     }
 
     function setWithdrawalFee(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridge(bridge).setWithdrawalFee(_bp, _max);
+        IBridge(PreDeployedAddresses.Bridge).setWithdrawalFee(_bp, _max);
     }
 
     function takeBridgeTax() external onlyOwner {
-        emit Revenue(bridge, IBridge(bridge).takeTax());
+        uint256 tax = IBridge(PreDeployedAddresses.Bridge).takeTax();
+        emit Revenue(PreDeployedAddresses.Bridge, tax);
     }
 
     function supportsInterface(bytes4 id) external view virtual returns (bool) {

@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
+
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 interface IBridge is IERC165 {
@@ -20,10 +21,15 @@ interface IBridge is IERC165 {
         uint256 maxTxPrice,
         string reciever
     );
+
     event Canceling(uint256 indexed id);
+
     event Canceled(uint256 indexed id);
+
     event Refund(uint256 indexed id);
+
     event RBF(uint256 indexed id, uint256 maxTxPrice);
+
     event Paid(
         uint256 indexed id,
         bytes32 txid,
@@ -34,7 +40,7 @@ interface IBridge is IERC165 {
 
     event DepositTaxUpdated(uint16 rate, uint64 max);
     event WithdrawalTaxUpdated(uint16 rate, uint64 max);
-    event ThrottledInSecondUpdate(uint16);
+    event RateLimitUpdated(uint16);
 
     enum WithdrawalStatus {
         Invalid,
@@ -47,7 +53,7 @@ interface IBridge is IERC165 {
 
     error AccessDenied();
     error Forbidden();
-    error Throttled();
+    error RateLimitExceeded();
 
     error TaxTooHigh();
 
@@ -72,7 +78,7 @@ interface IBridge is IERC165 {
         WithdrawalStatus status;
     }
 
-    // the paid receipt
+    // the payment receipt
     struct Receipt {
         bytes32 txid;
         uint32 txout;
@@ -80,11 +86,13 @@ interface IBridge is IERC165 {
     }
 
     struct Param {
-        uint16 throttleSec;
+        uint16 rateLimit;
         uint16 depositTaxBP;
         uint64 maxDepositTax;
         uint16 withdrawalTaxBP;
         uint64 maxWithdrawalTax;
+        uint16 _res1;
+        uint64 _res2;
     }
 
     struct HeaderRange {
@@ -97,6 +105,11 @@ interface IBridge is IERC165 {
     function networkName() external view returns (string memory);
 
     function isAddrValid(string calldata addr) external view returns (bool);
+
+    function isDeposited(
+        bytes32 txid,
+        uint32 txout
+    ) external view returns (bool);
 
     function newBitcoinBlock(BlockHeader calldata header) external;
 
@@ -112,16 +125,16 @@ interface IBridge is IERC165 {
         uint16 maxTxPrice
     ) external payable;
 
-    function replaceByFee(uint256 wid, uint16 maxTxPrice) external payable;
+    function replaceByFee(uint256 id, uint16 maxTxPrice) external payable;
 
-    function cancel1(uint256 wid) external;
+    function cancel1(uint256 id) external;
 
-    function refund(uint256 wid) external;
+    function refund(uint256 id) external;
 
-    function cancel2(uint256 wid) external;
+    function cancel2(uint256 id) external;
 
     function paid(
-        uint256 wid,
+        uint256 id,
         bytes32 txid,
         uint32 txout,
         uint256 paid
@@ -133,9 +146,7 @@ interface IBridge is IERC165 {
 
     // function setTaxPayee(address) external;
 
-    function setThrottleSec(uint16 throttleSec) external;
+    function setRateLimit(uint16 sec) external;
 
     function takeTax() external returns (uint256);
-
-    function setTaxPayee(address payee) external;
 }
