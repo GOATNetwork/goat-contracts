@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-
-interface IBridge is IERC165 {
+interface IBridge {
     event NewBitcoinBlock(uint128 indexed height);
 
     event Deposit(
@@ -140,9 +138,9 @@ interface IBridge is IERC165 {
         uint256 paid
     ) external;
 
-    function setDepositFee(uint16 bp, uint64 max) external;
+    function setDepositTax(uint16 bp, uint64 max) external;
 
-    function setWithdrawalFee(uint16 bp, uint64 max) external;
+    function setWithdrawalTax(uint16 bp, uint64 max) external;
 
     // function setTaxPayee(address) external;
 

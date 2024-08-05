@@ -11,7 +11,7 @@ import {IBridge} from "../interfaces/Bridge.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-contract GoatFoundation is Ownable, IGoatFoundation {
+contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
     using SafeERC20 for IERC20;
     using Address for address payable;
 
@@ -37,12 +37,12 @@ contract GoatFoundation is Ownable, IGoatFoundation {
     // donation
     receive() external payable {}
 
-    function setDepositFee(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridge(PreDeployedAddresses.Bridge).setDepositFee(_bp, _max);
+    function setDepositTax(uint16 _bp, uint64 _max) external onlyOwner {
+        IBridge(PreDeployedAddresses.Bridge).setDepositTax(_bp, _max);
     }
 
-    function setWithdrawalFee(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridge(PreDeployedAddresses.Bridge).setWithdrawalFee(_bp, _max);
+    function setWithdrawalTax(uint16 _bp, uint64 _max) external onlyOwner {
+        IBridge(PreDeployedAddresses.Bridge).setWithdrawalTax(_bp, _max);
     }
 
     function takeBridgeTax() external onlyOwner {
@@ -50,7 +50,9 @@ contract GoatFoundation is Ownable, IGoatFoundation {
         emit Revenue(PreDeployedAddresses.Bridge, tax);
     }
 
-    function supportsInterface(bytes4 id) external view virtual returns (bool) {
+    function supportsInterface(
+        bytes4 id
+    ) external view virtual override returns (bool) {
         return
             id == type(IERC165).interfaceId ||
             id == type(IGoatFoundation).interfaceId;

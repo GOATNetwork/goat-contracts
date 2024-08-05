@@ -11,7 +11,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IBridge} from "../interfaces/Bridge.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Bridge is IBridge {
+contract Bridge is IBridge, IERC165 {
     using Address for address payable;
 
     // the network config
@@ -132,8 +132,9 @@ contract Bridge is IBridge {
         uint256 _amount
     ) external override OnlyRelayer {
         bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
-        require(_amount % satoshi == 0 && !deposits[depositHash]);
+        require(!deposits[depositHash], "duplicated");
 
+        require(_amount > 0 && _amount % satoshi == 0, "invalid amount");
         uint256 tax = 0;
         if (param.depositTaxBP > 0) {
             tax = (_amount * param.depositTaxBP) / maxBasePoints;
@@ -147,6 +148,7 @@ contract Bridge is IBridge {
         deposits[depositHash] = true;
         emit Deposit(_target, _amount, _txid, _txout, tax);
         // Add balance to the _target in the runtime
+        // Add tax to this bridge contract in the runtime
     }
 
     function isDeposited(
@@ -318,7 +320,7 @@ contract Bridge is IBridge {
         emit Paid(_wid, _txid, _txout, _paid, tax);
     }
 
-    function setDepositFee(
+    function setDepositTax(
         uint16 _bp,
         uint64 _max
     ) external override OnlyGoatFoundation {
@@ -339,7 +341,7 @@ contract Bridge is IBridge {
         emit DepositTaxUpdated(_bp, _max);
     }
 
-    function setWithdrawalFee(
+    function setWithdrawalTax(
         uint16 _bp,
         uint64 _max
     ) external override OnlyGoatFoundation {

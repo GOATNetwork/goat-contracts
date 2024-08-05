@@ -65,22 +65,6 @@ describe("Bridge", async () => {
     };
   }
 
-  it("network", async () => {
-    const { bridge, precompiled } = await loadFixture(fixture);
-    expect(await bridge.bech32HRP()).eq("bc", "bech32HRP");
-    expect(await bridge.networkName()).eq("mainnet", "networkName");
-    const { pubKeyHashAddrID, scriptHashAddrID } = await bridge.base58Prefix();
-    expect(pubKeyHashAddrID).eq("0x00");
-    expect(scriptHashAddrID).eq("0x05");
-
-    // check mocks
-    await setCode(btcAddressVerifier, precompiled.valid);
-    expect(await bridge.isAddrValid("mock1")).to.be.true;
-
-    await setCode(btcAddressVerifier, precompiled.invalid);
-    expect(await bridge.isAddrValid("mock2")).to.be.false;
-  });
-
   describe("bitcoin", async () => {
     it("init", async () => {
       const { bridge } = await loadFixture(fixture);
@@ -95,6 +79,23 @@ describe("Bridge", async () => {
       expect(header.bits).eq(block100.bits);
       expect(header.nonce).eq(block100.nonce);
       expect(header.timestmap).eq(block100.timestmap);
+    });
+
+    it("network", async () => {
+      const { bridge, precompiled } = await loadFixture(fixture);
+      expect(await bridge.bech32HRP()).eq("bc", "bech32HRP");
+      expect(await bridge.networkName()).eq("mainnet", "networkName");
+      const { pubKeyHashAddrID, scriptHashAddrID } =
+        await bridge.base58Prefix();
+      expect(pubKeyHashAddrID).eq("0x00");
+      expect(scriptHashAddrID).eq("0x05");
+
+      // check mocks
+      await setCode(btcAddressVerifier, precompiled.valid);
+      expect(await bridge.isAddrValid("mock1")).to.be.true;
+
+      await setCode(btcAddressVerifier, precompiled.invalid);
+      expect(await bridge.isAddrValid("mock2")).to.be.false;
     });
 
     it("push", async () => {
@@ -154,9 +155,14 @@ describe("Bridge", async () => {
       ).revertedWithCustomError(bridge, "AccessDenied");
 
       await expect(
-        bridge.connect(relayer).deposit(tx1.id, tx1.txout + 5n, owner, 100n),
+        bridge.connect(relayer).deposit(tx1.id, tx1.txout, owner, 100n),
         "invalid amount",
-      ).to.be.revertedWithoutReason();
+      ).to.be.revertedWith("invalid amount");
+
+      await expect(
+        bridge.connect(relayer).deposit(tx1.id, tx1.txout, owner, 0),
+        "invalid amount",
+      ).to.be.revertedWith("invalid amount");
     });
 
     it("no tax", async () => {
@@ -175,9 +181,9 @@ describe("Bridge", async () => {
         .be.true;
 
       await expect(
-        bridge.connect(relayer).deposit(tx1.id, tx1.txout, owner, 1n),
+        bridge.connect(relayer).deposit(tx1.id, tx1.txout, owner, BigInt(1e18)),
         "duplicated",
-      ).to.be.revertedWithoutReason();
+      ).to.be.revertedWith("duplicated");
 
       expect(await bridge.unpaidTax(), "unpaid tax").eq(0);
     });
@@ -193,7 +199,7 @@ describe("Bridge", async () => {
       const { bridge, owner, relayer, goatFoundation } =
         await loadFixture(fixture);
 
-      await bridge.connect(goatFoundation).setDepositFee(1, 10);
+      await bridge.connect(goatFoundation).setDepositTax(1, 10);
 
       expect(
         await bridge.isDeposited(tx2.id, tx2.txout),
@@ -226,7 +232,7 @@ describe("Bridge", async () => {
       const { bridge, owner, precompiled, goatFoundation } =
         await loadFixture(fixture);
 
-      await bridge.connect(goatFoundation).setWithdrawalFee(0, 0);
+      await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
 
       const amount = BigInt(1e10);
       const txPrice = 1n;
@@ -341,7 +347,7 @@ describe("Bridge", async () => {
         await loadFixture(fixture);
 
       await setCode(btcAddressVerifier, precompiled.valid);
-      await bridge.connect(goatFoundation).setWithdrawalFee(0, 0);
+      await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
 
       const amount = BigInt(1e18);
       const txPrice = 1n;
@@ -364,7 +370,7 @@ describe("Bridge", async () => {
         await loadFixture(fixture);
 
       await setCode(btcAddressVerifier, precompiled.valid);
-      await bridge.connect(goatFoundation).setWithdrawalFee(0, 0);
+      await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
 
       const dust = 100n;
       const amount = BigInt(1e18) + dust;
