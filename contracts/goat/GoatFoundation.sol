@@ -8,15 +8,17 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
-import {IBridgeParam} from "../interfaces/BridgeParam.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
+import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
+import {IBridgeParam} from "../interfaces/BridgeParam.sol";
+
+contract GoatFoundation is Ownable, IERC165, IGoatFoundation, IBridgeParam {
     using SafeERC20 for IERC20;
     using Address for address payable;
 
     // It's for testing only
+    // the owner can be DAO or a Safe wallet
     constructor() Ownable(msg.sender) {}
 
     function transfer(
@@ -48,11 +50,16 @@ contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
         IBridgeParam(PreDeployedAddresses.Bridge).setWithdrawalTax(_bp, _max);
     }
 
+    function setRateLimit(uint16 _sec) external onlyOwner {
+        IBridgeParam(PreDeployedAddresses.Bridge).setRateLimit(_sec);
+    }
+
     function supportsInterface(
         bytes4 id
     ) external view virtual override returns (bool) {
         return
             id == type(IERC165).interfaceId ||
+            id == type(IBridgeParam).interfaceId ||
             id == type(IGoatFoundation).interfaceId;
     }
 }
