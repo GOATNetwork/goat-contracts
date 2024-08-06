@@ -4,12 +4,13 @@ pragma solidity ^0.8.24;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
-import {IBridge} from "../interfaces/Bridge.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
+import {IBridgeParam} from "../interfaces/BridgeParam.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
     using SafeERC20 for IERC20;
@@ -35,19 +36,16 @@ contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
     }
 
     // donation
-    receive() external payable {}
+    receive() external payable {
+        emit Donate(msg.sender, msg.value);
+    }
 
     function setDepositTax(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridge(PreDeployedAddresses.Bridge).setDepositTax(_bp, _max);
+        IBridgeParam(PreDeployedAddresses.Bridge).setDepositTax(_bp, _max);
     }
 
     function setWithdrawalTax(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridge(PreDeployedAddresses.Bridge).setWithdrawalTax(_bp, _max);
-    }
-
-    function takeBridgeTax() external onlyOwner {
-        uint256 tax = IBridge(PreDeployedAddresses.Bridge).takeTax();
-        emit Revenue(PreDeployedAddresses.Bridge, tax);
+        IBridgeParam(PreDeployedAddresses.Bridge).setWithdrawalTax(_bp, _max);
     }
 
     function supportsInterface(

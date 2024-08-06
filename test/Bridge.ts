@@ -12,6 +12,7 @@ import { Bridge } from "../typechain-types";
 
 describe("Bridge", async () => {
   const btcAddressVerifier = "0x00000000000000000000000000000000C0dec000";
+  const btcAddress = "bc1qmvs208we3jg7hgczhlh7e9ufw034kfm2vwsvge";
 
   const block100 = {
     prevBlock:
@@ -92,10 +93,10 @@ describe("Bridge", async () => {
 
       // check mocks
       await setCode(btcAddressVerifier, precompiled.valid);
-      expect(await bridge.isAddrValid("mock1")).to.be.true;
+      expect(await bridge.isAddrValid(btcAddress)).to.be.true;
 
       await setCode(btcAddressVerifier, precompiled.invalid);
-      expect(await bridge.isAddrValid("mock2")).to.be.false;
+      expect(await bridge.isAddrValid(btcAddress)).to.be.false;
     });
 
     it("push", async () => {
@@ -184,8 +185,6 @@ describe("Bridge", async () => {
         bridge.connect(relayer).deposit(tx1.id, tx1.txout, owner, BigInt(1e18)),
         "duplicated",
       ).to.be.revertedWith("duplicated");
-
-      expect(await bridge.unpaidTax(), "unpaid tax").eq(0);
     });
 
     it("1bp tax", async () => {
@@ -220,16 +219,12 @@ describe("Bridge", async () => {
           tx2.txout,
           tx2.tax,
         );
-
-      expect(await bridge.unpaidTax(), "unpaid tax").eq(tx2.tax);
     });
   });
 
   describe("withdraw", async () => {
-    const addr = "bc1qmvs208we3jg7hgczhlh7e9ufw034kfm2vwsvge";
-
     it("invalid", async () => {
-      const { bridge, owner, precompiled, goatFoundation } =
+      const { bridge, precompiled, goatFoundation } =
         await loadFixture(fixture);
 
       await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
@@ -240,18 +235,18 @@ describe("Bridge", async () => {
       await setCode(btcAddressVerifier, precompiled.invalid);
 
       await expect(
-        bridge.withdraw(addr, txPrice, { value: amount }),
+        bridge.withdraw(btcAddress, txPrice, { value: amount }),
       ).revertedWith("invalid address");
 
       await setCode(btcAddressVerifier, precompiled.valid);
 
-      await expect(bridge.withdraw(addr, 0, { value: amount })).revertedWith(
-        "invalid tx price",
-      );
+      await expect(
+        bridge.withdraw(btcAddress, 0, { value: amount }),
+      ).revertedWith("invalid tx price");
 
-      await expect(bridge.withdraw(addr, 1, { value: amount })).revertedWith(
-        "unaffordable",
-      );
+      await expect(
+        bridge.withdraw(btcAddress, 1, { value: amount }),
+      ).revertedWith("unaffordable");
     });
 
     it("default tax", async () => {
@@ -271,9 +266,9 @@ describe("Bridge", async () => {
 
       const tax = (amount * param.withdrawalTaxBP) / BigInt(1e4);
 
-      expect(await bridge.withdraw(addr, txPrice, { value: amount }))
+      expect(await bridge.withdraw(btcAddress, txPrice, { value: amount }))
         .emit(bridge, "Withdraw")
-        .withArgs(wid, owner.address, amount - tax, txPrice, addr);
+        .withArgs(wid, owner.address, amount - tax, txPrice, btcAddress);
 
       // pending
       {
@@ -283,7 +278,7 @@ describe("Bridge", async () => {
         expect(withdrawal.tax).eq(tax);
         expect(withdrawal.maxTxPrice).eq(txPrice);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-        expect(withdrawal.reciever).eq(addr);
+        expect(withdrawal.reciever).eq(btcAddress);
         expect(withdrawal.status).eq(1);
         expect(withdrawal.amount + withdrawal.tax, "actual + tax = amount").eq(
           amount,
@@ -293,8 +288,6 @@ describe("Bridge", async () => {
           await ethers.provider.getBalance(await bridge.getAddress()),
           "bridge balance",
         ).eq(amount);
-
-        expect(await bridge.unpaidTax(), "unpaid tax").eq(0);
       }
 
       // rbf
@@ -324,15 +317,9 @@ describe("Bridge", async () => {
           .emit(bridge, "Paid")
           .withArgs(wid, txid, txout, paid, tax);
 
-        expect(
-          await ethers.provider.getBalance(await bridge.getAddress()),
-          "bridge balance after paid",
-        ).eq(tax);
-
         const withdrawal = await bridge.withdrawals(wid);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
         expect(withdrawal.status).eq(5);
-        expect(await bridge.unpaidTax(), "unpaid tax after paid").eq(tax);
 
         const receipt = await bridge.receipts(wid);
 
@@ -351,9 +338,9 @@ describe("Bridge", async () => {
 
       const amount = BigInt(1e18);
       const txPrice = 1n;
-      expect(await bridge.withdraw(addr, txPrice, { value: amount }))
+      expect(await bridge.withdraw(btcAddress, txPrice, { value: amount }))
         .emit(bridge, "Withdraw")
-        .withArgs(0n, owner.address, amount, txPrice, addr);
+        .withArgs(0n, owner.address, amount, txPrice, btcAddress);
 
       const withdrawal = await bridge.withdrawals(0n);
       expect(withdrawal.sender).eq(owner.address);
@@ -361,7 +348,7 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(0n);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.reciever).eq(addr);
+      expect(withdrawal.reciever).eq(btcAddress);
       expect(withdrawal.status).eq(1);
     });
 
@@ -375,9 +362,9 @@ describe("Bridge", async () => {
       const dust = 100n;
       const amount = BigInt(1e18) + dust;
       const txPrice = 1n;
-      expect(await bridge.withdraw(addr, txPrice, { value: amount }))
+      expect(await bridge.withdraw(btcAddress, txPrice, { value: amount }))
         .emit(bridge, "Withdraw")
-        .withArgs(0n, owner.address, amount - dust, txPrice, addr);
+        .withArgs(0n, owner.address, amount - dust, txPrice, btcAddress);
 
       const withdrawal = await bridge.withdrawals(0n);
       expect(withdrawal.sender).eq(owner.address);
@@ -385,7 +372,7 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(dust);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.reciever).eq(addr);
+      expect(withdrawal.reciever).eq(btcAddress);
       expect(withdrawal.status).eq(1);
     });
 
@@ -400,7 +387,7 @@ describe("Bridge", async () => {
       const amount = BigInt(1e18);
       const txPrice = 1n;
       const wid = 0n;
-      await bridge.withdraw(addr, txPrice, { value: amount });
+      await bridge.withdraw(btcAddress, txPrice, { value: amount });
 
       // invalid
       {

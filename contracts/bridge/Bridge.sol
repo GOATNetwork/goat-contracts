@@ -9,17 +9,17 @@ import {Burner} from "../library/utils/Burner.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {IBridge} from "../interfaces/Bridge.sol";
+import {IBridgeParam} from "../interfaces/BridgeParam.sol";
+import {IBridgeNetwork} from "../interfaces/BridgeNetwork.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Bridge is IBridge, IERC165 {
+contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     using Address for address payable;
 
     // the network config
     bytes32 internal network;
 
     Param public param;
-
-    uint256 public unpaidTax;
 
     mapping(bytes32 txh => bool yes) internal deposits;
 
@@ -99,17 +99,14 @@ contract Bridge is IBridge, IERC165 {
     }
 
     function isAddrValid(string calldata _addr) public view returns (bool) {
-        uint8 hrpLen = uint8(network[2]);
-        bytes memory hrp = new bytes(hrpLen);
-        for (uint8 i = 0; i < hrpLen; i++) {
-            hrp[i] = network[i + 3];
+        bytes memory config = new bytes(3 + uint8(network[2]));
+        for (uint8 i = 0; i < config.length; i++) {
+            config[i] = network[i];
         }
 
         (bool success, bytes memory data) = PreCompiledAddresses
             .BtcAddrVerifierV0
-            .staticcall(
-                abi.encodePacked(network[0], network[1], hrpLen, hrp, _addr)
-            );
+            .staticcall(abi.encodePacked(config, _addr));
 
         if (success && data.length > 0) {
             return data[0] == 0x01;
@@ -141,14 +138,13 @@ contract Bridge is IBridge, IERC165 {
             if (tax > param.maxDepositTax) {
                 tax = param.maxDepositTax;
             }
-            unpaidTax += tax;
             _amount -= tax;
         }
 
         deposits[depositHash] = true;
         emit Deposit(_target, _amount, _txid, _txout, tax);
         // Add balance to the _target in the runtime
-        // Add tax to this bridge contract in the runtime
+        // Add the tax value to goat foundation in the runtime
     }
 
     function isDeposited(
@@ -309,14 +305,13 @@ contract Bridge is IBridge, IERC165 {
         withdrawal.status = WithdrawalStatus.Paid;
         withdrawal.updatedAt = block.timestamp;
 
-        // send the tax to goat foundation
         uint256 tax = withdrawal.tax;
-        if (tax > 0) {
-            unpaidTax += tax;
-        }
+        uint256 burn = withdrawal.amount + tax;
 
         // Burn the withdrawal value from the network
-        new Burner{value: withdrawal.amount, salt: bytes32(0x00)}();
+        new Burner{value: burn, salt: bytes32(0x00)}();
+
+        // the tax will be added to GoatFoundation in the runtime
         emit Paid(_wid, _txid, _txout, _paid, tax);
     }
 
@@ -368,21 +363,13 @@ contract Bridge is IBridge, IERC165 {
         emit RateLimitUpdated(_sec);
     }
 
-    function takeTax() external OnlyGoatFoundation returns (uint256) {
-        uint256 unpaied = unpaidTax;
-        if (unpaied == 0) {
-            return unpaied;
-        }
-
-        unpaidTax = 0;
-        PreDeployedAddresses.GoatFoundation.sendValue(unpaied);
-        return unpaied;
-    }
-
     function supportsInterface(
         bytes4 id
     ) external view virtual override returns (bool) {
         return
-            id == type(IERC165).interfaceId || id == type(IBridge).interfaceId;
+            id == type(IERC165).interfaceId ||
+            id == type(IBridge).interfaceId ||
+            id == type(IBridgeNetwork).interfaceId ||
+            id == type(IBridgeParam).interfaceId;
     }
 }

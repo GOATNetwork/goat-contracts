@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 interface IBridge {
-    event NewBitcoinBlock(uint128 indexed height);
-
     event Deposit(
         address indexed target,
         uint256 indexed amount,
@@ -36,10 +34,6 @@ interface IBridge {
         uint256 tax
     );
 
-    event DepositTaxUpdated(uint16 rate, uint64 max);
-    event WithdrawalTaxUpdated(uint16 rate, uint64 max);
-    event RateLimitUpdated(uint16);
-
     enum WithdrawalStatus {
         Invalid,
         Pending,
@@ -52,19 +46,6 @@ interface IBridge {
     error AccessDenied();
     error Forbidden();
     error RateLimitExceeded();
-
-    error TaxTooHigh();
-
-    error MalformedTax();
-
-    struct BlockHeader {
-        bytes32 prevBlock;
-        bytes32 merkleRoot;
-        uint32 version;
-        uint32 bits;
-        uint32 nonce;
-        uint32 timestmap;
-    }
 
     struct Withdrawal {
         address sender;
@@ -83,33 +64,10 @@ interface IBridge {
         uint256 paid;
     }
 
-    struct Param {
-        uint16 rateLimit;
-        uint16 depositTaxBP;
-        uint64 maxDepositTax;
-        uint16 withdrawalTaxBP;
-        uint64 maxWithdrawalTax;
-        uint16 _res1;
-        uint64 _res2;
-    }
-
-    struct HeaderRange {
-        uint128 start;
-        uint128 latest;
-    }
-
-    function bech32HRP() external view returns (string memory);
-
-    function networkName() external view returns (string memory);
-
-    function isAddrValid(string calldata addr) external view returns (bool);
-
     function isDeposited(
         bytes32 txid,
         uint32 txout
     ) external view returns (bool);
-
-    function newBitcoinBlock(BlockHeader calldata header) external;
 
     function deposit(
         bytes32 txid,
@@ -137,14 +95,4 @@ interface IBridge {
         uint32 txout,
         uint256 paid
     ) external;
-
-    function setDepositTax(uint16 bp, uint64 max) external;
-
-    function setWithdrawalTax(uint16 bp, uint64 max) external;
-
-    // function setTaxPayee(address) external;
-
-    function setRateLimit(uint16 sec) external;
-
-    function takeTax() external returns (uint256);
 }
