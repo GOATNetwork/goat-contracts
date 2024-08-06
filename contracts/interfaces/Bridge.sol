@@ -14,6 +14,7 @@ interface IBridge {
         uint256 indexed id,
         address indexed from,
         uint256 amount,
+        uint256 tax,
         uint256 maxTxPrice,
         string reciever
     );
@@ -26,13 +27,9 @@ interface IBridge {
 
     event RBF(uint256 indexed id, uint256 maxTxPrice);
 
-    event Paid(
-        uint256 indexed id,
-        bytes32 txid,
-        uint32 txout,
-        uint256 received,
-        uint256 tax
-    );
+    event Paid(uint256 indexed id, bytes32 txid, uint32 txout, uint256 value);
+
+    event Settlement(uint256 burnt, uint256 tax);
 
     enum WithdrawalStatus {
         Invalid,
@@ -61,7 +58,7 @@ interface IBridge {
     struct Receipt {
         bytes32 txid;
         uint32 txout;
-        uint256 paid;
+        uint256 received;
     }
 
     function isDeposited(

@@ -315,7 +315,9 @@ describe("Bridge", async () => {
         const paid = amount - tax - txfee;
         expect(await bridge.connect(relayer).paid(wid, txid, txout, paid))
           .emit(bridge, "Paid")
-          .withArgs(wid, txid, txout, paid, tax);
+          .withArgs(wid, txid, txout, paid)
+          .and.emit(bridge, "Settlement")
+          .withArgs(amount, tax);
 
         const withdrawal = await bridge.withdrawals(wid);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
@@ -325,7 +327,7 @@ describe("Bridge", async () => {
 
         expect(receipt.txid).eq(txid);
         expect(receipt.txout).eq(txout);
-        expect(receipt.paid).eq(paid);
+        expect(receipt.received).eq(paid);
       }
     });
 

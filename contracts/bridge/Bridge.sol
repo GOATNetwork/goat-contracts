@@ -143,8 +143,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
 
         deposits[depositHash] = true;
         emit Deposit(_target, _amount, _txid, _txout, tax);
-        // Add balance to the _target in the runtime
-        // Add the tax value to goat foundation in the runtime
+        // Add balance to the _target and pay the tax to GF in the runtime
     }
 
     function isDeposited(
@@ -196,9 +195,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
             })
         );
 
-        // require(amount + tax == msg.value, "!");
-
-        emit Withdraw(id, msg.sender, amount, _maxTxPrice, _reciever);
+        emit Withdraw(id, msg.sender, amount, tax, _maxTxPrice, _reciever);
     }
 
     // replaceByFee updates the max tx price to speed-up the withdrawal
@@ -292,27 +289,27 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         uint256 _wid,
         bytes32 _txid,
         uint32 _txout,
-        uint256 _paid
+        uint256 _received
     ) external OnlyRelayer {
         Withdrawal storage withdrawal = withdrawals[_wid];
 
+        WithdrawalStatus status = withdrawal.status;
         require(
-            withdrawal.status == WithdrawalStatus.Pending ||
-                withdrawal.status == WithdrawalStatus.Canceling
+            status == WithdrawalStatus.Pending ||
+                status == WithdrawalStatus.Canceling
         );
 
-        receipts[_wid] = Receipt(_txid, _txout, _paid);
+        receipts[_wid] = Receipt(_txid, _txout, _received);
         withdrawal.status = WithdrawalStatus.Paid;
         withdrawal.updatedAt = block.timestamp;
 
         uint256 tax = withdrawal.tax;
-        uint256 burn = withdrawal.amount + tax;
+        uint256 burn = tax + withdrawal.amount;
 
-        // Burn the withdrawal value from the network
-        new Burner{value: burn, salt: bytes32(0x00)}();
+        // burn the withdrawal value and pay tax to GF in the runtime
+        emit Settlement(burn, tax);
 
-        // the tax will be added to GoatFoundation in the runtime
-        emit Paid(_wid, _txid, _txout, _paid, tax);
+        emit Paid(_wid, _txid, _txout, _received);
     }
 
     function setDepositTax(
