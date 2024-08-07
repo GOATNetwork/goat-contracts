@@ -134,14 +134,9 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         }
 
         deposits[depositHash] = true;
-<<<<<<< HEAD
         emit Deposit(depositHash, _target, _amount, _txid, _txout, tax);
         // Add balance to the _target in the runtime
         // Add the tax value to goat foundation in the runtime
-=======
-        emit Deposit(_target, _amount, _txid, _txout, tax);
-        // Add balance to the _target and pay the tax to GF in the runtime
->>>>>>> origin/main
     }
 
     // Note: txid uses big endian
