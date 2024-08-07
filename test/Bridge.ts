@@ -1,6 +1,6 @@
 import { ethers, artifacts } from "hardhat";
 import { expect } from "chai";
-
+import { Executors, PrecompiledAddress, PredployedAddress } from "./constant";
 import {
   loadFixture,
   setCode,
@@ -11,34 +11,22 @@ import {
 import { Bridge } from "../typechain-types";
 
 describe("Bridge", async () => {
-  const btcAddressVerifier = "0x00000000000000000000000000000000C0dec000";
-  const btcAddress = "bc1qmvs208we3jg7hgczhlh7e9ufw034kfm2vwsvge";
+  const btcAddressVerifier = PrecompiledAddress.addrVerifier;
+  const addr1 = "bc1qmvs208we3jg7hgczhlh7e9ufw034kfm2vwsvge";
+  const addr2 = "tb1q23j89ml57f6tuascjflw6qevwh5pmcpzrlqwxx";
 
-  const block100 = {
-    prevBlock:
-      "0x5b91046f23af72766172aa28929d1124f23595ab81da63d1849a4e77704a30cd",
-    merkleRoot:
-      "0x3ac8290dbcdf2e3fa9c76dffb2fa053561cd9975fedcf5eb61d597daeaca8e8c",
-    version: "0x20000000",
-    bits: "0x207fffff",
-    nonce: "0x01",
-    timestmap: "0x66ab9df4",
-  };
+  const relayer = Executors.relayer;
+  const goatFoundation = PredployedAddress.goatFoundation;
 
   async function fixture() {
     const [owner, payer, ...others] = await ethers.getSigners();
 
     const bridgeFactory = await ethers.getContractFactory("Bridge");
 
-    const bridge: Bridge = await bridgeFactory.deploy(100, block100);
+    const bridge: Bridge = await bridgeFactory.deploy();
 
-    const [valid, invlid] = await Promise.all([
-      artifacts.readArtifact("ValidAddrMock"),
-      artifacts.readArtifact("InvalidAddrMock"),
-    ]);
-
-    const relayer = "0xBc10000000000000000000000000000000001000";
-    const goatFoundation = "0xBc10000000000000000000000000000000000002";
+    const mock = await artifacts.readArtifact("AddressMock");
+    await setCode(btcAddressVerifier, mock.deployedBytecode);
 
     await impersonateAccount(relayer);
     await impersonateAccount(goatFoundation);
@@ -57,32 +45,14 @@ describe("Bridge", async () => {
       owner,
       others,
       bridge,
-      precompiled: {
-        valid: valid.deployedBytecode,
-        invalid: invlid.deployedBytecode,
-      },
+      precompiled: mock.deployedBytecode,
       relayer: await ethers.getSigner(relayer),
       goatFoundation: await ethers.getSigner(goatFoundation),
     };
   }
 
-  describe("bitcoin", async () => {
-    it("init", async () => {
-      const { bridge } = await loadFixture(fixture);
-
-      const { start, latest } = await bridge.headerRange();
-      expect(start).eq(100);
-      expect(latest).eq(100);
-      const header = await bridge.btcBlockHeader(100);
-
-      expect(header.prevBlock).eq(block100.prevBlock);
-      expect(header.merkleRoot).eq(block100.merkleRoot);
-      expect(header.bits).eq(block100.bits);
-      expect(header.nonce).eq(block100.nonce);
-      expect(header.timestmap).eq(block100.timestmap);
-    });
-
-    it("network", async () => {
+  describe("network", async () => {
+    it("config", async () => {
       const { bridge, precompiled } = await loadFixture(fixture);
       expect(await bridge.bech32HRP()).eq("bc", "bech32HRP");
       expect(await bridge.networkName()).eq("mainnet", "networkName");
@@ -92,50 +62,8 @@ describe("Bridge", async () => {
       expect(scriptHashAddrID).eq("0x05");
 
       // check mocks
-      await setCode(btcAddressVerifier, precompiled.valid);
-      expect(await bridge.isAddrValid(btcAddress)).to.be.true;
-
-      await setCode(btcAddressVerifier, precompiled.invalid);
-      expect(await bridge.isAddrValid(btcAddress)).to.be.false;
-    });
-
-    it("push", async () => {
-      const block101 = {
-        prevBlock:
-          "0x37f5a9ab6e6a6c64f956bf07054957bf8bb49cb7a2130f7e31dc30aa7f23dcd7",
-        merkleRoot:
-          "0xa979ca22cadc1fb7593ecc8dd194e863e45ef48ac35cffa900887a336f477e84",
-        version: "0x20000000",
-        bits: "0x207fffff",
-        nonce: "0x03",
-        timestmap: "0x66ab9dcd",
-      };
-
-      const { bridge, relayer } = await loadFixture(fixture);
-
-      await expect(
-        bridge.newBitcoinBlock(block101),
-        "push block header by non-relayer",
-      ).revertedWithCustomError(bridge, "AccessDenied");
-
-      expect(
-        await bridge.connect(relayer).newBitcoinBlock(block101),
-        "push block header by relayer",
-      )
-        .with.emit("Bridge", "NewBitcoinBlock")
-        .withArgs(101n);
-
-      const { start, latest } = await bridge.headerRange();
-      expect(start).eq(100);
-      expect(latest).eq(101);
-
-      const header = await bridge.btcBlockHeader(101);
-
-      expect(header.prevBlock).eq(block101.prevBlock);
-      expect(header.merkleRoot).eq(block101.merkleRoot);
-      expect(header.bits).eq(block101.bits);
-      expect(header.nonce).eq(block101.nonce);
-      expect(header.timestmap).eq(block101.timestmap);
+      expect(await bridge.isAddrValid(addr1)).to.be.true;
+      expect(await bridge.isAddrValid(addr2)).to.be.false;
     });
   });
 
@@ -232,28 +160,22 @@ describe("Bridge", async () => {
       const amount = BigInt(1e10);
       const txPrice = 1n;
 
-      await setCode(btcAddressVerifier, precompiled.invalid);
-
       await expect(
-        bridge.withdraw(btcAddress, txPrice, { value: amount }),
+        bridge.withdraw(addr2, txPrice, { value: amount }),
       ).revertedWith("invalid address");
 
-      await setCode(btcAddressVerifier, precompiled.valid);
+      await expect(bridge.withdraw(addr1, 0, { value: amount })).revertedWith(
+        "invalid tx price",
+      );
 
-      await expect(
-        bridge.withdraw(btcAddress, 0, { value: amount }),
-      ).revertedWith("invalid tx price");
-
-      await expect(
-        bridge.withdraw(btcAddress, 1, { value: amount }),
-      ).revertedWith("unaffordable");
+      await expect(bridge.withdraw(addr1, 1, { value: amount })).revertedWith(
+        "unaffordable",
+      );
     });
 
     it("default tax", async () => {
       const { bridge, owner, precompiled, relayer } =
         await loadFixture(fixture);
-
-      await setCode(btcAddressVerifier, precompiled.valid);
 
       const param = await bridge.param();
       expect(param.withdrawalTaxBP).eq(20n);
@@ -266,9 +188,9 @@ describe("Bridge", async () => {
 
       const tax = (amount * param.withdrawalTaxBP) / BigInt(1e4);
 
-      expect(await bridge.withdraw(btcAddress, txPrice, { value: amount }))
+      expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
         .emit(bridge, "Withdraw")
-        .withArgs(wid, owner.address, amount - tax, txPrice, btcAddress);
+        .withArgs(wid, owner.address, amount - tax, txPrice, addr1);
 
       // pending
       {
@@ -278,7 +200,7 @@ describe("Bridge", async () => {
         expect(withdrawal.tax).eq(tax);
         expect(withdrawal.maxTxPrice).eq(txPrice);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-        expect(withdrawal.reciever).eq(btcAddress);
+        expect(withdrawal.reciever).eq(addr1);
         expect(withdrawal.status).eq(1);
         expect(withdrawal.amount + withdrawal.tax, "actual + tax = amount").eq(
           amount,
@@ -315,7 +237,9 @@ describe("Bridge", async () => {
         const paid = amount - tax - txfee;
         expect(await bridge.connect(relayer).paid(wid, txid, txout, paid))
           .emit(bridge, "Paid")
-          .withArgs(wid, txid, txout, paid, tax);
+          .withArgs(wid, txid, txout, paid)
+          .and.emit(bridge, "Settlement")
+          .withArgs(amount, tax);
 
         const withdrawal = await bridge.withdrawals(wid);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
@@ -325,7 +249,7 @@ describe("Bridge", async () => {
 
         expect(receipt.txid).eq(txid);
         expect(receipt.txout).eq(txout);
-        expect(receipt.paid).eq(paid);
+        expect(receipt.received).eq(paid);
       }
     });
 
@@ -333,14 +257,13 @@ describe("Bridge", async () => {
       const { bridge, owner, precompiled, goatFoundation } =
         await loadFixture(fixture);
 
-      await setCode(btcAddressVerifier, precompiled.valid);
       await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
 
       const amount = BigInt(1e18);
       const txPrice = 1n;
-      expect(await bridge.withdraw(btcAddress, txPrice, { value: amount }))
+      expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
         .emit(bridge, "Withdraw")
-        .withArgs(0n, owner.address, amount, txPrice, btcAddress);
+        .withArgs(0n, owner.address, amount, txPrice, addr1);
 
       const withdrawal = await bridge.withdrawals(0n);
       expect(withdrawal.sender).eq(owner.address);
@@ -348,7 +271,7 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(0n);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.reciever).eq(btcAddress);
+      expect(withdrawal.reciever).eq(addr1);
       expect(withdrawal.status).eq(1);
     });
 
@@ -356,15 +279,14 @@ describe("Bridge", async () => {
       const { bridge, owner, precompiled, goatFoundation } =
         await loadFixture(fixture);
 
-      await setCode(btcAddressVerifier, precompiled.valid);
       await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
 
       const dust = 100n;
       const amount = BigInt(1e18) + dust;
       const txPrice = 1n;
-      expect(await bridge.withdraw(btcAddress, txPrice, { value: amount }))
+      expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
         .emit(bridge, "Withdraw")
-        .withArgs(0n, owner.address, amount - dust, txPrice, btcAddress);
+        .withArgs(0n, owner.address, amount - dust, txPrice, addr1);
 
       const withdrawal = await bridge.withdrawals(0n);
       expect(withdrawal.sender).eq(owner.address);
@@ -372,7 +294,7 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(dust);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.reciever).eq(btcAddress);
+      expect(withdrawal.reciever).eq(addr1);
       expect(withdrawal.status).eq(1);
     });
 
@@ -380,14 +302,12 @@ describe("Bridge", async () => {
       const { bridge, owner, others, precompiled, relayer, goatFoundation } =
         await loadFixture(fixture);
 
-      await setCode(btcAddressVerifier, precompiled.valid);
-
       const param = await bridge.param();
 
       const amount = BigInt(1e18);
       const txPrice = 1n;
       const wid = 0n;
-      await bridge.withdraw(btcAddress, txPrice, { value: amount });
+      await bridge.withdraw(addr1, txPrice, { value: amount });
 
       // invalid
       {

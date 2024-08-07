@@ -23,6 +23,9 @@ const config: HardhatUserConfig = {
 		url: "http://127.0.0.1:8546"
 	}
   }
+  gasReporter: {
+    enabled: true,
+  },
 };
 
 export default config;

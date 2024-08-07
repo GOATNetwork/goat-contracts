@@ -11,9 +11,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
-import {IBridgeParam} from "../interfaces/BridgeParam.sol";
+import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
 
-contract GoatFoundation is Ownable, IERC165, IGoatFoundation, IBridgeParam {
+contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
     using SafeERC20 for IERC20;
     using Address for address payable;
 
@@ -59,7 +59,6 @@ contract GoatFoundation is Ownable, IERC165, IGoatFoundation, IBridgeParam {
     ) external view virtual override returns (bool) {
         return
             id == type(IERC165).interfaceId ||
-            id == type(IBridgeParam).interfaceId ||
             id == type(IGoatFoundation).interfaceId;
     }
 }
