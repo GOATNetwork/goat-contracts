@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 interface IBridge {
     event Deposit(
-        bytes32 depositHash,
+        bytes32 id,
         address indexed target,
         uint256 indexed amount,
         bytes32 txid,

@@ -2,6 +2,8 @@
  
 
 ```
+npx hardhat node --port 8546 --hostname 0.0.0.0
+
 npm run clean-graph-node
 npm run start-graph-node
 

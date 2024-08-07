@@ -16,12 +16,12 @@ const Bridge = new ethers.Contract(
 	signer
 );
 
+
+
 const makeDeposit = async () => {
-
-
 	const tx1 = {
 		id: "0xd825c1ec7b47a63f9e0fdc1379bd0ec9284468d7ce12d183b05718bd1b4e27ee",
-		txout: 1n,
+		txout: BigInt(Math.floor(Math.random() * 2**32)),
 		amount: BigInt(1e18),
 		tax: 0n,
 	};

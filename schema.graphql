@@ -1,5 +1,5 @@
 type Deposit @entity {
-  id: ID! 
+  id: ID!
   target: Bytes!
   amount: BigInt!
   txid: Bytes!
