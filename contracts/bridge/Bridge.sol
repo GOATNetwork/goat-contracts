@@ -142,7 +142,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         }
 
         deposits[depositHash] = true;
-        emit Deposit(_target, _amount, _txid, _txout, tax);
+        emit Deposit(depositHash, _target, _amount, _txid, _txout, tax);
         // Add balance to the _target in the runtime
         // Add the tax value to goat foundation in the runtime
     }

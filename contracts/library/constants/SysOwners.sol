@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 library SysOwners {
     address internal constant Relayer =
-        0xBc10000000000000000000000000000000001000;
+        0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     address internal constant Staking =
         0xBC10000000000000000000000000000000001001;

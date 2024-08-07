@@ -3,6 +3,8 @@
   "license": "Business Source License 1.1",
   "author": "Goat Foundation",
   "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.80.0",
+    "@graphprotocol/graph-ts": "^0.35.1",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomiclabs/hardhat-solhint": "^4.0.0",
     "hardhat": "^2.22.5",
@@ -17,8 +19,17 @@
     "fmt:fix": "prettier --plugin=prettier-plugin-solidity --write test 'contracts/**/*.sol'",
     "lint": "hardhat check",
     "compile": "hardhat compile",
-    "build": "hardhat compile",
-    "test": "hardhat test"
+    "build": "graph build",
+    "test": "hardhat test",
+    "codegen": "graph codegen",
+    "compile-graph": "mustache subgraph/testnet.json subgraph.yaml.template > subgraph.yaml && graph codegen && graph build",
+    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ Bridge",
+    "create-local": "graph create --node http://localhost:8020/ Bridge",
+    "remove-local": "graph remove --node http://localhost:8020/ Bridge",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 Bridge",
+    "start-graph-node": "cd subgraph && docker-compose up -d",
+    "stop-graph-node": "cd subgraph && docker-compose down",
+    "clean-graph-node": "cd subgraph && docker-compose down && sudo rm -rf /mnt/data/graph/"
   },
   "prettier": {
     "trailingComma": "all"
