@@ -4,13 +4,13 @@ pragma solidity ^0.8.24;
 import {Network} from "../library/constants/Network.sol";
 import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
-import {SysOwners} from "../library/constants/SysOwners.sol";
-import {Burner} from "../library/utils/Burner.sol";
+import {Executor} from "../library/constants/Executor.sol";
+
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {IBridge} from "../interfaces/Bridge.sol";
-import {IBridgeParam} from "../interfaces/BridgeParam.sol";
-import {IBridgeNetwork} from "../interfaces/BridgeNetwork.sol";
+import {IBridge} from "../interfaces/bridge/Bridge.sol";
+import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
+import {IBridgeNetwork} from "../interfaces/bridge/BridgeNetwork.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
@@ -28,9 +28,6 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     // the withdrawal receipts
     mapping(uint256 id => Receipt receipt) public receipts;
 
-    HeaderRange public headerRange;
-    mapping(uint256 height => BlockHeader header) public btcBlockHeader;
-
     modifier OnlyGoatFoundation() {
         if (msg.sender != PreDeployedAddresses.GoatFoundation) {
             revert AccessDenied();
@@ -39,7 +36,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     }
 
     modifier OnlyRelayer() {
-        if (msg.sender != SysOwners.Relayer) {
+        if (msg.sender != Executor.Relayer) {
             revert AccessDenied();
         }
         _;
@@ -55,9 +52,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     uint256 internal constant maxBasePoints = 1e4;
 
     // It is only for testing
-    constructor(uint128 _height, BlockHeader memory _header) {
-        headerRange = HeaderRange(_height, _height);
-        btcBlockHeader[_height] = _header;
+    constructor() {
         network = Network.Mainnet;
         param = Param({
             rateLimit: 300,
@@ -79,7 +74,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         scriptHashAddrID = network[1];
     }
 
-    function bech32HRP() public view returns (string memory) {
+    function bech32HRP() public view override returns (string memory) {
         uint8 hrpLen = uint8(network[2]);
         bytes memory hrp = new bytes(hrpLen);
         for (uint8 i = 0; i < hrpLen; i++) {
@@ -88,7 +83,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         return string(hrp);
     }
 
-    function networkName() public view returns (string memory) {
+    function networkName() public view override returns (string memory) {
         uint8 start = uint8(3) + uint8(network[2]);
         uint8 nameLen = uint8(network[start]);
         bytes memory name = new bytes(nameLen);
@@ -98,7 +93,9 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         return string(name);
     }
 
-    function isAddrValid(string calldata _addr) public view returns (bool) {
+    function isAddrValid(
+        string calldata _addr
+    ) public view override returns (bool) {
         bytes memory config = new bytes(3 + uint8(network[2]));
         for (uint8 i = 0; i < config.length; i++) {
             config[i] = network[i];
@@ -114,14 +111,9 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         return false;
     }
 
-    function newBitcoinBlock(BlockHeader calldata header) external OnlyRelayer {
-        uint128 height = ++headerRange.latest;
-        btcBlockHeader[height] = header;
-        emit NewBitcoinBlock(height);
-    }
-
     // deposit adds balance to the target address
     // goat performs the adding outside EVM to prevent any errors
+    // Note: txid uses big endian
     function deposit(
         bytes32 _txid,
         uint32 _txout,
@@ -146,6 +138,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         // Add balance to the _target and pay the tax to GF in the runtime
     }
 
+    // Note: txid uses big endian
     function isDeposited(
         bytes32 _txid,
         uint32 _txout
@@ -285,6 +278,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     }
 
     // paid finalizes the withdrawal request and burns the withdrawal amount from network
+    // Note: txid uses big endian
     function paid(
         uint256 _wid,
         bytes32 _txid,

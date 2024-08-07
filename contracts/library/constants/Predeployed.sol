@@ -19,4 +19,7 @@ library PreDeployedAddresses {
 
     address internal constant Staking =
         0xbC10000000000000000000000000000000000004;
+
+    address internal constant BitcoinBlocks =
+        0xbc10000000000000000000000000000000000005;
 }
