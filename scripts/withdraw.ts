@@ -49,6 +49,6 @@ const makeWithdrawal = async () => {
 	//  console.log(receipt.logs)
 }
 
-makeDeposit().then(() => {
-	console.log("Deposit done")
+makeWithdrawal().then(() => {
+	console.log("Withdraw done")
 })

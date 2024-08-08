@@ -11,6 +11,7 @@ npx hardhat run --network localhost scripts/deploy.ts
 
 npm run compile-graph
 npx hardhat run --network localhost scripts/deposit.ts
+npx hardhat run --network localhost scripts/withdraw.ts
 
 npm run create-local
 npm run deploy-local

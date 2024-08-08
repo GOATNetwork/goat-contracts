@@ -23,4 +23,6 @@ dataSources:
       eventHandlers:
         - event: Deposit(indexed address,indexed uint256,bytes32,uint32,uint256)
           handler: handleDeposit
+        - event: Withdraw(indexed uint256,indexed address,uint256,uint256,uint256,string) 
+          handler: handleWithdrawal
       file: ./scripts/mapping.ts
