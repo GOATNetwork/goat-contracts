@@ -19,7 +19,7 @@
     "fmt:fix": "prettier --plugin=prettier-plugin-solidity --write test 'contracts/**/*.sol'",
     "lint": "hardhat check",
     "compile": "hardhat compile",
-    "build": "graph build",
+    "build": "hardhat compile",
     "test": "hardhat test",
     "codegen": "graph codegen",
     "compile-graph": "mustache subgraph/testnet.json subgraph/subgraph.yaml.template > subgraph.yaml && graph codegen && graph build",
