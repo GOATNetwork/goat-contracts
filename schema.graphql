@@ -2,7 +2,7 @@ type Deposit @entity {
   id: ID!
   target: Bytes!
   amount: BigInt!
-  txid: Bytes!
-  txout: Int!
+  btcTxid: Bytes!
+  btcTxout: Int!
   tax: BigInt!
 }

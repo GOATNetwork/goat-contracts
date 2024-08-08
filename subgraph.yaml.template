@@ -6,7 +6,7 @@ schema:
 dataSources:
   - kind: ethereum/contract
     name: Bridge 
-    network: goattestnet
+    network: localhost
     source:
       address: "{{Bridge}}"
       abi: Bridge 
@@ -21,6 +21,6 @@ dataSources:
         - name: Bridge
           file: artifacts/contracts/bridge/Bridge.sol/Bridge.json
       eventHandlers:
-        - event: Deposit(bytes32,indexed address,indexed uint256,bytes32,uint32,uint256)
+        - event: Deposit(indexed address,indexed uint256,bytes32,uint32,uint256)
           handler: handleDeposit
       file: ./scripts/mapping.ts
