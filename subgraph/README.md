@@ -10,8 +10,9 @@ npm run start-graph-node
 npx hardhat run --network localhost scripts/deploy.ts
 
 npm run compile-graph
-npx hardhat run --network localhost scripts/deposit.ts
-npx hardhat run --network localhost scripts/withdraw.ts
+npx hardhat mock-event deposit --network localhost
+npx hardhat mock-event withdraw --network localhost
+npx hardhat mock-event pay --network localhost
 
 npm run create-local
 npm run deploy-local

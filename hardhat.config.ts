@@ -2,6 +2,15 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-solhint";
 
+import { mockEvent } from "./scripts/mock_event";
+
+task("mock-event", "A sample task with params")
+  .addPositionalParam("action")
+  .setAction(async (taskArgs) => {
+    console.log(taskArgs);
+    await mockEvent(taskArgs.action);
+  });
+
 
 const config: HardhatUserConfig = {
   solidity: {

@@ -1,4 +1,4 @@
-type Deposit @entity {
+type BridgeTxn @entity {
   id: ID!
   type: Int!
   target: Bytes!
@@ -10,4 +10,12 @@ type Deposit @entity {
   withdrawId: BigInt!
   maxTxPrice: BigInt!
   receiver: String!
+}
+
+type PaidTxn @entity {
+  id: ID!
+  withdrawId: BigInt!
+  btcTxid: Bytes!
+  btcTxout: Int!
+  value: BigInt!
 }

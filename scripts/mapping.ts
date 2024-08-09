@@ -1,16 +1,9 @@
 import { BigInt, Bytes } from '@graphprotocol/graph-ts';
-import { Deposit,Withdraw } from '../generated/Bridge/Bridge'
-import { Deposit as DS } from '../generated/schema'
+import { Deposit, Withdraw, Paid } from '../generated/Bridge/Bridge'
+import { BridgeTxn, PaidTxn } from '../generated/schema'
 
 export function handleDeposit(event: Deposit): void {
-  let entity = new DS(event.transaction.hash.toHex())
-  /*
-  if (event.receipt) {
-    entity.status = event.receipt!.status;
-  } else {
-    entity.status = BigInt.zero();
-  }
-    */
+  let entity = new BridgeTxn(event.transaction.hash.toHex())
   entity.type = 0; 
   entity.timestamp = event.block.timestamp
   entity.target = event.params.target
@@ -27,14 +20,7 @@ export function handleDeposit(event: Deposit): void {
 }
 
 export function handleWithdrawal(event: Withdraw): void {
-  let entity = new DS(event.transaction.hash.toHex())
-  /*
-  if (event.receipt) {
-    entity.status = event.receipt!.status;
-  } else {
-    entity.status = BigInt.zero();
-  }
-    */
+  let entity = new BridgeTxn(event.transaction.hash.toHex())
   entity.type = 1; 
   entity.timestamp = event.block.timestamp
   entity.withdrawId = event.params.id
@@ -47,6 +33,15 @@ export function handleWithdrawal(event: Withdraw): void {
   entity.btcTxid = Bytes.empty();
   entity.btcTxout = 0; 
 
+  entity.save()
+}
+
+export function handlePaid(event: Paid): void {
+  let entity = new PaidTxn(event.transaction.hash.toHex())
+  entity.withdrawId = event.params.id
+  entity.btcTxid = event.params.txid;
+  entity.btcTxout = event.params.txout.toI32(); 
+  entity.value = event.params.value
 
   entity.save()
 }
