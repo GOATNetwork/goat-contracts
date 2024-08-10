@@ -14,7 +14,7 @@ export function handleDeposit(event: Deposit): void {
 
   entity.withdrawId = BigInt.zero();
   entity.maxTxPrice = BigInt.zero();
-  entity.receiver = ""; 
+  entity.receiver = "";
 
   entity.save()
 }
@@ -26,7 +26,7 @@ export function handleWithdrawal(event: Withdraw): void {
   entity.withdrawId = event.params.id
   entity.amount = event.params.amount
   entity.maxTxPrice = event.params.maxTxPrice
-  entity.receiver = event.params.reciever
+  entity.receiver = event.params.receiver
   entity.target = event.params.from
   entity.tax = event.params.tax
   
