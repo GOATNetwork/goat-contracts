@@ -17,7 +17,7 @@ library PreDeployedAddresses {
     address internal constant Bridge =
         0xBC10000000000000000000000000000000000003;
 
-    address internal constant Staking =
+    address internal constant Locking =
         0xbC10000000000000000000000000000000000004;
 
     address internal constant BitcoinBlocks =

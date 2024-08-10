@@ -150,7 +150,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     // withdraw initializes a new withdrawal request by a user
     // the _maxTxPrice is the max allowed tx price in sat/vbyte
     function withdraw(
-        string calldata _reciever,
+        string calldata _receiver,
         uint16 _maxTxPrice
     ) external payable override {
         uint256 amount = msg.value;
@@ -171,7 +171,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
             amount -= dust;
         }
 
-        require(isAddrValid(_reciever), "invalid address");
+        require(isAddrValid(_receiver), "invalid address");
         require(_maxTxPrice > 0, "invalid tx price");
         require(amount > _maxTxPrice * baseTxSize * satoshi, "unaffordable");
 
@@ -183,12 +183,12 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
                 tax: tax,
                 maxTxPrice: _maxTxPrice,
                 updatedAt: block.timestamp,
-                reciever: _reciever,
+                receiver: _receiver,
                 status: WithdrawalStatus.Pending
             })
         );
 
-        emit Withdraw(id, msg.sender, amount, tax, _maxTxPrice, _reciever);
+        emit Withdraw(id, msg.sender, amount, tax, _maxTxPrice, _receiver);
     }
 
     // replaceByFee updates the max tx price to speed-up the withdrawal
