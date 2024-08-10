@@ -16,7 +16,7 @@ interface IBridge {
         uint256 amount,
         uint256 tax,
         uint256 maxTxPrice,
-        string reciever
+        string receiver
     );
 
     event Canceling(uint256 indexed id);
@@ -50,7 +50,7 @@ interface IBridge {
         uint256 tax; // tax for goat foundation
         uint256 maxTxPrice;
         uint256 updatedAt;
-        string reciever;
+        string receiver;
         WithdrawalStatus status;
     }
 
@@ -74,7 +74,7 @@ interface IBridge {
     ) external;
 
     function withdraw(
-        string calldata reciever,
+        string calldata receiver,
         uint16 maxTxPrice
     ) external payable;
 
