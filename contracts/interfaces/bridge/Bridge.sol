@@ -29,8 +29,6 @@ interface IBridge {
 
     event Paid(uint256 indexed id, bytes32 txid, uint32 txout, uint256 value);
 
-    event Settlement(uint256 burnt, uint256 tax);
-
     enum WithdrawalStatus {
         Invalid,
         Pending,
@@ -71,7 +69,7 @@ interface IBridge {
         uint32 txout,
         address target,
         uint256 amount
-    ) external;
+    ) external returns (uint256);
 
     function withdraw(
         string calldata receiver,

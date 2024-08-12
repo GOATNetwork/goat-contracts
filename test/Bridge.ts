@@ -36,11 +36,6 @@ describe("Bridge", async () => {
       value: ethers.parseEther("10"),
     });
 
-    await payer.sendTransaction({
-      to: goatFoundation,
-      value: ethers.parseEther("10"),
-    });
-
     return {
       owner,
       others,
@@ -53,7 +48,7 @@ describe("Bridge", async () => {
 
   describe("network", async () => {
     it("config", async () => {
-      const { bridge, precompiled } = await loadFixture(fixture);
+      const { bridge } = await loadFixture(fixture);
       expect(await bridge.bech32HRP()).eq("bc", "bech32HRP");
       expect(await bridge.networkName()).eq("mainnet", "networkName");
       const { pubKeyHashAddrID, scriptHashAddrID } =
@@ -126,7 +121,10 @@ describe("Bridge", async () => {
       const { bridge, owner, relayer, goatFoundation } =
         await loadFixture(fixture);
 
-      await bridge.connect(goatFoundation).setDepositTax(1, 10);
+      await setNextBlockBaseFeePerGas(0);
+      await bridge
+        .connect(goatFoundation)
+        .setDepositTax(1, 10, { gasPrice: 0 });
 
       expect(
         await bridge.isDeposited(tx2.id, tx2.txout),
@@ -152,10 +150,12 @@ describe("Bridge", async () => {
 
   describe("withdraw", async () => {
     it("invalid", async () => {
-      const { bridge, precompiled, goatFoundation } =
-        await loadFixture(fixture);
+      const { bridge, goatFoundation } = await loadFixture(fixture);
 
-      await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
+      await setNextBlockBaseFeePerGas(0);
+      await bridge
+        .connect(goatFoundation)
+        .setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const amount = BigInt(1e10);
       const txPrice = 1n;
@@ -174,8 +174,7 @@ describe("Bridge", async () => {
     });
 
     it("default tax", async () => {
-      const { bridge, owner, precompiled, relayer } =
-        await loadFixture(fixture);
+      const { bridge, owner, relayer } = await loadFixture(fixture);
 
       const param = await bridge.param();
       expect(param.withdrawalTaxBP).eq(20n);
@@ -237,9 +236,7 @@ describe("Bridge", async () => {
         const paid = amount - tax - txfee;
         expect(await bridge.connect(relayer).paid(wid, txid, txout, paid))
           .emit(bridge, "Paid")
-          .withArgs(wid, txid, txout, paid)
-          .and.emit(bridge, "Settlement")
-          .withArgs(amount, tax);
+          .withArgs(wid, txid, txout, paid);
 
         const withdrawal = await bridge.withdrawals(wid);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
@@ -250,14 +247,26 @@ describe("Bridge", async () => {
         expect(receipt.txid).eq(txid);
         expect(receipt.txout).eq(txout);
         expect(receipt.received).eq(paid);
+
+        expect(
+          await ethers.provider.getBalance(await bridge.getAddress()),
+          "bridge balance",
+        ).eq(0);
+
+        expect(
+          await ethers.provider.getBalance(PredployedAddress.goatFoundation),
+          "gf balance",
+        ).eq(tax);
       }
     });
 
     it("no tax", async () => {
-      const { bridge, owner, precompiled, goatFoundation } =
-        await loadFixture(fixture);
+      const { bridge, owner, goatFoundation } = await loadFixture(fixture);
 
-      await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
+      await setNextBlockBaseFeePerGas(0);
+      await bridge
+        .connect(goatFoundation)
+        .setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const amount = BigInt(1e18);
       const txPrice = 1n;
@@ -276,10 +285,12 @@ describe("Bridge", async () => {
     });
 
     it("no tax but dust", async () => {
-      const { bridge, owner, precompiled, goatFoundation } =
-        await loadFixture(fixture);
+      const { bridge, owner, goatFoundation } = await loadFixture(fixture);
 
-      await bridge.connect(goatFoundation).setWithdrawalTax(0, 0);
+      await setNextBlockBaseFeePerGas(0);
+      await bridge
+        .connect(goatFoundation)
+        .setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const dust = 100n;
       const amount = BigInt(1e18) + dust;
@@ -299,8 +310,7 @@ describe("Bridge", async () => {
     });
 
     it("cancel", async () => {
-      const { bridge, owner, others, precompiled, relayer, goatFoundation } =
-        await loadFixture(fixture);
+      const { bridge, owner, others, relayer } = await loadFixture(fixture);
 
       const param = await bridge.param();
 

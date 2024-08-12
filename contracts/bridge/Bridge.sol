@@ -5,6 +5,7 @@ import {Network} from "../library/constants/Network.sol";
 import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 import {Executor} from "../library/constants/Executor.sol";
+import {Burner} from "../library/utils/Burner.sol";
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
@@ -111,34 +112,46 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         return false;
     }
 
-    // deposit adds balance to the target address
-    // goat performs the adding outside EVM to prevent any errors
-    // Note: txid uses big endian
+    /**
+     * deposit adds balance to the target address
+     * goat performs the adding outside EVM to prevent any errors
+     * @param _txid the txid(LE)
+     * @param _txout the txout
+     * @param _target the depoist address
+     * @param _amount the deposit amount
+     */
     function deposit(
         bytes32 _txid,
         uint32 _txout,
         address _target,
         uint256 _amount
-    ) external override OnlyRelayer {
+    ) external override OnlyRelayer returns (uint256 tax) {
         bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
         require(!deposits[depositHash], "duplicated");
 
         require(_amount > 0 && _amount % satoshi == 0, "invalid amount");
-        uint256 tax = 0;
-        if (param.depositTaxBP > 0) {
-            tax = (_amount * param.depositTaxBP) / maxBasePoints;
-            if (tax > param.maxDepositTax) {
-                tax = param.maxDepositTax;
+
+        Param memory p = param;
+        if (p.depositTaxBP > 0) {
+            tax = (_amount * p.depositTaxBP) / maxBasePoints;
+            if (tax > p.maxDepositTax) {
+                tax = p.maxDepositTax;
             }
             _amount -= tax;
         }
 
         deposits[depositHash] = true;
         emit Deposit(_target, _amount, _txid, _txout, tax);
+
         // Add balance to the _target and pay the tax to GF in the runtime
+        return tax;
     }
 
-    // Note: txid uses big endian
+    /**
+     * isDeposited checks if the deposit is succeed
+     * @param _txid the txid(LE)
+     * @param _txout the txout index
+     */
     function isDeposited(
         bytes32 _txid,
         uint32 _txout
@@ -147,8 +160,11 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         return deposits[depositHash];
     }
 
-    // withdraw initializes a new withdrawal request by a user
-    // the _maxTxPrice is the max allowed tx price in sat/vbyte
+    /**
+     * withdraw initializes a new withdrawal request by a user
+     * @param _receiver the address to withdraw
+     * @param _maxTxPrice the max allowed tx price in sat/vbyte
+     */
     function withdraw(
         string calldata _receiver,
         uint16 _maxTxPrice
@@ -156,10 +172,11 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         uint256 amount = msg.value;
         uint256 tax = 0;
 
-        if (param.withdrawalTaxBP > 0) {
-            tax = (amount * param.withdrawalTaxBP) / maxBasePoints;
-            if (tax > param.maxWithdrawalTax) {
-                tax = param.maxWithdrawalTax;
+        Param memory p = param;
+        if (p.withdrawalTaxBP > 0) {
+            tax = (amount * p.withdrawalTaxBP) / maxBasePoints;
+            if (tax > p.maxWithdrawalTax) {
+                tax = p.maxWithdrawalTax;
             }
             amount -= tax;
         }
@@ -191,7 +208,11 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         emit Withdraw(id, msg.sender, amount, tax, _maxTxPrice, _receiver);
     }
 
-    // replaceByFee updates the max tx price to speed-up the withdrawal
+    /**
+     * replaceByFee updates the withdrawal tx price
+     * @param _wid the withdrwal id
+     * @param _maxTxPrice the new max tx price
+     */
     function replaceByFee(
         uint256 _wid,
         uint16 _maxTxPrice
@@ -226,7 +247,10 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         emit RBF(_wid, _maxTxPrice);
     }
 
-    // cancel1 cancels the withdrawal by origin user
+    /**
+     * cancel1 cancels the withdrawal by origin user
+     * @param _wid the withdrawal id
+     */
     function cancel1(uint256 _wid) external {
         Withdrawal storage withdrawal = withdrawals[_wid];
 
@@ -247,17 +271,28 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         emit Canceling(_wid);
     }
 
-    // cancel2 apporves the cancellation request by relayer
-    // the cancellation won't be approved if the withdrawal is paid
+    /**
+     * cancel2 apporves the cancellation request by relayer
+     * relayer can pay the withdrawal to disregard the cancellation request
+     * relayer can reject a pending withdrawal as well
+     * @param _wid the withdrwal id
+     */
     function cancel2(uint256 _wid) external OnlyRelayer {
         Withdrawal storage withdrawal = withdrawals[_wid];
-        require(withdrawal.status == WithdrawalStatus.Canceling);
+        WithdrawalStatus status = withdrawal.status;
+        require(
+            status == WithdrawalStatus.Pending ||
+                status == WithdrawalStatus.Canceling
+        );
         withdrawal.status = WithdrawalStatus.Canceled;
         withdrawal.updatedAt = block.timestamp;
         emit Canceled(_wid);
     }
 
-    // refund refunds the amount in the canceled withdrawal to the origin user
+    /**
+     * refund refunds the amount of the canceled withdrawal to the origin user
+     * @param _wid the withdrwal id
+     */
     function refund(uint256 _wid) external {
         Withdrawal storage withdrawal = withdrawals[_wid];
 
@@ -277,8 +312,13 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         emit Refund(_wid);
     }
 
-    // paid finalizes the withdrawal request and burns the withdrawal amount from network
-    // Note: txid uses big endian
+    /**
+     * paid finalizes the withdrawal request and burns the withdrawal amount from network
+     * @param _wid withdrawal id
+     * @param _txid the withdrawal txid(little endian)
+     * @param _txout the tx output index
+     * @param _received the actul paid amount
+     */
     function paid(
         uint256 _wid,
         bytes32 _txid,
@@ -297,11 +337,14 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         withdrawal.status = WithdrawalStatus.Paid;
         withdrawal.updatedAt = block.timestamp;
 
+        // send the tax to GF
         uint256 tax = withdrawal.tax;
-        uint256 burn = tax + withdrawal.amount;
+        if (tax > 0) {
+            PreDeployedAddresses.GoatFoundation.sendValue(tax);
+        }
 
-        // burn the withdrawal value and pay tax to GF in the runtime
-        emit Settlement(burn, tax);
+        // Burn the withdrawal amount from network
+        new Burner{value: withdrawal.amount, salt: bytes32(0x0)}();
 
         emit Paid(_wid, _txid, _txout, _received);
     }
