@@ -3,21 +3,19 @@ import { print, JsonrpcClient } from "./jsonrpc";
 
 task("btc:getblockhash")
   .addParam("rpc", "rpc endpoint", "http://localhost:8332")
-  .addParam("height", "block height", undefined, types.int)
-  .addOptionalParam("littleEndian", "", false, types.boolean)
   .addOptionalParam("user", "", "test")
   .addOptionalParam("pass", "", "test")
+  .addParam("height", "block height", undefined, types.int)
+  .addOptionalParam("canonical", "little endian format", true, types.boolean)
   .setAction(async (args, _) => {
     const client = new JsonrpcClient(args["rpc"], args["user"], args["pass"]);
 
-    const hash = await client.call<string>(
+    let hash = await client.call<string>(
       "getblockhash",
       Number(args["height"]),
     );
-    if (args["littleEndian"]) {
-      return console.log(
-        "0x" + Buffer.from(hash, "hex").reverse().toString("hex"),
-      );
+    if (args["canonical"]) {
+      hash = Buffer.from(hash, "hex").reverse().toString("hex");
     }
     return console.log("0x" + hash);
   });
