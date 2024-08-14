@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-import {Network} from "../library/constants/Network.sol";
 import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 import {Executor} from "../library/constants/Executor.sol";
