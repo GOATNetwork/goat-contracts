@@ -18,7 +18,10 @@
     "lint": "hardhat check",
     "compile": "hardhat compile",
     "build": "hardhat compile",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "pregenesis": "docker compose up -d --wait",
+    "genesis": "hardhat compile && hardhat create:genesis --network genesis",
+    "postgenesis": "docker compose down"
   },
   "prettier": {
     "trailingComma": "all"

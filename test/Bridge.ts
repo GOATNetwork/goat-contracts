@@ -23,7 +23,9 @@ describe("Bridge", async () => {
 
     const bridgeFactory = await ethers.getContractFactory("Bridge");
 
-    const bridge: Bridge = await bridgeFactory.deploy();
+    const bridge: Bridge = await bridgeFactory.deploy(
+      "0x0005026263076d61696e6e657400000000000000000000000000000000000000",
+    );
 
     const mock = await artifacts.readArtifact("AddressMock");
     await setCode(btcAddressVerifier, mock.deployedBytecode);

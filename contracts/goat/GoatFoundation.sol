@@ -19,7 +19,7 @@ contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
 
     // It's for testing only
     // the owner can be DAO or a Safe wallet
-    constructor() Ownable(msg.sender) {}
+    constructor(address owner) Ownable(owner) {}
 
     function transfer(
         address payable _to,
