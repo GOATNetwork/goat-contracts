@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-import {Network} from "../library/constants/Network.sol";
 import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 import {Executor} from "../library/constants/Executor.sol";
@@ -18,7 +17,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     using Address for address payable;
 
     // the network config
-    bytes32 internal network;
+    bytes32 internal immutable network;
 
     Param public param;
 
@@ -53,8 +52,8 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     uint256 internal constant maxBasePoints = 1e4;
 
     // It is only for testing
-    constructor() {
-        network = Network.Mainnet;
+    constructor(bytes32 _network) {
+        network = _network;
         param = Param({
             rateLimit: 300,
             depositTaxBP: 0,
@@ -97,6 +96,11 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     function isAddrValid(
         string calldata _addr
     ) public view override returns (bool) {
+        bytes memory addrBytes = bytes(_addr);
+        if (addrBytes.length < 34 || addrBytes.length > 90) {
+            return false;
+        }
+
         bytes memory config = new bytes(3 + uint8(network[2]));
         for (uint8 i = 0; i < config.length; i++) {
             config[i] = network[i];
@@ -104,7 +108,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
 
         (bool success, bytes memory data) = PreCompiledAddresses
             .BtcAddrVerifierV0
-            .staticcall(abi.encodePacked(config, _addr));
+            .staticcall(abi.encodePacked(config, addrBytes));
 
         if (success && data.length > 0) {
             return data[0] == 0x01;

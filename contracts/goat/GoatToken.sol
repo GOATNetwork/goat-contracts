@@ -7,7 +7,7 @@ import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20P
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract Goat is ERC20Permit, ERC20Burnable, Ownable {
+contract GoatToken is ERC20Permit, ERC20Burnable, Ownable {
     constructor()
         ERC20("GOAT", "GOAT")
         Ownable(msg.sender)

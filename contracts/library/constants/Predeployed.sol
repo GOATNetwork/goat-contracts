@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 library PreDeployedAddresses {
-    address internal constant WrappedBitcoin =
+    address internal constant WrappedGoatBitcoin =
         0xbC10000000000000000000000000000000000000;
 
     address internal constant GoatDAO =
