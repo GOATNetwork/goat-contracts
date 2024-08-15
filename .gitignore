@@ -13,11 +13,9 @@ node_modules
 /coverage
 /coverage.json
 
-# Hardhat Ignition default folder for deployments against a local node
-ignition/deployments/chain-31337
-
 tmp/
 
 ignition/deployments/
-ignition/genesis/regtest.json
 ignition/regtest.json
+ignition/genesis/regtest.json
+

@@ -2,8 +2,8 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-solhint";
 
-import "./task/bitcoin";
 import "./task/genesis";
+import "./task/bitcoin";
 
 const config: HardhatUserConfig = {
   solidity: {

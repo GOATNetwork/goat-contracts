@@ -1,5 +1,3 @@
-import { inspect } from "node:util";
-
 export interface IJsonRpcRequst {
   id: string | number;
   jsonrpc: string;
@@ -52,14 +50,4 @@ export class JsonrpcClient {
     }
     return body.result;
   }
-}
-
-export function print(data: any) {
-  console.log(
-    inspect(data, {
-      showHidden: false,
-      depth: null,
-      colors: true,
-    }),
-  );
 }
