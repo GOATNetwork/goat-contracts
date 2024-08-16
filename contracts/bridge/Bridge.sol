@@ -318,10 +318,11 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
 
     /**
      * paid finalizes the withdrawal request and burns the withdrawal amount from network
+     * It aslo transfers the tax to GF address if the tax is enabled
      * @param _wid withdrawal id
      * @param _txid the withdrawal txid(little endian)
      * @param _txout the tx output index
-     * @param _received the actul paid amount
+     * @param _received the actual paid amount
      */
     function paid(
         uint256 _wid,

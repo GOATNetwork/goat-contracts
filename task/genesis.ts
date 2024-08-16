@@ -36,18 +36,17 @@ task("create:genesis")
     try {
       await fs.access(outputFile, fs.constants.R_OK);
       if (!args["force"]) {
-        throw new Error("genesis has created");
+        return console.log("genesis has created");
       }
     } catch {}
 
-    const [signer] = await hre.ethers.getSigners();
-
-    const jsonrpc = new JsonrpcClient(args["rpc"]);
-    const [coinbase] = await jsonrpc.call<string[]>("eth_accounts");
-
+    console.log("Adding fee from coinbase");
     {
-      console.log("Adding fee from coinbase");
-      // the eth_sendTransaction is hijacked by hardhat
+      // the eth_sendTransaction and eth_accounts are hijacked by hardhat
+
+      const [signer] = await hre.ethers.getSigners();
+      const jsonrpc = new JsonrpcClient(args["rpc"]);
+      const [coinbase] = await jsonrpc.call<string[]>("eth_accounts");
       const txid = await jsonrpc.call<string>("eth_sendTransaction", {
         from: coinbase,
         to: signer.address,
