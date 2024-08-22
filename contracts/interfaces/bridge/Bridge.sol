@@ -76,7 +76,7 @@ interface IBridge {
         uint16 maxTxPrice
     ) external payable;
 
-    function replaceByFee(uint256 id, uint16 maxTxPrice) external payable;
+    function replaceByFee(uint256 id, uint16 maxTxPrice) external;
 
     function cancel1(uint256 id) external;
 

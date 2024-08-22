@@ -217,10 +217,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
      * @param _wid the withdrwal id
      * @param _maxTxPrice the new max tx price
      */
-    function replaceByFee(
-        uint256 _wid,
-        uint16 _maxTxPrice
-    ) external payable override {
+    function replaceByFee(uint256 _wid, uint16 _maxTxPrice) external override {
         Withdrawal storage withdrawal = withdrawals[_wid];
 
         if (withdrawal.status != WithdrawalStatus.Pending) {
