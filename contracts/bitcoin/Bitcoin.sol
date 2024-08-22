@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Executor} from "../library/constants/Executor.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 
 import {IBitcoinBlock} from "../interfaces/bitcoin/Block.sol";
