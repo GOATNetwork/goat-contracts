@@ -1,6 +1,4 @@
-export const PrecompiledAddress = {
-  addrVerifier: "0x00000000000000000000000000000000C0dec000",
-};
+export const PrecompiledAddress = {};
 
 export const PredployedAddress = {
   goatDao: "0xBC10000000000000000000000000000000000Da0",

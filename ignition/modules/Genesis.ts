@@ -6,13 +6,14 @@ export default buildModule("Genesis", (m) => {
     m.getParameter("goat.owner"),
   ]);
 
-  const btcBlock = m.contract("BitcoinBlock", [
+  const btcBlock = m.contract("Bitcoin", [
     m.getParameter("btc.height"),
     m.getParameter("btc.hash"),
+    m.getParameter("btc.network"),
   ]);
 
   const wgbtc = m.contract("WrappedGoatBitcoin");
-  const bridge = m.contract("Bridge", [m.getParameter("btc.network")]);
+  const bridge = m.contract("Bridge");
 
   return { goatToken, goatFoundation, btcBlock, wgbtc, bridge };
 });

@@ -3,8 +3,6 @@
 pragma solidity ^0.8.24;
 
 interface IBitcoinBlock {
-    error AccessDenied();
-
     event NewBlockHash(uint256 height);
 
     function startHeight() external view returns (uint256);

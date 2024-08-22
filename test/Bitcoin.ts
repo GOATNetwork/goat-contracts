@@ -5,7 +5,7 @@ import {
   loadFixture,
   impersonateAccount,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { BitcoinBlock } from "../typechain-types";
+import { Bitcoin } from "../typechain-types";
 
 describe("Bitcoin", async () => {
   const blockHash100 =
@@ -19,9 +19,13 @@ describe("Bitcoin", async () => {
   async function fixture() {
     const [owner, payer, ...others] = await ethers.getSigners();
 
-    const factory = await ethers.getContractFactory("BitcoinBlock");
+    const factory = await ethers.getContractFactory("Bitcoin");
 
-    const bitcoin: BitcoinBlock = await factory.deploy(100, blockHash100);
+    const bitcoin: Bitcoin = await factory.deploy(
+      100,
+      blockHash100,
+      "0x0005026263076d61696e6e657400000000000000000000000000000000000000",
+    );
 
     await impersonateAccount(relayer);
 
@@ -45,6 +49,16 @@ describe("Bitcoin", async () => {
       expect(await bitcoin.startHeight()).eq(100);
       expect(await bitcoin.latestHeight()).eq(100);
       expect(await bitcoin.blockHash(100)).eq(blockHash100);
+    });
+
+    it("network", async () => {
+      const { bitcoin } = await loadFixture(fixture);
+      expect(await bitcoin.bech32HRP()).eq("bc", "bech32HRP");
+      expect(await bitcoin.networkName()).eq("mainnet", "networkName");
+      const { pubKeyHashAddrID, scriptHashAddrID } =
+        await bitcoin.base58Prefix();
+      expect(pubKeyHashAddrID).eq("0x00");
+      expect(scriptHashAddrID).eq("0x05");
     });
 
     it("new", async () => {

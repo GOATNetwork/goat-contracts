@@ -16,7 +16,7 @@ interface IBridge {
         uint256 amount,
         uint256 tax,
         uint256 maxTxPrice,
-        string receiver
+        bytes receiver
     );
 
     event Canceling(uint256 indexed id);
@@ -38,8 +38,6 @@ interface IBridge {
         Paid
     }
 
-    error AccessDenied();
-    error Forbidden();
     error RateLimitExceeded();
 
     struct Withdrawal {
@@ -48,7 +46,7 @@ interface IBridge {
         uint256 tax; // tax for goat foundation
         uint256 maxTxPrice;
         uint256 updatedAt;
-        string receiver;
+        bytes receiver;
         WithdrawalStatus status;
     }
 
@@ -72,7 +70,7 @@ interface IBridge {
     ) external returns (uint256);
 
     function withdraw(
-        string calldata receiver,
+        bytes calldata receiver,
         uint16 maxTxPrice
     ) external payable;
 

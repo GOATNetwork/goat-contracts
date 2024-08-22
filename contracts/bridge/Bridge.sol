@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-import {PreCompiledAddresses} from "../library/constants/Precompiled.sol";
-import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
-import {Executor} from "../library/constants/Executor.sol";
 import {Burner} from "../library/utils/Burner.sol";
-
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {BitcoinAddress} from "../library/codec/address.sol";
+import {BaseAccess} from "../library/utils/BaseAccess.sol";
+import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 
 import {IBridge} from "../interfaces/bridge/Bridge.sol";
 import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
-import {IBridgeNetwork} from "../interfaces/bridge/BridgeNetwork.sol";
+
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
+contract Bridge is BaseAccess, IBridge, IBridgeParam, IERC165 {
     using Address for address payable;
+    using BitcoinAddress for bytes;
 
     // the network config
     bytes32 internal immutable network;
@@ -28,20 +28,6 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     // the withdrawal receipts
     mapping(uint256 id => Receipt receipt) public receipts;
 
-    modifier OnlyGoatFoundation() {
-        if (msg.sender != PreDeployedAddresses.GoatFoundation) {
-            revert AccessDenied();
-        }
-        _;
-    }
-
-    modifier OnlyRelayer() {
-        if (msg.sender != Executor.Relayer) {
-            revert AccessDenied();
-        }
-        _;
-    }
-
     // 1 satoshi = 10 gwei
     uint256 internal constant satoshi = 10 gwei;
 
@@ -52,8 +38,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
     uint256 internal constant maxBasePoints = 1e4;
 
     // It is only for testing
-    constructor(bytes32 _network) {
-        network = _network;
+    constructor() {
         param = Param({
             rateLimit: 300,
             depositTaxBP: 0,
@@ -63,57 +48,6 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
             _res1: 0,
             _res2: 0
         });
-    }
-
-    function base58Prefix()
-        public
-        view
-        returns (bytes1 pubKeyHashAddrID, bytes1 scriptHashAddrID)
-    {
-        pubKeyHashAddrID = network[0];
-        scriptHashAddrID = network[1];
-    }
-
-    function bech32HRP() public view override returns (string memory) {
-        uint8 hrpLen = uint8(network[2]);
-        bytes memory hrp = new bytes(hrpLen);
-        for (uint8 i = 0; i < hrpLen; i++) {
-            hrp[i] = network[i + 3];
-        }
-        return string(hrp);
-    }
-
-    function networkName() public view override returns (string memory) {
-        uint8 start = uint8(3) + uint8(network[2]);
-        uint8 nameLen = uint8(network[start]);
-        bytes memory name = new bytes(nameLen);
-        for (uint8 i = 0; i < nameLen; i++) {
-            name[i] = network[i + start + 1];
-        }
-        return string(name);
-    }
-
-    function isAddrValid(
-        string calldata _addr
-    ) public view override returns (bool) {
-        bytes memory addrBytes = bytes(_addr);
-        if (addrBytes.length < 34 || addrBytes.length > 90) {
-            return false;
-        }
-
-        bytes memory config = new bytes(3 + uint8(network[2]));
-        for (uint8 i = 0; i < config.length; i++) {
-            config[i] = network[i];
-        }
-
-        (bool success, bytes memory data) = PreCompiledAddresses
-            .BtcAddrVerifierV0
-            .staticcall(abi.encodePacked(config, addrBytes));
-
-        if (success && data.length > 0) {
-            return data[0] == 0x01;
-        }
-        return false;
     }
 
     /**
@@ -170,7 +104,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
      * @param _maxTxPrice the max allowed tx price in sat/vbyte
      */
     function withdraw(
-        string calldata _receiver,
+        bytes calldata _receiver,
         uint16 _maxTxPrice
     ) external payable override {
         uint256 amount = msg.value;
@@ -192,7 +126,7 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
             amount -= dust;
         }
 
-        require(isAddrValid(_receiver), "invalid address");
+        require(_receiver.isValidAddress(), "invalid address");
         require(_maxTxPrice > 0, "invalid tx price");
         require(amount > _maxTxPrice * baseTxSize * satoshi, "unaffordable");
 
@@ -405,7 +339,6 @@ contract Bridge is IBridge, IBridgeParam, IBridgeNetwork, IERC165 {
         return
             id == type(IERC165).interfaceId ||
             id == type(IBridge).interfaceId ||
-            id == type(IBridgeNetwork).interfaceId ||
             id == type(IBridgeParam).interfaceId;
     }
 }
