@@ -1,9 +1,8 @@
 import { ethers, artifacts } from "hardhat";
 import { expect } from "chai";
-import { Executors, PrecompiledAddress, PredployedAddress } from "./constant";
+import { Executors, PredployedAddress } from "./constant";
 import {
   loadFixture,
-  setCode,
   impersonateAccount,
   time as timeHelper,
   setNextBlockBaseFeePerGas,
@@ -11,9 +10,8 @@ import {
 import { Bridge } from "../typechain-types";
 
 describe("Bridge", async () => {
-  const btcAddressVerifier = PrecompiledAddress.addrVerifier;
-  const addr1 = "bc1qmvs208we3jg7hgczhlh7e9ufw034kfm2vwsvge";
-  const addr2 = "tb1q23j89ml57f6tuascjflw6qevwh5pmcpzrlqwxx";
+  const addr1 = "0x022f0d3defddbfcdce9ec607c28e300fc891082d45";
+  const addr2 = "0x80549d88a35c3435c5c42d1e";
 
   const relayer = Executors.relayer;
   const goatFoundation = PredployedAddress.goatFoundation;
@@ -23,12 +21,7 @@ describe("Bridge", async () => {
 
     const bridgeFactory = await ethers.getContractFactory("Bridge");
 
-    const bridge: Bridge = await bridgeFactory.deploy(
-      "0x0005026263076d61696e6e657400000000000000000000000000000000000000",
-    );
-
-    const mock = await artifacts.readArtifact("AddressMock");
-    await setCode(btcAddressVerifier, mock.deployedBytecode);
+    const bridge: Bridge = await bridgeFactory.deploy();
 
     await impersonateAccount(relayer);
     await impersonateAccount(goatFoundation);
@@ -42,27 +35,10 @@ describe("Bridge", async () => {
       owner,
       others,
       bridge,
-      precompiled: mock.deployedBytecode,
       relayer: await ethers.getSigner(relayer),
       goatFoundation: await ethers.getSigner(goatFoundation),
     };
   }
-
-  describe("network", async () => {
-    it("config", async () => {
-      const { bridge } = await loadFixture(fixture);
-      expect(await bridge.bech32HRP()).eq("bc", "bech32HRP");
-      expect(await bridge.networkName()).eq("mainnet", "networkName");
-      const { pubKeyHashAddrID, scriptHashAddrID } =
-        await bridge.base58Prefix();
-      expect(pubKeyHashAddrID).eq("0x00");
-      expect(scriptHashAddrID).eq("0x05");
-
-      // check mocks
-      expect(await bridge.isAddrValid(addr1)).to.be.true;
-      expect(await bridge.isAddrValid(addr2)).to.be.false;
-    });
-  });
 
   describe("deposit", async () => {
     const tx1 = {
