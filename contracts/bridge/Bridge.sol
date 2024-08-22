@@ -16,9 +16,6 @@ contract Bridge is BaseAccess, IBridge, IBridgeParam, IERC165 {
     using Address for address payable;
     using BitcoinAddress for bytes;
 
-    // the network config
-    bytes32 internal immutable network;
-
     Param public param;
 
     mapping(bytes32 txh => bool yes) internal deposits;
