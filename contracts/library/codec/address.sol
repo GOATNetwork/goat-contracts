@@ -10,11 +10,11 @@ pragma solidity ^0.8.24;
  */
 
 library BitcoinAddress {
-    uint8 public constant TypePubkeyHash = 0;
-    uint8 public constant TypeScriptHash = 1;
-    uint8 public constant TypeWitnessPubkeyHash = 2;
-    uint8 public constant TypeWitnessScriptHash = 3;
-    uint8 public constant TypeTaproot = 4;
+    uint8 internal constant TypePubkeyHash = 0;
+    uint8 internal constant TypeScriptHash = 1;
+    uint8 internal constant TypeWitnessPubkeyHash = 2;
+    uint8 internal constant TypeWitnessScriptHash = 3;
+    uint8 internal constant TypeTaproot = 4;
 
     function isValidAddress(bytes calldata _addr) internal pure returns (bool) {
         if (_addr.length < 21) {
