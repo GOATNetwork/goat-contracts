@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/ethereum/go-ethereum/core"
@@ -38,7 +39,6 @@ func main() {
 
 	block := genesis.MustCommit(db, triedb)
 
-	print := json.NewEncoder(os.Stdout)
-	print.SetIndent(" ", " ")
-	_ = print.Encode(block.Header())
+	header, _ := json.MarshalIndent(block.Header(), "", " ")
+	fmt.Fprintf(os.Stdout, "%s\n", header)
 }
