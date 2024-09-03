@@ -4,7 +4,7 @@
   "author": "Goat Foundation",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@nomiclabs/hardhat-solhint": "^4.0.0",
+    "@nomiclabs/hardhat-solhint": "^4.0.1",
     "hardhat": "^2.22.10",
     "prettier": "^3.3.3",
     "prettier-plugin-solidity": "^1.4.1"
