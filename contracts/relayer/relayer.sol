@@ -56,10 +56,11 @@ contract Relayer is Ownable, IRelayer {
     function removeVoter(bytes20 voter, uint16 thrs) external onlyOwner {
         require(voters[voter], "voter not found");
         require(total > 1, "too few voters");
+        // we don't delete the pubkey, it cant be reused next time
         voters[voter] = false;
         total--;
         require(thrs > 0 && thrs <= total, "invalid threshold");
-        emit RemoveVoter(voter, thrs);
+        emit RemovedVoter(voter, thrs);
     }
 
     /**
