@@ -9,8 +9,7 @@ contract Relayer is Ownable, IRelayer {
     uint16 public constant MAX_VOTER_COUNT = 256;
 
     uint16 public total;
-
-    mapping(bytes32 vtkh => bool exists) pubkeys;
+    mapping(bytes32 vtkh => bool exists) public pubkeys;
     mapping(bytes20 voter => bool exists) public voters;
 
     constructor(address owner) Ownable(owner) {}

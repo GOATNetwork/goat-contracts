@@ -22,4 +22,7 @@ library PreDeployedAddresses {
 
     address internal constant BitcoinBlocks =
         0xbc10000000000000000000000000000000000005;
+
+    address internal constant Relayer =
+        0xBC10000000000000000000000000000000000006;
 }
