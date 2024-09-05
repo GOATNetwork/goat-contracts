@@ -5,6 +5,7 @@ import {Burner} from "../library/utils/Burner.sol";
 import {BitcoinAddress} from "../library/codec/address.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IBridge} from "../interfaces/bridge/Bridge.sol";
 import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
@@ -12,7 +13,7 @@ import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Bridge is BaseAccess, IBridge, IBridgeParam, IERC165 {
+contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
     using Address for address payable;
     using BitcoinAddress for bytes;
 
@@ -35,7 +36,7 @@ contract Bridge is BaseAccess, IBridge, IBridgeParam, IERC165 {
     uint256 internal constant maxBasePoints = 1e4;
 
     // It is only for testing
-    constructor() {
+    constructor(address owner) Ownable(owner) {
         param = Param({
             rateLimit: 300,
             depositTaxBP: 0,
@@ -285,7 +286,7 @@ contract Bridge is BaseAccess, IBridge, IBridgeParam, IERC165 {
     function setDepositTax(
         uint16 _bp,
         uint64 _max
-    ) external override OnlyGoatFoundation {
+    ) external override onlyOwner {
         if (_bp > maxBasePoints) {
             revert TaxTooHigh();
         }
@@ -306,7 +307,7 @@ contract Bridge is BaseAccess, IBridge, IBridgeParam, IERC165 {
     function setWithdrawalTax(
         uint16 _bp,
         uint64 _max
-    ) external override OnlyGoatFoundation {
+    ) external override onlyOwner {
         if (_bp > maxBasePoints) {
             revert TaxTooHigh();
         }
@@ -324,7 +325,7 @@ contract Bridge is BaseAccess, IBridge, IBridgeParam, IERC165 {
         emit WithdrawalTaxUpdated(_bp, _max);
     }
 
-    function setRateLimit(uint16 _sec) external override OnlyGoatFoundation {
+    function setRateLimit(uint16 _sec) external override onlyOwner {
         require(_sec > 0, "invalid throttle setting");
         param.rateLimit = _sec;
         emit RateLimitUpdated(_sec);
