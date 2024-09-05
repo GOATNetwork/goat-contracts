@@ -4,17 +4,17 @@ import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { Executors } from "./constant";
 
 describe("GoatFoundation", async () => {
-    const receiver = "0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf"
+    const receiver = "0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf";
 
     async function fixture() {
         const [owner, ...others] = await ethers.getSigners();
         const factory = await ethers.getContractFactory("GoatFoundation");
         const goatfdn = await factory.deploy(owner);
 
-        const tokenFactory = await ethers.getContractFactory("TestToken")
-        const testToken = await tokenFactory.deploy()
+        const tokenFactory = await ethers.getContractFactory("TestToken");
+        const testToken = await tokenFactory.deploy();
 
-        await ethers.getContractFactory("GoatToken")
+        await ethers.getContractFactory("GoatToken");
         return {
             owner,
             others,
@@ -24,62 +24,73 @@ describe("GoatFoundation", async () => {
     }
 
     it("transfer", async () => {
-        const { owner, goatfdn, others } = await loadFixture(fixture)
-        expect(await owner.sendTransaction({
-            to: await goatfdn.getAddress(),
-            value: ethers.parseEther("10"),
-        })).emit(goatfdn, "Donate").withArgs(owner.address, ethers.parseEther("10"))
+        const { owner, goatfdn, others } = await loadFixture(fixture);
+        expect(
+            await owner.sendTransaction({
+                to: await goatfdn.getAddress(),
+                value: ethers.parseEther("10"),
+            }),
+        )
+            .emit(goatfdn, "Donate")
+            .withArgs(owner.address, ethers.parseEther("10"));
 
-        const amount = 1n
-        await expect(goatfdn.connect(others[0]).transfer(others[0], amount))
-            .revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount")
-        expect(await goatfdn.transfer(receiver, amount)).emit(goatfdn, "Transfer").withArgs(receiver, amount)
-        expect(await ethers.provider.getBalance(receiver)).eq(amount)
-    })
+        const amount = 1n;
+        await expect(
+            goatfdn.connect(others[0]).transfer(others[0], amount),
+        ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
+        expect(await goatfdn.transfer(receiver, amount))
+            .emit(goatfdn, "Transfer")
+            .withArgs(receiver, amount);
+        expect(await ethers.provider.getBalance(receiver)).eq(amount);
+    });
 
     it("transfer token", async () => {
-        const { goatfdn, others, testToken } = await loadFixture(fixture)
+        const { goatfdn, others, testToken } = await loadFixture(fixture);
 
-        await testToken.mint(goatfdn, ethers.parseEther("10"))
+        await testToken.mint(goatfdn, ethers.parseEther("10"));
 
-        const amount = 1n
-        await expect(goatfdn.connect(others[0]).transferERC20(testToken, receiver, amount))
-            .revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount")
+        const amount = 1n;
+        await expect(
+            goatfdn.connect(others[0]).transferERC20(testToken, receiver, amount),
+        ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
 
         expect(await goatfdn.transferERC20(testToken, receiver, amount))
-            .emit(testToken, "Transfer").withArgs(goatfdn, receiver, amount)
-        expect(await testToken.balanceOf(receiver)).eq(amount)
-    })
+            .emit(testToken, "Transfer")
+            .withArgs(goatfdn, receiver, amount);
+        expect(await testToken.balanceOf(receiver)).eq(amount);
+    });
 
     it("invoke", async () => {
-        const { owner, goatfdn, others, testToken } = await loadFixture(fixture)
+        const { owner, goatfdn, others, testToken } = await loadFixture(fixture);
 
-        const number = 100n
-        const calldata = testToken.interface.encodeFunctionData("setNumber", [number])
+        const number = 100n;
+        const calldata = testToken.interface.encodeFunctionData("setNumber", [
+            number,
+        ]);
 
-        await expect(goatfdn.invoke(owner, calldata, 0)).revertedWith("!owner")
+        await expect(goatfdn.invoke(owner, calldata, 0)).revertedWith("!owner");
 
-        await expect(goatfdn.connect(others[0]).invoke(testToken, calldata, 0))
-            .revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount")
+        await expect(
+            goatfdn.connect(others[0]).invoke(testToken, calldata, 0),
+        ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
 
         await expect(goatfdn.invoke(others[0], calldata, 0))
-            .revertedWithCustomError(goatfdn, "AddressEmptyCode").withArgs(others[0])
+            .revertedWithCustomError(goatfdn, "AddressEmptyCode")
+            .withArgs(others[0]);
 
-        const amount = 1n
+        const amount = 1n;
 
-
-
-        await goatfdn.invoke(testToken, calldata, amount, { value: amount })
+        await goatfdn.invoke(testToken, calldata, amount, { value: amount });
 
         await owner.sendTransaction({
             to: await goatfdn.getAddress(),
             value: amount,
-        })
+        });
 
-        await goatfdn.invoke(testToken, calldata, amount)
-        expect(await testToken.num()).eq(number)
+        await goatfdn.invoke(testToken, calldata, amount);
+        expect(await testToken.num()).eq(number);
 
-        expect(await ethers.provider.getBalance(goatfdn)).eq(0n)
-        expect(await ethers.provider.getBalance(testToken)).eq(amount * 2n)
-    })
-})
+        expect(await ethers.provider.getBalance(goatfdn)).eq(0n);
+        expect(await ethers.provider.getBalance(testToken)).eq(amount * 2n);
+    });
+});

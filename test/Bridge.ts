@@ -93,12 +93,10 @@ describe("Bridge", async () => {
         tax: 10n,
       };
 
-      const { bridge, owner, relayer } =
-        await loadFixture(fixture);
+      const { bridge, owner, relayer } = await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
-      await bridge
-        .setDepositTax(1, 10, { gasPrice: 0 });
+      await bridge.setDepositTax(1, 10, { gasPrice: 0 });
 
       expect(
         await bridge.isDeposited(tx2.id, tx2.txout),
@@ -127,8 +125,7 @@ describe("Bridge", async () => {
       const { bridge } = await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
-      await bridge
-        .setWithdrawalTax(0, 0, { gasPrice: 0 });
+      await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const amount = BigInt(1e10);
       const txPrice = 1n;
@@ -237,8 +234,7 @@ describe("Bridge", async () => {
       const { bridge, owner } = await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
-      await bridge
-        .setWithdrawalTax(0, 0, { gasPrice: 0 });
+      await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const amount = BigInt(1e18);
       const txPrice = 1n;
@@ -260,8 +256,7 @@ describe("Bridge", async () => {
       const { bridge, owner } = await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
-      await bridge
-        .setWithdrawalTax(0, 0, { gasPrice: 0 });
+      await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const dust = 100n;
       const amount = BigInt(1e18) + dust;
