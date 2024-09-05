@@ -15,5 +15,9 @@ export default buildModule("Genesis", (m) => {
   const wgbtc = m.contract("WrappedGoatBitcoin");
   const bridge = m.contract("Bridge");
 
-  return { goatToken, goatFoundation, btcBlock, wgbtc, bridge };
+  const relayer = m.contract("Relayer", [
+    m.getParameter("relayer.owner"),
+  ]);
+
+  return { goatToken, goatFoundation, btcBlock, wgbtc, bridge, relayer };
 });

@@ -38,7 +38,7 @@ task("create:genesis")
       if (!args["force"]) {
         return console.log("genesis has created");
       }
-    } catch {}
+    } catch { }
 
     console.log("Adding fee from coinbase");
     {
@@ -61,7 +61,7 @@ task("create:genesis")
 
     await fs
       .rm(`./ignition/deployments/${networkName}`, { recursive: true })
-      .catch(() => {});
+      .catch(() => { });
 
     console.log("Deploying");
     const param = await fs.readFile(`./ignition/${networkName}.json`, "utf-8");
@@ -70,13 +70,14 @@ task("create:genesis")
       deploymentId: networkName,
     });
 
-    const [goatToken, goatFoundation, btcBlock, wgbtc, bridge] =
+    const [goatToken, goatFoundation, btcBlock, wgbtc, bridge, relayer] =
       await Promise.all([
         deployments.goatToken.getAddress(),
         deployments.goatFoundation.getAddress(),
         deployments.btcBlock.getAddress(),
         deployments.wgbtc.getAddress(),
         deployments.bridge.getAddress(),
+        deployments.relayer.getAddress(),
       ]);
 
     const blockNumber = await hre.ethers.provider.getBlockNumber();
@@ -128,6 +129,14 @@ task("create:genesis")
           break;
         case bridge.toLowerCase():
           geneis.alloc[trim0xPrefix(PredployedAddress.bridge)] = {
+            balance: state.balance,
+            nonce: state.nonce,
+            code: state.code,
+            storage: state.storage,
+          };
+          break;
+        case relayer.toLowerCase():
+          geneis.alloc[trim0xPrefix(PredployedAddress.relayer)] = {
             balance: state.balance,
             nonce: state.nonce,
             code: state.code,
