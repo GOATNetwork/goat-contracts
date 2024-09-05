@@ -25,14 +25,10 @@ describe("GoatFoundation", async () => {
 
     it("transfer", async () => {
         const { owner, goatfdn, others } = await loadFixture(fixture);
-        expect(
-            await owner.sendTransaction({
-                to: await goatfdn.getAddress(),
-                value: ethers.parseEther("10"),
-            }),
-        )
+        const grant = ethers.parseEther("10")
+        expect(await owner.sendTransaction({ to: goatfdn, value: grant }))
             .emit(goatfdn, "Donate")
-            .withArgs(owner.address, ethers.parseEther("10"));
+            .withArgs(owner, grant);
 
         const amount = 1n;
         await expect(
@@ -47,9 +43,9 @@ describe("GoatFoundation", async () => {
     it("transfer token", async () => {
         const { goatfdn, others, testToken } = await loadFixture(fixture);
 
-        await testToken.mint(goatfdn, ethers.parseEther("10"));
-
         const amount = 1n;
+        await testToken.mint(goatfdn, amount);
+
         await expect(
             goatfdn.connect(others[0]).transferERC20(testToken, receiver, amount),
         ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
@@ -82,12 +78,9 @@ describe("GoatFoundation", async () => {
 
         await goatfdn.invoke(testToken, calldata, amount, { value: amount });
 
-        await owner.sendTransaction({
-            to: await goatfdn.getAddress(),
-            value: amount,
-        });
-
+        await owner.sendTransaction({ to: goatfdn, value: amount });
         await goatfdn.invoke(testToken, calldata, amount);
+
         expect(await testToken.num()).eq(number);
 
         expect(await ethers.provider.getBalance(goatfdn)).eq(0n);
