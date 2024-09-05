@@ -16,9 +16,9 @@ contract Relayer is Ownable, IRelayer {
 
     /**
      * addVoter adds a new voter to relayer network
-     * @param voter the voter address which derived from the tx key
-     * @param vtkey the voter key hash which derived from the vote key
-     * @param thrs the new threshold for relayer proposal
+     * @param voter the address which derived from the tx key
+     * @param vtkey the hash which derived from the vote key
+     * @param thrs the new threshold for the relayer group
      *
      * the voter address = ripemd160(sha256(compressed secp256k1 public key))
      * the voter key hash = sha256(compressed bls12-381 public key in G2 group)
@@ -48,7 +48,7 @@ contract Relayer is Ownable, IRelayer {
     /**
      * removeVoter removes a voter from relayer network
      * @param voter the voter address
-     * @param thrs the new threshold for relayer proposal
+     * @param thrs the new threshold for the relayer group
      *
      * the removal will be activated after next relayer proposer election
      */
@@ -64,7 +64,7 @@ contract Relayer is Ownable, IRelayer {
 
     /**
      * setThreshold updates relayer proposal threshold
-     * @param thrs the new thrshold for relayer proposal
+     * @param thrs the new threshold for the relayer group
      */
     function setThreshold(uint16 thrs) external onlyOwner {
         require(thrs > 0 && thrs <= total, "invalid threshold");
