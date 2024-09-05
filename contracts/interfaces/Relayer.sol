@@ -6,7 +6,7 @@ interface IRelayer {
 
     event RemovedVoter(bytes20 indexed voter, uint16 thrs);
 
-    event ChangedThreshold(uint256 threshold);
+    event ChangedThreshold(uint16 thrs);
 
     function addVoter(bytes20 voter, bytes32 vtkey, uint16 thrs) external;
 
