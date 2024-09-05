@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 library Pubkey {
     /**
-     * ConsAddress creates Ethereum address from a public key
+     * EthAddress creates Ethereum address from a public key
      * @param pubkey the uncompressed secp256k1 public key
      */
     function EthAddress(
