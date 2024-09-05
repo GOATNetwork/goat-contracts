@@ -1,4 +1,4 @@
-import { ethers, artifacts } from "hardhat";
+import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Executors, PredployedAddress } from "./constant";
 import {
@@ -14,17 +14,15 @@ describe("Bridge", async () => {
   const addr2 = "0x80549d88a35c3435c5c42d1e";
 
   const relayer = Executors.relayer;
-  const goatFoundation = PredployedAddress.goatFoundation;
 
   async function fixture() {
     const [owner, payer, ...others] = await ethers.getSigners();
 
     const bridgeFactory = await ethers.getContractFactory("Bridge");
 
-    const bridge: Bridge = await bridgeFactory.deploy();
+    const bridge: Bridge = await bridgeFactory.deploy(owner);
 
     await impersonateAccount(relayer);
-    await impersonateAccount(goatFoundation);
 
     await payer.sendTransaction({
       to: relayer,
@@ -36,7 +34,6 @@ describe("Bridge", async () => {
       others,
       bridge,
       relayer: await ethers.getSigner(relayer),
-      goatFoundation: await ethers.getSigner(goatFoundation),
     };
   }
 
@@ -96,12 +93,11 @@ describe("Bridge", async () => {
         tax: 10n,
       };
 
-      const { bridge, owner, relayer, goatFoundation } =
+      const { bridge, owner, relayer } =
         await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
       await bridge
-        .connect(goatFoundation)
         .setDepositTax(1, 10, { gasPrice: 0 });
 
       expect(
@@ -128,11 +124,10 @@ describe("Bridge", async () => {
 
   describe("withdraw", async () => {
     it("invalid", async () => {
-      const { bridge, goatFoundation } = await loadFixture(fixture);
+      const { bridge } = await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
       await bridge
-        .connect(goatFoundation)
         .setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const amount = BigInt(1e10);
@@ -239,11 +234,10 @@ describe("Bridge", async () => {
     });
 
     it("no tax", async () => {
-      const { bridge, owner, goatFoundation } = await loadFixture(fixture);
+      const { bridge, owner } = await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
       await bridge
-        .connect(goatFoundation)
         .setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const amount = BigInt(1e18);
@@ -263,11 +257,10 @@ describe("Bridge", async () => {
     });
 
     it("no tax but dust", async () => {
-      const { bridge, owner, goatFoundation } = await loadFixture(fixture);
+      const { bridge, owner } = await loadFixture(fixture);
 
       await setNextBlockBaseFeePerGas(0);
       await bridge
-        .connect(goatFoundation)
         .setWithdrawalTax(0, 0, { gasPrice: 0 });
 
       const dust = 100n;
