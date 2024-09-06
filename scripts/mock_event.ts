@@ -67,24 +67,24 @@ const makePay = async (hre: any) => {
 export const mockEvent = async (action: string, hre: any) => {
 	switch (action) {
 		case "deposit": {
-			//statements; 
+			//statements;
 			await makeDeposit(hre);
 			break;
 		}
 		case "withdraw": {
-			//statements; 
+			//statements;
 			await makeWithdrawal(hre);
 			break;
 		}
 
 		case "pay": {
 			await makePay(hre);
-			//statements; 
+			//statements;
 			break;
 		}
 
 		default: {
-			//statements; 
+			//statements;
 			break;
 		}
 	}
