@@ -10,8 +10,8 @@ import {
 import { Bridge } from "../typechain-types";
 
 describe("Bridge", async () => {
-  const addr1 = "0x022f0d3defddbfcdce9ec607c28e300fc891082d45";
-  const addr2 = "0x80549d88a35c3435c5c42d1e";
+  const addr1 = "bc1qen5kv3c0epd9yfqvu2q059qsjpwu9hdjywx2v9p5p9l8msxn88fs9y5kx6";
+  const addr2 = "invalid";
 
   const relayer = Executors.relayer;
 
@@ -132,7 +132,7 @@ describe("Bridge", async () => {
 
       await expect(
         bridge.withdraw(addr2, txPrice, { value: amount }),
-      ).revertedWith("invalid address");
+      ).revertedWithCustomError(bridge, "InvalidAddress");
 
       await expect(bridge.withdraw(addr1, 0, { value: amount })).revertedWith(
         "invalid tx price",

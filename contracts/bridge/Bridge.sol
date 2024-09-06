@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {Burner} from "../library/utils/Burner.sol";
-import {BitcoinAddress} from "../library/codec/address.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -15,7 +14,6 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
     using Address for address payable;
-    using BitcoinAddress for bytes;
 
     Param public param;
 
@@ -102,9 +100,14 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
      * @param _maxTxPrice the max allowed tx price in sat/vbyte
      */
     function withdraw(
-        bytes calldata _receiver,
+        string calldata _receiver,
         uint16 _maxTxPrice
     ) external payable override {
+        bytes memory addrBytes = bytes(_receiver);
+        if (addrBytes.length < 34 || addrBytes.length > 90) {
+            revert InvalidAddress();
+        }
+
         uint256 amount = msg.value;
         uint256 tax = 0;
 
@@ -124,7 +127,6 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
             amount -= dust;
         }
 
-        require(_receiver.isValidAddress(), "invalid address");
         require(_maxTxPrice > 0, "invalid tx price");
         require(amount > _maxTxPrice * baseTxSize * satoshi, "unaffordable");
 
@@ -146,7 +148,7 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
 
     /**
      * replaceByFee updates the withdrawal tx price
-     * @param _wid the withdrwal id
+     * @param _wid the withdrawal id
      * @param _maxTxPrice the new max tx price
      */
     function replaceByFee(uint256 _wid, uint16 _maxTxPrice) external override {
