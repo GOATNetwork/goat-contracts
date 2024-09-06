@@ -18,7 +18,6 @@ contract Relayer is Ownable, IRelayer {
      * addVoter adds a new voter to relayer network
      * @param voter the address which derived from the tx key
      * @param vtkey the hash which derived from the vote key
-     * @param thrs the new threshold for the relayer group
      *
      * the voter address = ripemd160(sha256(compressed secp256k1 public key))
      * the voter key hash = sha256(compressed bls12-381 public key in G2 group)
@@ -29,45 +28,28 @@ contract Relayer is Ownable, IRelayer {
      *
      * the adding will be activated after next relayer proposer election
      */
-    function addVoter(
-        bytes20 voter,
-        bytes32 vtkey,
-        uint16 thrs
-    ) external onlyOwner {
+    function addVoter(bytes20 voter, bytes32 vtkey) external onlyOwner {
         require(!pubkeys[vtkey], "duplicated key");
         require(!voters[voter], "duplicated voter");
-
         require(++total < MAX_VOTER_COUNT, "too many voters");
-        require(thrs > 0 && thrs <= total, "invalid threshold");
 
         voters[voter] = true;
         pubkeys[vtkey] = true;
-        emit AddedVoter(voter, vtkey, thrs);
+        emit AddedVoter(voter, vtkey);
     }
 
     /**
      * removeVoter removes a voter from relayer network
      * @param voter the voter address
-     * @param thrs the new threshold for the relayer group
      *
      * the removal will be activated after next relayer proposer election
      */
-    function removeVoter(bytes20 voter, uint16 thrs) external onlyOwner {
+    function removeVoter(bytes20 voter) external onlyOwner {
         require(voters[voter], "voter not found");
         require(total > 1, "too few voters");
         // we don't delete the pubkey, it cant be reused next time
         voters[voter] = false;
         total--;
-        require(thrs > 0 && thrs <= total, "invalid threshold");
-        emit RemovedVoter(voter, thrs);
-    }
-
-    /**
-     * setThreshold updates relayer proposal threshold
-     * @param thrs the new threshold for the relayer group
-     */
-    function setThreshold(uint16 thrs) external onlyOwner {
-        require(thrs > 0 && thrs <= total, "invalid threshold");
-        emit ChangedThreshold(thrs);
+        emit RemovedVoter(voter);
     }
 }
