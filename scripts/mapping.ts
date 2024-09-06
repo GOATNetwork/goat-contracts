@@ -69,11 +69,24 @@ export function handleWithdrawal(event: Withdraw): void {
 
 export function handlePaid(event: Paid): void {
   let entity = new PaidTxn(event.transaction.hash.toHex())
+
   entity.withdrawId = event.params.id
   entity.btcTxid = event.params.txid;
   entity.btcTxout = event.params.txout.toI32();
   entity.value = event.params.value
   entity.status = "Paid";
+
+  let id = event.params.id.toString();
+  let bridgeEntity = BridgeTxn.load(id);
+
+  if (bridgeEntity) {
+    bridgeEntity.status = "Paid";
+    bridgeEntity.save();
+    console.log(`BridgeTxn entity updated: ${id}`);
+  } else {
+    console.log(`BridgeTxn entity not found: ${id}`);
+  }
+
 
   entity.save()
 }

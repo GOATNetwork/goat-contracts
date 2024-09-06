@@ -1,5 +1,5 @@
-# Thegraph 
- 
+# Thegraph
+
 
 ```
 npx hardhat node --port 8546 --hostname 0.0.0.0
@@ -16,4 +16,9 @@ npx hardhat mock-event pay --network localhost
 
 npm run create-local
 npm run deploy-local
+```
+
+```
+graph remove --node http://localhost:8020/ Bridge # clear the local node
+npm run stop-graph-node
 ```
