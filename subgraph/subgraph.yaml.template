@@ -31,6 +31,8 @@ dataSources:
           handler: handleCanceling
         - event: Canceled(indexed uint256)
           handler: handleCanceled
+        - event: Refund(indexed uint256)
+          handler: handleRefund
         - event: RBF(indexed uint256,uint256)
-          handler: handleRBF
+          handler: handleRefund
       file: ./scripts/mapping.ts

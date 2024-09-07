@@ -14,7 +14,8 @@ async function main() {
 	console.log(
     		`deployed to ${await bridge.getAddress()}, blockNumber: ${blockNumber}`
   	);
-	let testjson = {
+
+  let testjson = {
 		"Bridge": await bridge.getAddress(),
 		"blockNumber": blockNumber,
 	}

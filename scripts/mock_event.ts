@@ -5,7 +5,7 @@ const ethers = require("ethers");
 import { task } from "hardhat/config";
 import yargs from "yargs/yargs";
 
-const initBridge = async (hre: any): {bridge: ethers.Contract, signer: ethers.Wallet} => {
+const initBridge = async (hre: any): Promise<{ bridge : ethers.Contract, signer : ethers.Wallet }> => {
 	console.log(hre.network);
 	let key = hre.network.config.accounts[0];
 
@@ -90,7 +90,6 @@ const replaceByFee = async (hre: any) => {
   console.log(tx);
 }
 
-
 export const mockEvent = async (action: string, hre: any) => {
 	switch (action) {
 		case "deposit": {
@@ -120,13 +119,14 @@ export const mockEvent = async (action: string, hre: any) => {
       break;
     }
 
-    case "replaceByFee": {
+    case "replace": {
       await replaceByFee(hre);
       break;
     }
 
 
-		default: {
+
+    default: {
 			//statements;
 			break;
 		}

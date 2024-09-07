@@ -13,12 +13,18 @@ npm run compile-graph
 npx hardhat mock-event deposit --network localhost
 npx hardhat mock-event withdraw --network localhost
 npx hardhat mock-event pay --network localhost
+npx hardhat mock-event cancel1 --network localhost
+npx hardhat mock-event cancel2 --network localhost
+npx hardhat mock-event replace --network localhost
 
+npm run remove-local
 npm run create-local
 npm run deploy-local
 ```
 
 ```
-graph remove --node http://localhost:8020/ Bridge # clear the local node
-npm run stop-graph-node
+npx hardhat deposit --network localhost --txid <txid>
+npx hardhat paid --network localhost --txid <txid> --wid <wid>
+npx hardhat cancel --network localhost --wid <wid>
+npx hardhat refund --network localhost --wid <wid>
 ```
