@@ -2,77 +2,60 @@ import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import { Deposit, Withdraw, Paid, Canceling, Canceled, RBF, Refund } from "../generated/Bridge/Bridge";
 import { BridgeTxn, BridgeTxnWidIndex, PaidTxn } from "../generated/schema";
 
-function updateBridgeTxnStatus(id: string, status: string): void {
+function loadAndUpdateBridgeTxn(id: string, updateFn: (txn: BridgeTxn) => void): void {
   const index = BridgeTxnWidIndex.load(id);
-  if (index) {
-    const bridgeTxn = BridgeTxn.load(index.bridgeTxnId);
-    if (bridgeTxn) {
-      bridgeTxn.status = status;
-      bridgeTxn.save();
-      log.info(`Updated BridgeTxn status to {} for ID: {}`, [status, id]);
-    } else {
-      log.warning(`BridgeTxn entity not found for {}: {}`, [status, id]);
-    }
-  } else {
-    log.warning(`BridgeTxnWidIndex entity not found for {}: {}`, [status, id]);
+  if (!index) {
+    log.warning(`BridgeTxnWidIndex not found for ID: {}`, [id]);
+    return;
   }
+
+  const bridgeTxn = BridgeTxn.load(index.bridgeTxnId);
+  if (!bridgeTxn) {
+    log.warning(`BridgeTxn not found for ID: {}`, [id]);
+    return;
+  }
+
+  updateFn(bridgeTxn); // Perform the update through the passed function
+
+  bridgeTxn.save();
 }
 
-function updateBridgeTxnBtcTxid(id: string, btcTxid: Bytes): void {
-  const index = BridgeTxnWidIndex.load(id);
-  if (index) {
-    const bridgeTxn = BridgeTxn.load(index.bridgeTxnId);
-    if (bridgeTxn) {
-      bridgeTxn.btcTxid = btcTxid;
-      bridgeTxn.save();
-      log.info(`Updated BridgeTxn btcTxid to {} for ID: {}`, [btcTxid.toHex(), id]);
-    } else {
-      log.warning(`BridgeTxn entity notfound for {}: {}`, [btcTxid.toHex(), id]);
-    }
-  } else {
-    log.warning(`BridgeTxnWidIndex entity not found for {}: {}`, [btcTxid.toHex(), id]);
-  }
-}
-
-function updateBridgeTxnMaxTxPrice(id : string, maxTxPrice : BigInt): void {
-  const index = BridgeTxnWidIndex.load(id);
-  if (index) {
-    const bridgeTxn = BridgeTxn.load(index.bridgeTxnId);
-    if (bridgeTxn) {
-      bridgeTxn.maxTxPrice = maxTxPrice;
-      bridgeTxn.save();
-      log.info(`Updated BridgeTxn maxTxPrice to {} for ID: {}`, [maxTxPrice.toString(), id]);
-    } else {
-      log.warning(`BridgeTxn entity not found for {}: {}`, [maxTxPrice.toString(), id]);
-    }
-  } else {
-    log.warning(`BridgeTxnWidIndex entity not found for {}: {}`, [maxTxPrice.toString(), id]);
-  }
-}
 
 export function handleCanceling(event: Canceling): void {
   const id = event.params.id.toString();
-  log.info('Handling Canceling event for ID {}',[id]);
-  updateBridgeTxnStatus(id, "Canceling");
+  log.info('Handling Canceling event for ID {}', [id]);
+  loadAndUpdateBridgeTxn(id, (txn) => {
+    txn.status = "Canceling";
+    log.info("Updated BridgeTxn status to {}", [txn.status]);
+  });
 }
 
 export function handleCanceled(event: Canceled): void {
   const id = event.params.id.toString();
   log.info('Handling Canceled event for ID {}', [id]);
-  updateBridgeTxnStatus(id, "Canceled");
+  loadAndUpdateBridgeTxn(id, (txn) => {
+    txn.status = "Canceled";
+    log.info("Updated BridgeTxn status to {}", [txn.status]);
+  });
 }
 
 export function handleRefund(event: Refund): void {
   const id = event.params.id.toString();
   log.info('Handling Refund event for ID {}', [id]);
-  updateBridgeTxnStatus(id, "Refunded");
+  loadAndUpdateBridgeTxn(id, (txn) => {
+    txn.status = "Refunded";
+    log.info("Updated BridgeTxn status to {}", [txn.status]);
+  });
 }
 
 export function handleRBF(event: RBF): void {
   const id = event.params.id.toString();
   log.info('Handling RBF event for ID {}', [id]);
-  updateBridgeTxnStatus(id, "RBF");
-  updateBridgeTxnMaxTxPrice(id, event.params.maxTxPrice);
+  loadAndUpdateBridgeTxn(id, (txn) => {
+    txn.status = "RBF";
+    txn.maxTxPrice = event.params.maxTxPrice;
+    log.info("Updated BridgeTxn status to {} and Max Tx Price {}", [txn.status, txn.maxTxPrice]);
+  });
 }
 
 export function handleDeposit(event: Deposit): void {
@@ -117,14 +100,23 @@ export function handleWithdrawal(event: Withdraw): void {
 }
 
 export function handlePaid(event: Paid): void {
-  log.info('Handling Paid event for transaction {}', [event.transaction.hash.toHex()]);
-  const paidTxn = new PaidTxn(event.transaction.hash.toHex());
-  paidTxn.withdrawId = event.params.id;
+  const id = event.params.id.toString();
+  const transactionHash = event.transaction.hash.toHex();
+
+  log.info('Handling Paid event for transaction {}', [transactionHash]);
+
+  const paidTxn = new PaidTxn(transactionHash);
+  paidTxn.withdrawId = id;
   paidTxn.btcTxid = event.params.txid;
   paidTxn.btcTxout = event.params.txout.toI32();
   paidTxn.value = event.params.value;
   paidTxn.status = "Paid";
   paidTxn.save();
-  updateBridgeTxnStatus(event.params.id.toString(), "Paid");
-  updateBridgeTxnBtcTxid(event.params.id.toString(), event.params.txid);
+
+  log.info('Updated BridgeTxn status to Paid and BTC Txid for ID: {}', [id]);
+  loadAndUpdateBridgeTxn(id, (txn) => {
+    txn.status = "Paid";
+    txn.btcTxid = event.params.txid;
+    log.info("Updated BridgeTxn status to {} and BTC Txid {}", [txn.status, txn.btcTxid])
+  });
 }
