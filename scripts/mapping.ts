@@ -34,6 +34,22 @@ function updateBridgeTxnBtcTxid(id: string, btcTxid: Bytes): void {
   }
 }
 
+function updateBridgeTxnMaxTxPrice(id : string, maxTxPrice : BigInt): void {
+  const index = BridgeTxnWidIndex.load(id);
+  if (index) {
+    const bridgeTxn = BridgeTxn.load(index.bridgeTxnId);
+    if (bridgeTxn) {
+      bridgeTxn.maxTxPrice = maxTxPrice;
+      bridgeTxn.save();
+      log.info(`Updated BridgeTxn maxTxPrice to {} for ID: {}`, [maxTxPrice.toString(), id]);
+    } else {
+      log.warning(`BridgeTxn entity not found for {}: {}`, [maxTxPrice.toString(), id]);
+    }
+  } else {
+    log.warning(`BridgeTxnWidIndex entity not found for {}: {}`, [maxTxPrice.toString(), id]);
+  }
+}
+
 export function handleCanceling(event: Canceling): void {
   const id = event.params.id.toString();
   log.info('Handling Canceling event for ID {}',[id]);
@@ -56,6 +72,7 @@ export function handleRBF(event: RBF): void {
   const id = event.params.id.toString();
   log.info('Handling RBF event for ID {}', [id]);
   updateBridgeTxnStatus(id, "RBF");
+  updateBridgeTxnMaxTxPrice(id, event.params.maxTxPrice);
 }
 
 export function handleDeposit(event: Deposit): void {

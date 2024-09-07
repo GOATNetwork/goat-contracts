@@ -9,9 +9,6 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { parseDataEmbedScript } from "btc-script-factory/lib/covenantV1/bridge.script";
 
-const abiPath = path.join(__dirname, './artifacts/contracts/Bridge.sol/Bridge.json');
-const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
-
 const execAsync = promisify(exec);
 
 task("mock-event", "A sample task with params")
@@ -21,6 +18,7 @@ task("mock-event", "A sample task with params")
     await mockEvent(taskArgs.action, hre);
   });
 
+// npx hardhat init-params --network localhost
 task("init-params", "Initialize contract parameters using GoatFoundation account")
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
@@ -74,6 +72,8 @@ task("deposit", "Deposits funds to a specified address")
   const target = `0x${evmAddress.toString("hex")}`;
 
   const ethers = hre.ethers;
+  const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
+  const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
   const testnetConfigPath = path.join(__dirname, './subgraph/testnet.json');
   const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
   const contractAddress = testnetConfig.Bridge;
@@ -113,9 +113,11 @@ task("paid", "Mark a transaction as paid")
   const paidVout = btcTransaction.vout[0];
 
   const txout = paidVout.n;
-  const received = paidVout.scriptPubKey.address;
+  const amount = BigInt(paidVout.value * 1e18);
 
   const ethers = hre.ethers;
+  const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
+  const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
   const testnetConfigPath = path.join(__dirname, './subgraph/testnet.json');
   const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
   const contractAddress = testnetConfig.Bridge;
@@ -128,12 +130,25 @@ task("paid", "Mark a transaction as paid")
     relayer
   );
 
-  console.log(`Paid to address: ${received}`);
+  const { withdrawalTaxBP, maxWithdrawalTax } = await bridge.param();
+
+  // Calculate the tax amount
+  const taxRate = BigInt(withdrawalTaxBP);
+  const maxTax = BigInt(maxWithdrawalTax);
+
+  // Apply the maximum tax limit
+  const taxAmount = (amount * taxRate) / BigInt(10000);
+
+  const actualTax = taxAmount > maxTax ? maxTax : taxAmount;
+
+  // Calculate the received amount
+  const received = amount - actualTax;
+
   console.log(`Paid with wid: ${wid}`);
   try {
-    const txResponse = await bridge.deposit(
+    const txResponse = await bridge.paid(
       wid,
-      txid,
+      `0x${txid}`,
       txout,
       received
     );
@@ -149,6 +164,8 @@ task("cancel", "Cancel a transaction")
   .addParam("wid", "The withdraw ID of the withdraw transaction")
   .setAction(async ({ wid }, hre) => {
     const ethers = hre.ethers;
+    const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
+    const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
     const testnetConfigPath = path.join(__dirname, './subgraph/testnet.json');
     const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
     const contractAddress = testnetConfig.Bridge;
@@ -176,6 +193,8 @@ task("refund", "Refund a transaction")
   .addParam("wid", "The withdraw ID of the withdraw transaction")
   .setAction(async ({ wid }, hre) => {
     const ethers = hre.ethers;
+    const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
+    const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
     const testnetConfigPath = path.join(__dirname, './subgraph/testnet.json');
     const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
     const contractAddress = testnetConfig.Bridge;
