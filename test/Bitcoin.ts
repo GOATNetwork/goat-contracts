@@ -14,6 +14,8 @@ describe("Bitcoin", async () => {
   const blockHash101 =
     "0x393cc15d9c3860e02fc55b2e5a49e1c3e68ef829213f39e3fecd1dc2b0d75267";
 
+  const networkName = "mainnet"
+
   const relayer = Executors.relayer;
 
   async function fixture() {
@@ -24,7 +26,7 @@ describe("Bitcoin", async () => {
     const bitcoin: Bitcoin = await factory.deploy(
       100,
       blockHash100,
-      "0x0005026263076d61696e6e657400000000000000000000000000000000000000",
+      networkName
     );
 
     await impersonateAccount(relayer);
@@ -53,12 +55,7 @@ describe("Bitcoin", async () => {
 
     it("network", async () => {
       const { bitcoin } = await loadFixture(fixture);
-      expect(await bitcoin.bech32HRP()).eq("bc", "bech32HRP");
-      expect(await bitcoin.networkName()).eq("mainnet", "networkName");
-      const { pubKeyHashAddrID, scriptHashAddrID } =
-        await bitcoin.base58Prefix();
-      expect(pubKeyHashAddrID).eq("0x00");
-      expect(scriptHashAddrID).eq("0x05");
+      expect(await bitcoin.networkName()).eq(networkName);
     });
 
     it("new", async () => {
