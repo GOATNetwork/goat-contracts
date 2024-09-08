@@ -43,7 +43,7 @@ task("init-params", "Initialize contract parameters using GoatFoundation account
 
 // Helper function to fetch transaction details from a Bitcoin node
 async function fetchBtcTransaction(txid: string) {
-  const command = `curl --user 111111:111111 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getrawtransaction", "params": ["${txid}", true]}' -H 'content-type: text/plain;' http://127.0.0.1:18443/`;
+  const command = `curl --user 111111:111111 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getrawtransaction", "params": ["${txid}", true]}' -H 'content-type: text/plain;' http://ec2-3-15-141-150.us-east-2.compute.amazonaws.com:18443`;
   console.log(command);
   try {
     const { stdout } = await execAsync(command);
