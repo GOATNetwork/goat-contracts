@@ -2,7 +2,7 @@ import { BigInt, Bytes, log } from '@graphprotocol/graph-ts';
 import { Deposit, Withdraw, Paid, Canceling, Canceled, RBF, Refund } from "../generated/Bridge/Bridge";
 import { BridgeTxn, BridgeTxnWidIndex, PaidTxn } from "../generated/schema";
 
-function loadAndUpdateBridgeTxn(id: string, updateFn: (txn: BridgeTxn) => void): void {
+function loadAndUpdateBridgeTxn(id: string, newStatus: string, newBtcTxid: Bytes | null = null, newMaxTxPrice: BigInt | null = null): void {
   const index = BridgeTxnWidIndex.load(id);
   if (!index) {
     log.warning(`BridgeTxnWidIndex not found for ID: {}`, [id]);
@@ -15,48 +15,47 @@ function loadAndUpdateBridgeTxn(id: string, updateFn: (txn: BridgeTxn) => void):
     return;
   }
 
-  updateFn(bridgeTxn); // Perform the update through the passed function
+  bridgeTxn.status = newStatus;
+  if (newBtcTxid !== null) {
+    bridgeTxn.btcTxid = newBtcTxid;
+  }
+  if (newMaxTxPrice !== null) {
+    bridgeTxn.maxTxPrice = newMaxTxPrice;
+  }
 
   bridgeTxn.save();
+  log.info(`BridgeTxn updated for ID: {}. New status: {}, BTC Txid: {}, Max Tx Price: {}`, [
+    id,
+    newStatus,
+    newBtcTxid ? newBtcTxid.toHex() : "N/A",
+    newMaxTxPrice ? newMaxTxPrice.toString() : "N/A"
+  ]);
 }
-
 
 export function handleCanceling(event: Canceling): void {
   const id = event.params.id.toString();
   log.info('Handling Canceling event for ID {}', [id]);
-  loadAndUpdateBridgeTxn(id, (txn) => {
-    txn.status = "Canceling";
-    log.info("Updated BridgeTxn status to {}", [txn.status]);
-  });
+  loadAndUpdateBridgeTxn(id, "Canceling");
 }
 
 export function handleCanceled(event: Canceled): void {
   const id = event.params.id.toString();
   log.info('Handling Canceled event for ID {}', [id]);
-  loadAndUpdateBridgeTxn(id, (txn) => {
-    txn.status = "Canceled";
-    log.info("Updated BridgeTxn status to {}", [txn.status]);
-  });
+  loadAndUpdateBridgeTxn(id, "Canceled");
 }
 
 export function handleRefund(event: Refund): void {
   const id = event.params.id.toString();
   log.info('Handling Refund event for ID {}', [id]);
-  loadAndUpdateBridgeTxn(id, (txn) => {
-    txn.status = "Refunded";
-    log.info("Updated BridgeTxn status to {}", [txn.status]);
-  });
+  loadAndUpdateBridgeTxn(id, "Refunded");
 }
 
 export function handleRBF(event: RBF): void {
   const id = event.params.id.toString();
   log.info('Handling RBF event for ID {}', [id]);
-  loadAndUpdateBridgeTxn(id, (txn) => {
-    txn.status = "RBF";
-    txn.maxTxPrice = event.params.maxTxPrice;
-    log.info("Updated BridgeTxn status to {} and Max Tx Price {}", [txn.status, txn.maxTxPrice]);
-  });
+  loadAndUpdateBridgeTxn(id, "Pending", null, event.params.maxTxPrice);
 }
+
 
 export function handleDeposit(event: Deposit): void {
   log.info('Handling Deposit event for transaction {}', [event.transaction.hash.toHex()]);
@@ -100,23 +99,19 @@ export function handleWithdrawal(event: Withdraw): void {
 }
 
 export function handlePaid(event: Paid): void {
-  const id = event.params.id.toString();
   const transactionHash = event.transaction.hash.toHex();
 
   log.info('Handling Paid event for transaction {}', [transactionHash]);
 
   const paidTxn = new PaidTxn(transactionHash);
-  paidTxn.withdrawId = id;
+  paidTxn.withdrawId = event.params.id;
   paidTxn.btcTxid = event.params.txid;
   paidTxn.btcTxout = event.params.txout.toI32();
   paidTxn.value = event.params.value;
   paidTxn.status = "Paid";
   paidTxn.save();
 
-  log.info('Updated BridgeTxn status to Paid and BTC Txid for ID: {}', [id]);
-  loadAndUpdateBridgeTxn(id, (txn) => {
-    txn.status = "Paid";
-    txn.btcTxid = event.params.txid;
-    log.info("Updated BridgeTxn status to {} and BTC Txid {}", [txn.status, txn.btcTxid])
-  });
+  const id = event.params.id.toString();
+  const btcTxid = event.params.txid;
+  loadAndUpdateBridgeTxn(id, "Paid", btcTxid);
 }
