@@ -7,9 +7,10 @@ type BridgeTxn @entity {
   btcTxid: Bytes!
   btcTxout: Int!
   tax: BigInt!
-  withdrawId: BigInt!
+  withdrawId: BigInt
   maxTxPrice: BigInt!
   receiver: String!
+  status: String!
 }
 
 type PaidTxn @entity {
@@ -18,4 +19,10 @@ type PaidTxn @entity {
   btcTxid: Bytes!
   btcTxout: Int!
   value: BigInt!
+  status: String!
+}
+
+type BridgeTxnWidIndex @entity {
+  id: String!
+  bridgeTxnId: String!
 }

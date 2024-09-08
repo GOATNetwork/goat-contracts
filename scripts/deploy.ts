@@ -1,4 +1,4 @@
-import { ethers, artifacts } from "hardhat";
+import { ethers, artifacts, network } from "hardhat";
 import { Bridge } from "../typechain-types";
 import * as fs from 'fs';
 
@@ -14,11 +14,15 @@ async function main() {
 	console.log(
     		`deployed to ${await bridge.getAddress()}, blockNumber: ${blockNumber}`
   	);
-	let testjson = {
+
+  let testjson = {
 		"Bridge": await bridge.getAddress(),
 		"blockNumber": blockNumber,
 	}
-	fs.writeFileSync('./subgraph/testnet.json', JSON.stringify(testjson),  {
+
+  const networkName = network.name === 'localhost' ? 'testnet' : network.name;
+
+	fs.writeFileSync(`./subgraph/${networkName}.json`, JSON.stringify(testjson),  {
  		flag: "w"
 	});
 }

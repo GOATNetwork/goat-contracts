@@ -14,7 +14,8 @@
     "prettier-plugin-solidity": "^1.3.1"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.2"
+    "@openzeppelin/contracts": "^5.0.2",
+    "btc-script-factory": "github:GOATNetwork/btc-script-factory#main"
   },
   "scripts": {
     "fmt": "prettier --plugin=prettier-plugin-solidity --check test 'contracts/**/*.sol'",
@@ -25,6 +26,7 @@
     "test": "hardhat test",
     "codegen": "graph codegen",
     "compile-graph": "mustache subgraph/testnet.json subgraph/subgraph.yaml.template > subgraph.yaml && graph codegen & graph build",
+    "compile-graph:devnet": "mustache subgraph/devnet.json subgraph/subgraph.yaml.template > subgraph.yaml && graph codegen & graph build",
     "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ Bridge",
     "create-local": "graph create --node http://localhost:8020/ Bridge",
     "remove-local": "graph remove --node http://localhost:8020/ Bridge",

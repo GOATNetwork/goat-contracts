@@ -1,30 +1,38 @@
 specVersion: 0.0.4
-description: Thegraph node for GOAT 
+description: Thegraph node for GOAT
 repository: https://github.com/GOATNetwork/goat-contracts
 schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: Bridge 
+    name: Bridge
     network: localhost
     source:
       address: "{{Bridge}}"
-      abi: Bridge 
-      startBlock: {{blockNumber}} 
+      abi: Bridge
+      startBlock: {{blockNumber}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
-        - Bridge 
+        - Bridge
       abis:
         - name: Bridge
           file: artifacts/contracts/bridge/Bridge.sol/Bridge.json
       eventHandlers:
         - event: Deposit(indexed address,indexed uint256,bytes32,uint32,uint256)
           handler: handleDeposit
-        - event: Withdraw(indexed uint256,indexed address,uint256,uint256,uint256,string) 
+        - event: Withdraw(indexed uint256,indexed address,uint256,uint256,uint256,string)
           handler: handleWithdrawal
-        - event: Paid(indexed uint256,bytes32,uint32,uint256) 
+        - event: Paid(indexed uint256,bytes32,uint32,uint256)
           handler: handlePaid
+        - event: Canceling(indexed uint256)
+          handler: handleCanceling
+        - event: Canceled(indexed uint256)
+          handler: handleCanceled
+        - event: Refund(indexed uint256)
+          handler: handleRefund
+        - event: RBF(indexed uint256,uint256)
+          handler: handleRBF
       file: ./scripts/mapping.ts
