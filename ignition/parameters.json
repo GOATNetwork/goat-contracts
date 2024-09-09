@@ -1,0 +1,10 @@
+{
+  "Genesis": {
+    "btc.height": 0,
+    "btc.hash": "0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206",
+    "btc.network": "regtest",
+    "goat.owner": "0xbc000FE892bC88F2ba41d70aF9F80619F556dCA2",
+    "bridge.owner": "0xBc10000000000000000000000000000000000002",
+    "relayer.owner": "0xbc000FE892bC88F2ba41d70aF9F80619F556dCA2"
+  }
+}
