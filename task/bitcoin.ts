@@ -7,18 +7,13 @@ task("btc:getblockhash")
   .addOptionalParam("user", "", "test")
   .addOptionalParam("pass", "", "test")
   .addParam("height", "block height", undefined, types.int)
-  .addOptionalParam("canonical", "little endian format", true, types.boolean)
   .setAction(async (args, _) => {
     const client = new JsonrpcClient(args["rpc"], args["user"], args["pass"]);
-
     let hash = await client.call<string>(
       "getblockhash",
       Number(args["height"]),
     );
-    if (args["canonical"]) {
-      hash = Buffer.from(hash, "hex").reverse().toString("hex");
-    }
-    return console.log("0x" + hash);
+    return console.log(hash);
   });
 
 task("btc:getblock")

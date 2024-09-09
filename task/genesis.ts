@@ -63,10 +63,21 @@ task("create:genesis")
       .rm(`./ignition/deployments/${networkName}`, { recursive: true })
       .catch(() => { });
 
-    console.log("Deploying");
-    const param = await fs.readFile(`./ignition/${networkName}.json`, "utf-8");
+    const paramFile = await fs.readFile(`./ignition/${networkName}.json`, "utf-8");
+    const parameters = (() => {
+      const data = JSON.parse(paramFile.toString())
+      let blockHash: string = data["Genesis"]["btc.hash"]
+      if (blockHash.startsWith("0x")) {
+        blockHash = blockHash.slice(2)
+      }
+      // convert it to little endian
+      data["Genesis"]["btc.hash"] = "0x" + Buffer.from(blockHash, "hex").reverse().toString("hex")
+      console.log("Deloying with", data)
+      return data
+    })()
+
     const deployments = await hre.ignition.deploy(GenesisModule, {
-      parameters: JSON.parse(param.toString()),
+      parameters,
       deploymentId: networkName,
     });
 
