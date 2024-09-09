@@ -1,0 +1,28 @@
+type BridgeTxn @entity {
+  id: ID!
+  type: Int!
+  target: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  btcTxid: Bytes!
+  btcTxout: Int!
+  tax: BigInt!
+  withdrawId: BigInt
+  maxTxPrice: BigInt!
+  receiver: String!
+  status: String!
+}
+
+type PaidTxn @entity {
+  id: ID!
+  withdrawId: BigInt!
+  btcTxid: Bytes!
+  btcTxout: Int!
+  value: BigInt!
+  status: String!
+}
+
+type BridgeTxnWidIndex @entity {
+  id: String!
+  bridgeTxnId: String!
+}

@@ -17,14 +17,16 @@ services:
       postgres_pass: let-me-in
       postgres_db: graph-node
       ipfs: 'ipfs:5001'
-      ethereum: 'localhost:http://3.15.141.150:8545'
-      GRAPH_LOG: debug 
+      ethereum: 'localhost:http://host.docker.internal:8545'
+      GRAPH_LOG: debug
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   ipfs:
     image: ipfs/go-ipfs:v0.4.23
     ports:
       - '5001:5001'
     volumes:
-      - /mnt/data/graph/ipfs:/data/ipfs
+      - ~/Download/data/graph/ipfs:/data/ipfs
   postgres:
     image: postgres
     ports:
@@ -37,4 +39,4 @@ services:
       PGDATA: "/var/lib/postgresql/data"
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
-      - /mnt/data/graph/postgres:/var/lib/postgresql/data
+      - ~/Download/data/graph/postgres:/var/lib/postgresql/data
