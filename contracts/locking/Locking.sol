@@ -11,6 +11,14 @@ import {IGoatToken} from "../interfaces/GoatToken.sol";
 import {Pubkey} from "../library/codec/pubkey.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 
+/*
+TODO: 
+
+review if the distributeReward and completeUndelegation implemention are consistent with goat-geth
+
+add throttle modifier to reduce consensus request number per block
+*/
+
 contract Locking is Ownable, BaseAccess, ILocking {
     using SafeERC20 for IERC20;
     using Pubkey for bytes32[2];
@@ -118,7 +126,9 @@ contract Locking is Ownable, BaseAccess, ILocking {
     /**
      * undelegate undelegates tokens from a validator
      * @param token the token address to undelegate
-     * @param amount the undelegate amount
+     * @param amount the amount to undelegate
+     *
+     * the consensus layer will send back a `completeUndelegation` tx for the undelegation
      */
     function undelegate(address token, uint256 amount) external {
         Delegator storage d = delegators[msg.sender];
@@ -159,12 +169,14 @@ contract Locking is Ownable, BaseAccess, ILocking {
             PreDeployedAddresses.GoatToken,
             goat
         );
+
+        if (goat > 0) {
+            IGoatToken(PreDeployedAddresses.GoatToken).mint(delegator, goat);
+        }
+
         if (amount > 0) {
             // performacing the adding in the runtime
             emit DistributeReward(id, delegator, address(0), amount);
-        }
-        if (goat > 0) {
-            IGoatToken(PreDeployedAddresses.GoatToken).mint(delegator, goat);
         }
     }
 
@@ -181,7 +193,14 @@ contract Locking is Ownable, BaseAccess, ILocking {
         address token,
         uint256 amount
     ) external OnlyLocking {
-        IERC20(token).safeTransfer(delegator, amount);
+        Delegator storage d = delegators[msg.sender];
+        d.delegating[token] -= amount;
+
+        // sending back the native token in the runtime
+        if (token != address(0x0)) {
+            IERC20(token).safeTransfer(delegator, amount);
+        }
+
         emit CompleteUndelegation(id, delegator, token, amount);
     }
 
