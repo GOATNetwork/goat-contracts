@@ -107,7 +107,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
         config.owner = msg.sender;
         config.commission = commission;
         _delegate(validator, param.minSelfDelegation);
-        emit Create(pubkey, commission);
+        emit Create(validator, pubkey, commission);
     }
 
     /**

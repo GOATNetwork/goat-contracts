@@ -25,7 +25,11 @@ interface ILocking {
     event RemoveMinSelfDelegation(address token);
     event SetDelegationToken(address token, bool yes);
 
-    event Create(bytes32[2] pubkey, uint16 commission);
+    event Create(
+        address indexed validator,
+        bytes32[2] pubkey,
+        uint16 commission
+    );
 
     event SetCommission(address validator, uint16 commission);
 
