@@ -106,8 +106,8 @@ contract Locking is Ownable, BaseAccess, ILocking {
         require(config.owner == address(0x0), "validator has been created");
         config.owner = msg.sender;
         config.commission = commission;
-        _delegate(validator, param.minSelfDelegation);
         emit Create(validator, pubkey, commission);
+        _delegate(validator, param.minSelfDelegation);
     }
 
     /**
@@ -150,6 +150,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
         Delegator storage d = delegators[msg.sender];
         require(d.validator != address(0x0), "no delegation");
         require(amount > 0 && d.delegating[token] >= amount, "invalid amount");
+        d.delegating[token] -= amount;
         emit Undelegate(index, msg.sender, token, amount);
         index++;
     }
@@ -179,21 +180,15 @@ contract Locking is Ownable, BaseAccess, ILocking {
         uint256 goat,
         uint256 amount
     ) external OnlyLocking {
+        IGoatToken(PreDeployedAddresses.GoatToken).mint(delegator, goat);
         emit DistributeReward(
             id,
             delegator,
             PreDeployedAddresses.GoatToken,
             goat
         );
-
-        if (goat > 0) {
-            IGoatToken(PreDeployedAddresses.GoatToken).mint(delegator, goat);
-        }
-
-        if (amount > 0) {
-            // performacing the adding in the runtime
-            emit DistributeReward(id, delegator, address(0), amount);
-        }
+        // performacing the adding in the runtime
+        emit DistributeReward(id, delegator, address(0), amount);
     }
 
     /**
@@ -209,14 +204,11 @@ contract Locking is Ownable, BaseAccess, ILocking {
         address token,
         uint256 amount
     ) external OnlyLocking {
-        Delegator storage d = delegators[msg.sender];
-        d.delegating[token] -= amount;
-
-        // sending back the native token in the runtime
         if (token != address(0x0)) {
             IERC20(token).safeTransfer(delegator, amount);
         }
-
+        // for the native token
+        // sending back it in the runtime
         emit CompleteUndelegation(id, delegator, token, amount);
     }
 
