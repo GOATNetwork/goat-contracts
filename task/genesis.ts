@@ -11,6 +11,7 @@ import GenesisTemplate from "./template.json";
 interface IGenesis {
   config: IChainConfig;
   alloc: { [account: string]: IAccountState };
+  timestamp: string;
 }
 
 interface IChainConfig {
@@ -99,6 +100,7 @@ task("create:genesis")
       ]);
 
     const geneis: IGenesis = GenesisTemplate;
+    geneis.timestamp = "0x" + Math.floor((Date.now() / 1000)).toString(16)
 
     if (args["chainId"]) {
       geneis.config.chainId = args["chainId"];
