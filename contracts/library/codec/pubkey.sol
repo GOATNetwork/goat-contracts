@@ -18,13 +18,15 @@ library Pubkey {
      */
     function ConsAddress(
         bytes32[2] calldata pubkey
-    ) internal pure returns (bytes20) {
+    ) internal pure returns (address) {
         bytes1 prefix = uint256(pubkey[1]) & 1 == 0
             ? bytes1(0x02)
             : bytes1(0x03);
         return
-            ripemd160(
-                abi.encodePacked(sha256(bytes.concat(prefix, pubkey[0])))
+            address(
+                ripemd160(
+                    abi.encodePacked(sha256(bytes.concat(prefix, pubkey[0])))
+                )
             );
     }
 }
