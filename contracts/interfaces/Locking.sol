@@ -27,6 +27,8 @@ interface ILocking {
 
     event Create(bytes32[2] pubkey, uint16 commission);
 
+    event SetCommission(address validator, uint16 commission);
+
     event Delegate(
         address validator,
         address delegator,

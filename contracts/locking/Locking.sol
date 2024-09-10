@@ -78,10 +78,13 @@ contract Locking is Ownable, BaseAccess, ILocking {
     /**
      * create creates a new validator
      * @param pubkey the validator secp256k1 public key
-     * @param commission the commission rate
+     * @param commission the commission percent rate, range is from 0 to 100
      * @param sigR the validator sig
      * @param sigS the validator sig
      * @param sigV the validator sig
+     *
+     * the data to sign =
+     * abi.encodePacked(block.chainid, validator address, validator owner, commission)
      */
     function create(
         bytes32[2] calldata pubkey,
@@ -90,21 +93,34 @@ contract Locking is Ownable, BaseAccess, ILocking {
         bytes32 sigS,
         uint8 sigV
     ) external payable {
-        require(commission > 0 && commission <= 100, "invalid commission rate");
+        require(commission < 101, "invalid commission rate");
+        address validator = pubkey.ConsAddress();
         bytes32 hash = keccak256(
-            abi.encodePacked(block.chainid, msg.sender, commission)
+            abi.encodePacked(block.chainid, validator, msg.sender, commission)
         );
         require(
             pubkey.EthAddress() == ECDSA.recover(hash, sigV, sigR, sigS),
             "signer mismatched"
         );
-        address validator = pubkey.ConsAddress();
         Validator storage config = validators[validator];
         require(config.owner == address(0x0), "validator has been created");
         config.owner = msg.sender;
         config.commission = commission;
         _delegate(validator, param.minSelfDelegation);
         emit Create(pubkey, commission);
+    }
+
+    /**
+     * setCommission sets validator commitssion percent rate by the valiator owner
+     * @param validator the validator address
+     * @param commission the new commission value
+     */
+    function setCommission(address validator, uint8 commission) external {
+        require(commission < 101, "invalid commission rate");
+        Validator storage config = validators[validator];
+        require(config.owner == msg.sender, "not the validator owner");
+        config.commission = commission;
+        emit SetCommission(validator, commission);
     }
 
     /**
