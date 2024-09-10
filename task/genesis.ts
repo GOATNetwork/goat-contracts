@@ -104,55 +104,31 @@ task("create:genesis")
       geneis.config.chainId = args["chainId"];
     }
 
-    for (let [address, state] of Object.entries(dump.accounts)) {
+    for (const [address, state] of Object.entries(dump.accounts)) {
+      const stv = {
+        balance: state.balance,
+        nonce: state.nonce,
+        code: state.code,
+        storage: state.storage,
+      }
       switch (address.toLowerCase()) {
         case goatToken.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.goatToken)] = {
-            balance: state.balance,
-            nonce: state.nonce,
-            code: state.code,
-            storage: state.storage,
-          };
+          geneis.alloc[trim0xPrefix(PredployedAddress.goatToken)] = stv;
           break;
         case goatFoundation.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.goatFoundation)] = {
-            balance: state.balance,
-            nonce: state.nonce,
-            code: state.code,
-            storage: state.storage,
-          };
+          geneis.alloc[trim0xPrefix(PredployedAddress.goatFoundation)] = stv;
           break;
         case btcBlock.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.btcBlock)] = {
-            balance: state.balance,
-            nonce: state.nonce,
-            code: state.code,
-            storage: state.storage,
-          };
+          geneis.alloc[trim0xPrefix(PredployedAddress.btcBlock)] = stv;
           break;
         case wgbtc.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.wgbtc)] = {
-            balance: state.balance,
-            nonce: state.nonce,
-            code: state.code,
-            storage: state.storage,
-          };
+          geneis.alloc[trim0xPrefix(PredployedAddress.wgbtc)] = stv;
           break;
         case bridge.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.bridge)] = {
-            balance: state.balance,
-            nonce: state.nonce,
-            code: state.code,
-            storage: state.storage,
-          };
+          geneis.alloc[trim0xPrefix(PredployedAddress.bridge)] = stv;
           break;
         case relayer.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.relayer)] = {
-            balance: state.balance,
-            nonce: state.nonce,
-            code: state.code,
-            storage: state.storage,
-          };
+          geneis.alloc[trim0xPrefix(PredployedAddress.relayer)] = stv;
           break;
       }
     }
