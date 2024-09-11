@@ -30,6 +30,8 @@ task("create:genesis")
   .addParam("name", "network name", "regtest")
   .addParam("chainId", "chain id", 48815, types.int)
   .addParam("force", "force to rewrite", false, types.boolean)
+  .addOptionalParam("faucet", "faucet address", undefined, types.string)
+  .addOptionalParam("amount", "faucet amount in Ether", undefined, types.float)
   .setAction(async (args, hre) => {
     const networkName = args["name"];
     const outputFile = `./ignition//genesis/${networkName}.json`;
@@ -104,6 +106,19 @@ task("create:genesis")
 
     if (args["chainId"]) {
       geneis.config.chainId = args["chainId"];
+    }
+
+    if (args["faucet"] && args["amount"]) {
+      const facuet = args["faucet"]
+      if (!hre.ethers.isAddress(facuet)) {
+        throw new Error("invalid address: " + facuet)
+      }
+      const amount = hre.ethers.parseEther(String(args["amount"]));
+      console.log("Adding faucet address", facuet, hre.ethers.formatEther(amount))
+      geneis.alloc[trim0xPrefix(facuet)] = {
+        balance: "0x" + amount.toString(16),
+        nonce: "0x0",
+      }
     }
 
     for (const [address, state] of Object.entries(dump.accounts)) {
