@@ -54,11 +54,11 @@ interface ILocking {
         uint256 amount
     );
 
-    event Claim(uint64 index, address delegator);
+    event Claim(uint64 index, address delegator, address recipient);
 
     event DistributeReward(
         uint64 index,
-        address delegator,
+        address recipient,
         address token,
         uint256 amount
     );

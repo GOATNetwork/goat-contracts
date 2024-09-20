@@ -151,44 +151,42 @@ contract Locking is Ownable, BaseAccess, ILocking {
         require(d.validator != address(0x0), "no delegation");
         require(amount > 0 && d.delegating[token] >= amount, "invalid amount");
         d.delegating[token] -= amount;
-        emit Undelegate(index, msg.sender, token, amount);
-        index++;
+        emit Undelegate(index++, msg.sender, token, amount);
     }
 
     /**
      * claim claims rewards
-     *
+     * @param recipient the reward recipient address
      * the consensus layer will send back a `distributeReward` tx for the claiming
      */
-    function claim() external {
+    function claim(address recipient) external {
         Delegator storage d = delegators[msg.sender];
         require(d.validator != address(0x0), "no delegation");
-        emit Claim(index, msg.sender);
-        index++;
+        emit Claim(index++, msg.sender, recipient);
     }
 
     /**
      * distributeReward distributes delegation reward(including the goat token and gas fee)
      * @param id the request index
-     * @param delegator the delegator address
+     * @param recipient the reward recipient address
      * @param goat the goat reward
      * @param amount the gas fee reward
      */
     function distributeReward(
         uint64 id,
-        address delegator,
+        address recipient,
         uint256 goat,
         uint256 amount
     ) external OnlyLocking {
-        IGoatToken(PreDeployedAddresses.GoatToken).mint(delegator, goat);
+        IGoatToken(PreDeployedAddresses.GoatToken).mint(recipient, goat);
         emit DistributeReward(
             id,
-            delegator,
+            recipient,
             PreDeployedAddresses.GoatToken,
             goat
         );
         // performacing the adding in the runtime
-        emit DistributeReward(id, delegator, address(0), amount);
+        emit DistributeReward(id, recipient, address(0), amount);
     }
 
     /**
