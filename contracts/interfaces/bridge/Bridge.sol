@@ -15,7 +15,7 @@ interface IBridge {
         address indexed from,
         uint256 amount,
         uint256 tax,
-        uint256 maxTxPrice,
+        uint16 maxTxPrice,
         string receiver
     );
 
@@ -25,7 +25,7 @@ interface IBridge {
 
     event Refund(uint256 indexed id);
 
-    event RBF(uint256 indexed id, uint256 maxTxPrice);
+    event RBF(uint256 indexed id, uint16 maxTxPrice);
 
     event Paid(uint256 indexed id, bytes32 txid, uint32 txout, uint256 value);
 
@@ -38,15 +38,14 @@ interface IBridge {
         Paid
     }
 
-    error AccessDenied();
-    error Forbidden();
     error RateLimitExceeded();
+    error InvalidAddress();
 
     struct Withdrawal {
         address sender;
         uint256 amount; // msg.value - tax
         uint256 tax; // tax for goat foundation
-        uint256 maxTxPrice;
+        uint16 maxTxPrice;
         uint256 updatedAt;
         string receiver;
         WithdrawalStatus status;
@@ -76,7 +75,7 @@ interface IBridge {
         uint16 maxTxPrice
     ) external payable;
 
-    function replaceByFee(uint256 id, uint16 maxTxPrice) external payable;
+    function replaceByFee(uint256 id, uint16 maxTxPrice) external;
 
     function cancel1(uint256 id) external;
 

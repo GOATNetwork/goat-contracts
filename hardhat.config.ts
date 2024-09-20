@@ -9,6 +9,9 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { parseDataEmbedScript } from "btc-script-factory/lib/covenantV1/bridge.script";
 
+import "./task/genesis";
+import "./task/bitcoin";
+
 const execAsync = promisify(exec);
 
 task("mock-event", "A sample task with params")
@@ -218,6 +221,7 @@ task("refund", "Refund a transaction")
   });
 
 
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.26",
@@ -235,6 +239,13 @@ const config: HardhatUserConfig = {
   },
 
   networks: {
+    genesis: {
+      url: "http://localhost:8545",
+        accounts: {
+        // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+        mnemonic: "test test test test test test test test test test test junk",
+      },
+    },
     localhost: {
       url: "http://127.0.0.1:8545",
       chainId: 3456,
@@ -255,6 +266,9 @@ const config: HardhatUserConfig = {
   },
   gasReporter: {
     enabled: true,
+  },
+  ignition: {
+    requiredConfirmations: 1,
   },
 };
 

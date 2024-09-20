@@ -5,7 +5,7 @@ import {
   loadFixture,
   impersonateAccount,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { BitcoinBlock } from "../typechain-types";
+import { Bitcoin } from "../typechain-types";
 
 describe("Bitcoin", async () => {
   const blockHash100 =
@@ -14,14 +14,20 @@ describe("Bitcoin", async () => {
   const blockHash101 =
     "0x393cc15d9c3860e02fc55b2e5a49e1c3e68ef829213f39e3fecd1dc2b0d75267";
 
+  const networkName = "mainnet"
+
   const relayer = Executors.relayer;
 
   async function fixture() {
     const [owner, payer, ...others] = await ethers.getSigners();
 
-    const factory = await ethers.getContractFactory("BitcoinBlock");
+    const factory = await ethers.getContractFactory("Bitcoin");
 
-    const bitcoin: BitcoinBlock = await factory.deploy(100, blockHash100);
+    const bitcoin: Bitcoin = await factory.deploy(
+      100,
+      blockHash100,
+      networkName
+    );
 
     await impersonateAccount(relayer);
 
@@ -45,6 +51,11 @@ describe("Bitcoin", async () => {
       expect(await bitcoin.startHeight()).eq(100);
       expect(await bitcoin.latestHeight()).eq(100);
       expect(await bitcoin.blockHash(100)).eq(blockHash100);
+    });
+
+    it("network", async () => {
+      const { bitcoin } = await loadFixture(fixture);
+      expect(await bitcoin.networkName()).eq(networkName);
     });
 
     it("new", async () => {

@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
-
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
@@ -11,47 +9,47 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 import {IGoatFoundation} from "../interfaces/GoatFoundation.sol";
-import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
 
 contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
     using SafeERC20 for IERC20;
     using Address for address payable;
 
-    // It's for testing only
-    // the owner can be DAO or a Safe wallet
-    constructor() Ownable(msg.sender) {}
+    constructor(address owner) Ownable(owner) {}
 
     function transfer(
-        address payable _to,
-        uint256 _amount
+        address payable to,
+        uint256 amount
     ) external override onlyOwner {
-        _to.sendValue(_amount);
-        emit Transfer(_to, _amount);
+        to.sendValue(amount);
+        emit Transfer(to, amount);
     }
 
     function transferERC20(
-        address _token,
-        address _to,
-        uint256 _amount
+        address token,
+        address to,
+        uint256 amount
     ) external override onlyOwner {
-        IERC20(_token).safeTransfer(_to, _amount);
+        IERC20(token).safeTransfer(to, amount);
+    }
+
+    /**
+     * invoke calls a contract
+     * @param target a contract address but not the owner, otherwise revert
+     * @param data contract call data
+     * @param value contract call with value, owner can grant the value
+     */
+    function invoke(
+        address payable target,
+        bytes calldata data,
+        uint256 value
+    ) external payable onlyOwner returns (bytes memory) {
+        require(target != owner(), "!owner"); // ensures reentrant is impossible
+        return target.functionCallWithValue(data, value);
     }
 
     // donation
     receive() external payable {
         emit Donate(msg.sender, msg.value);
-    }
-
-    function setDepositTax(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridgeParam(PreDeployedAddresses.Bridge).setDepositTax(_bp, _max);
-    }
-
-    function setWithdrawalTax(uint16 _bp, uint64 _max) external onlyOwner {
-        IBridgeParam(PreDeployedAddresses.Bridge).setWithdrawalTax(_bp, _max);
-    }
-
-    function setRateLimit(uint16 _sec) external onlyOwner {
-        IBridgeParam(PreDeployedAddresses.Bridge).setRateLimit(_sec);
     }
 
     function supportsInterface(

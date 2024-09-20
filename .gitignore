@@ -20,3 +20,9 @@ ignition/deployments/chain-31337
 subgraph.yaml
 generated
 build
+tmp/
+
+ignition/deployments/
+ignition/regtest.json
+ignition/genesis/regtest.json
+
