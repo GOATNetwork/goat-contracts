@@ -25,13 +25,13 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
     mapping(uint256 id => Receipt receipt) public receipts;
 
     // 1 satoshi = 10 gwei
-    uint256 internal constant satoshi = 10 gwei;
+    uint256 internal constant SATOSHI = 10 gwei;
 
     // 2 p2wsh input + 1 p2tr/p2wsh output + 1 change output
-    uint256 internal constant baseTxSize = 300;
+    uint256 internal constant BASE_TX_SIZE = 300;
 
     // the max tax base points
-    uint256 internal constant maxBasePoints = 1e4;
+    uint256 internal constant MAX_BASE_POINT = 1e4;
 
     // It is only for testing
     constructor(address owner) Ownable(owner) {
@@ -40,9 +40,9 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
             depositTaxBP: 0,
             maxDepositTax: 0,
             withdrawalTaxBP: 20,
-            maxWithdrawalTax: 2_000_000 gwei, // 0.002
+            maxWithdrawalTax: 2_000_000 gwei, // 0.002 btc
             _res1: 0,
-            _res2: 0
+            minWithdrawal: 1e5 // 0.001 btc
         });
     }
 
@@ -63,11 +63,11 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
         require(!deposits[depositHash], "duplicated");
 
-        require(_amount > 0 && _amount % satoshi == 0, "invalid amount");
+        require(_amount > 0 && _amount % SATOSHI == 0, "invalid amount");
 
         Param memory p = param;
         if (p.depositTaxBP > 0) {
-            tax = (_amount * p.depositTaxBP) / maxBasePoints;
+            tax = (_amount * p.depositTaxBP) / MAX_BASE_POINT;
             if (tax > p.maxDepositTax) {
                 tax = p.maxDepositTax;
             }
@@ -112,8 +112,10 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         uint256 tax = 0;
 
         Param memory p = param;
+        require(amount >= p.minWithdrawal * SATOSHI, "amount too low");
+
         if (p.withdrawalTaxBP > 0) {
-            tax = (amount * p.withdrawalTaxBP) / maxBasePoints;
+            tax = (amount * p.withdrawalTaxBP) / MAX_BASE_POINT;
             if (tax > p.maxWithdrawalTax) {
                 tax = p.maxWithdrawalTax;
             }
@@ -121,14 +123,14 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         }
 
         // dust as tax
-        uint256 dust = amount % satoshi;
+        uint256 dust = amount % SATOSHI;
         if (dust > 0) {
             tax += dust;
             amount -= dust;
         }
 
         require(_maxTxPrice > 0, "invalid tx price");
-        require(amount > _maxTxPrice * baseTxSize * satoshi, "unaffordable");
+        require(amount > _maxTxPrice * BASE_TX_SIZE * SATOSHI, "unaffordable");
 
         uint256 id = withdrawals.length;
         withdrawals.push(
@@ -172,7 +174,7 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         );
 
         require(
-            withdrawal.amount > _maxTxPrice * baseTxSize * satoshi,
+            withdrawal.amount > _maxTxPrice * BASE_TX_SIZE * SATOSHI,
             "unaffordable"
         );
 
@@ -289,7 +291,7 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         uint16 _bp,
         uint64 _max
     ) external override onlyOwner {
-        if (_bp > maxBasePoints) {
+        if (_bp > MAX_BASE_POINT) {
             revert TaxTooHigh();
         }
 
@@ -310,7 +312,7 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         uint16 _bp,
         uint64 _max
     ) external override onlyOwner {
-        if (_bp > maxBasePoints) {
+        if (_bp > MAX_BASE_POINT) {
             revert TaxTooHigh();
         }
 
@@ -331,6 +333,12 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         require(_sec > 0, "invalid throttle setting");
         param.rateLimit = _sec;
         emit RateLimitUpdated(_sec);
+    }
+
+    function setMinWithdrawal(uint64 _amount) external override onlyOwner {
+        require(_amount > 0, "invalid amount");
+        param.minWithdrawal = _amount;
+        emit MinWithdrawalUpdated(_amount);
     }
 
     function supportsInterface(
