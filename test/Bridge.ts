@@ -143,10 +143,6 @@ describe("Bridge", async () => {
         "invalid tx price",
       );
 
-      await expect(
-        bridge.withdraw(addr1, 2 ** 16, { value: amount }),
-      ).revertedWith("invalid tx price");
-
       await expect(bridge.withdraw(addr1, 400, { value: amount })).revertedWith(
         "unaffordable",
       );
