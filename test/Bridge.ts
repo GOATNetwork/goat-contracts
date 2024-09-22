@@ -10,7 +10,8 @@ import {
 import { Bridge } from "../typechain-types";
 
 describe("Bridge", async () => {
-  const addr1 = "bc1qen5kv3c0epd9yfqvu2q059qsjpwu9hdjywx2v9p5p9l8msxn88fs9y5kx6";
+  const addr1 =
+    "bc1qen5kv3c0epd9yfqvu2q059qsjpwu9hdjywx2v9p5p9l8msxn88fs9y5kx6";
   const addr2 = "invalid";
 
   const relayer = Executors.relayer;
@@ -127,18 +128,22 @@ describe("Bridge", async () => {
       await setNextBlockBaseFeePerGas(0);
       await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
 
-      const amount = BigInt(1e10);
+      const amount = BigInt(1e10 * 1e5);
       const txPrice = 1n;
 
       await expect(
         bridge.withdraw(addr2, txPrice, { value: amount }),
       ).revertedWithCustomError(bridge, "InvalidAddress");
 
+      await expect(bridge.withdraw(addr1, 1, { value: 1n })).revertedWith(
+        "amount too low",
+      );
+
       await expect(bridge.withdraw(addr1, 0, { value: amount })).revertedWith(
         "invalid tx price",
       );
 
-      await expect(bridge.withdraw(addr1, 1, { value: amount })).revertedWith(
+      await expect(bridge.withdraw(addr1, 400, { value: amount })).revertedWith(
         "unaffordable",
       );
     });

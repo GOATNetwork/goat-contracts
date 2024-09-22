@@ -5,6 +5,7 @@ interface IBridgeParam {
     event DepositTaxUpdated(uint16 rate, uint64 max);
     event WithdrawalTaxUpdated(uint16 rate, uint64 max);
     event RateLimitUpdated(uint16);
+    event MinWithdrawalUpdated(uint64);
 
     struct Param {
         uint16 rateLimit;
@@ -13,7 +14,7 @@ interface IBridgeParam {
         uint16 withdrawalTaxBP;
         uint64 maxWithdrawalTax;
         uint16 _res1;
-        uint64 _res2;
+        uint64 minWithdrawal;
     }
 
     error TaxTooHigh();
@@ -25,4 +26,6 @@ interface IBridgeParam {
     function setWithdrawalTax(uint16 bp, uint64 max) external;
 
     function setRateLimit(uint16 sec) external;
+
+    function setMinWithdrawal(uint64 amount) external;
 }
