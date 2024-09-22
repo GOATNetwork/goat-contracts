@@ -33,7 +33,7 @@
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 Bridge",
     "start-graph-node": "cd subgraph && docker-compose up -d",
     "stop-graph-node": "cd subgraph && docker-compose down",
-    "clean-graph-node": "cd subgraph && docker-compose down && sudo rm -rf /mnt/data/graph/"
+    "clean-graph-node": "cd subgraph && docker-compose down && sudo rm -rf /mnt/data/graph/",
     "pregenesis": "hardhat compile && docker compose up -d --wait",
     "genesis": "hardhat create:genesis --network genesis",
     "postgenesis": "docker compose down"
