@@ -14,7 +14,7 @@ contract BaseAccess {
         _;
     }
 
-    modifier OnlyLocking() {
+    modifier OnlyLockingExecutor() {
         if (msg.sender != Executor.Locking) {
             revert AccessDenied();
         }

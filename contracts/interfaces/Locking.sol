@@ -9,7 +9,7 @@ interface ILocking {
 
     struct Validator {
         address owner;
-        uint16 commission;
+        uint8 commissionRate;
     }
 
     struct Delegator {
@@ -27,11 +27,12 @@ interface ILocking {
 
     event Create(
         address indexed validator,
+        address owner,
         bytes32[2] pubkey,
-        uint16 commission
+        uint8 commission
     );
 
-    event SetCommission(address validator, uint16 commission);
+    event SetCommission(address indexed validator, uint8 commission);
 
     event Delegate(
         address validator,
@@ -41,23 +42,23 @@ interface ILocking {
     );
 
     event Undelegate(
-        uint64 index,
+        uint64 id,
         address delegator,
         address token,
         uint256 amount
     );
 
     event CompleteUndelegation(
-        uint64 index,
+        uint64 id,
         address delegator,
         address token,
         uint256 amount
     );
 
-    event Claim(uint64 index, address delegator, address recipient);
+    event Claim(uint64 id, address delegator, address recipient);
 
     event DistributeReward(
-        uint64 index,
+        uint64 id,
         address recipient,
         address token,
         uint256 amount
