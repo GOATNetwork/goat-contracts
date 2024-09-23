@@ -64,7 +64,7 @@ export function handleDeposit(event: Deposit): void {
   entity.timestamp = event.block.timestamp;
   entity.target = event.params.target;
   entity.amount = event.params.amount;
-  entity.btcTxid = event.params.txid;
+  entity.btcTxid = Bytes.fromUint8Array(event.params.txid.reverse());
   entity.btcTxout = event.params.txout.toI32();
   entity.tax = event.params.tax;
   entity.withdrawId = null;
