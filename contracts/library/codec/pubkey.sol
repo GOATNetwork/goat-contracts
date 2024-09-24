@@ -22,11 +22,7 @@ library Pubkey {
         bytes1 prefix = uint256(pubkey[1]) & 1 == 0
             ? bytes1(0x02)
             : bytes1(0x03);
-        return
-            address(
-                ripemd160(
-                    abi.encodePacked(sha256(bytes.concat(prefix, pubkey[0])))
-                )
-            );
+        bytes32 sum256 = sha256(bytes.concat(prefix, pubkey[0]));
+        return address(ripemd160(abi.encodePacked(sum256)));
     }
 }

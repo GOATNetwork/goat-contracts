@@ -25,8 +25,9 @@ contract Locking is Ownable, BaseAccess, ILocking {
     mapping(address validator => address owner) public owners;
     mapping(address token => Token config) public tokens; // token weight for validator power
 
-    mapping(address token => uint256 amount) totalLocking;
-    mapping(address validator => mapping(address token => uint256 amount)) locking;
+    mapping(address token => uint256 amount) public totalLocking;
+    mapping(address validator => mapping(address token => uint256 amount))
+        public locking;
 
     uint256 public constant MAX_WEIGHT = 1e6;
 
@@ -207,7 +208,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
         Locking[] calldata lks
     ) external OnlyValidatorOwner(validator) {
         require(lks.length > 0, "no delegations");
-        for (uint i = 0; i < lks.length; i++) {
+        for (uint256 i = 0; i < lks.length; i++) {
             Locking memory d = lks[i];
             require(d.amount > 0, "invalid amount");
             locking[validator][d.token] -= d.amount;
