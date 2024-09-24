@@ -2,65 +2,42 @@
 pragma solidity ^0.8.24;
 
 interface ILocking {
-    struct Delegation {
+    struct Locking {
         address token;
         uint256 amount;
     }
 
-    struct Validator {
-        address owner;
-        uint8 commissionRate;
-    }
-
-    struct Delegator {
-        address validator;
-        mapping(address token => uint256 amount) delegating;
-    }
-
     struct Param {
-        Delegation[] minSelfDelegation;
+        Locking[] creationThreshold;
+        bool claim; // repreents the caliming is avaliable
     }
 
-    event SetMinSelfDelegation(address token, uint256 amount);
-    event RemoveMinSelfDelegation(address token);
-    event SetDelegationToken(address token, bool yes);
+    struct Token {
+        bool valid; // placehold for existing
+        uint64 weight; // weight for validator power
+        uint256 limit; // 0 -> no limits
+    }
 
-    event Create(
-        address indexed validator,
-        address owner,
-        bytes32[2] pubkey,
-        uint8 commission
-    );
+    event SetCreationThreshold(address token, uint256 amount);
+    event RemoveCreationThreshold(address token);
 
-    event SetCommission(address indexed validator, uint8 commission);
+    event UpdateTokenWeight(address token, uint64 power);
+    event UpdateTokenLimit(address token, uint256 limit);
 
-    event Delegate(
+    event Create(address validator, address owner, bytes32[2] pubkey);
+
+    event Lock(address validator, address token, uint256 amount);
+    event Unlock(
+        uint64 id,
         address validator,
-        address delegator,
-        address token,
-        uint256 amount
-    );
-
-    event Undelegate(
-        uint64 id,
-        address delegator,
-        address token,
-        uint256 amount
-    );
-
-    event CompleteUndelegation(
-        uint64 id,
-        address delegator,
-        address token,
-        uint256 amount
-    );
-
-    event Claim(uint64 id, address delegator, address recipient);
-
-    event DistributeReward(
-        uint64 id,
         address recipient,
         address token,
         uint256 amount
     );
+    event CompleteUnlock(uint64 id, address token, uint256 amount);
+
+    event Claim(uint64 id, address validator, address recipient);
+    event DistributeReward(uint64 id, address token, uint256 amount);
+
+    event ChangeValidatorOwner(address validator, address owner);
 }

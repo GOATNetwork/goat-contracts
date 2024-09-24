@@ -4,20 +4,14 @@ pragma solidity ^0.8.24;
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
 import {ILocking} from "../interfaces/Locking.sol";
-import {IGoatToken} from "../interfaces/GoatToken.sol";
 import {Pubkey} from "../library/codec/pubkey.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 
-/*
-TODO: 
-
-review if the distributeReward and completeUndelegation implemention are consistent with goat-geth
-
-add throttle modifier to reduce consensus request number per block
-*/
+import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 
 contract Locking is Ownable, BaseAccess, ILocking {
     using SafeERC20 for IERC20;
@@ -25,168 +19,221 @@ contract Locking is Ownable, BaseAccess, ILocking {
 
     // the consensus request index
     uint64 internal reqId;
+    uint256 public remainReward;
     Param internal param;
 
-    mapping(address token => bool yes) public tokens;
+    mapping(address validator => address owner) public owners;
+    mapping(address token => Token config) public tokens; // token weight for validator power
 
-    mapping(address token => uint256 amount) public delegated;
+    mapping(address token => uint256 amount) totalLocking;
+    mapping(address validator => mapping(address token => uint256 amount)) locking;
 
-    mapping(address owner => Delegator delegator) public delegators;
+    uint256 public constant MAX_WEIGHT = 1e6;
 
-    mapping(address validator => Validator config) public validators;
-
-    constructor(address owner) Ownable(owner) {
-        tokens[address(0)] = true;
-        tokens[PreDeployedAddresses.GoatToken] = true;
+    constructor(address owner, uint256 totalReward) Ownable(owner) {
+        tokens[PreDeployedAddresses.GoatToken] = Token(true, 1, 0);
+        tokens[address(0)] = Token(true, 12000, 0);
+        remainReward = totalReward;
     }
 
-    function minSelfDelegation() external view returns (Delegation[] memory) {
-        return param.minSelfDelegation;
+    modifier OnlyValidatorOwner(address validator) {
+        require(msg.sender == owners[validator], "not validator owner");
+        _;
     }
 
-    function setMinSelfDelegation(Delegation calldata _new) external onlyOwner {
+    /**
+     * creationThreshold is the threshold to create a new validator
+     */
+    function creationThreshold() external view returns (Locking[] memory) {
+        return param.creationThreshold;
+    }
+
+    /**
+     * openClaim let claim is open
+     */
+    function openClaim() external onlyOwner {
+        param.claim = true;
+    }
+
+    /**
+     * setCreateThreshold upserts current validator creation threshold
+     * @param _new the new locking token
+     */
+    function setCreateThreshold(Locking calldata _new) external onlyOwner {
         require(_new.amount > 0, "amount too low");
-        emit SetMinSelfDelegation(_new.token, _new.amount);
-        for (uint256 i = 0; i < param.minSelfDelegation.length; i++) {
-            Delegation storage _old = param.minSelfDelegation[i];
+        emit SetCreationThreshold(_new.token, _new.amount);
+        for (uint256 i = 0; i < param.creationThreshold.length; i++) {
+            Locking storage _old = param.creationThreshold[i];
             if (_old.token == _new.token) {
                 _old.amount = _new.amount;
                 return;
             }
         }
-        param.minSelfDelegation.push(_new);
+        param.creationThreshold.push(_new);
     }
 
-    function removeMinSelfDelegation(address token) external onlyOwner {
-        Delegation[] storage p = param.minSelfDelegation;
-        for (uint256 i = 0; i < p.length; i++) {
-            Delegation memory dlg = p[i];
-            if (dlg.token == token) {
-                if (i != p.length - 1) {
-                    p[i] = p[p.length - 1];
-                }
-                p.pop();
-                emit RemoveMinSelfDelegation(token);
-                return;
-            }
+    /**
+     * removeCreationThreshold removes token from creation threshold list
+     * @param token the token address
+     */
+    function removeCreationThreshold(address token) external onlyOwner {
+        _removeCreationThreshold(token);
+    }
+
+    /**
+     * addToken adds new a token
+     * @param token the token address
+     * @param weight the weight for the validator power
+     * @param limit the lock limit, 0 represents no limit
+     */
+    function addToken(
+        address token,
+        uint64 weight,
+        uint256 limit
+    ) external onlyOwner {
+        require(!tokens[token].valid, "token exists");
+        if (token != address(0)) {
+            require(IERC20Metadata(token).decimals() == 18, "invalid decimals");
         }
+
+        require(weight < MAX_WEIGHT, "invalid weight");
+        tokens[token] = Token(true, weight, limit);
+        emit UpdateTokenWeight(token, weight);
+        emit UpdateTokenLimit(token, limit);
     }
 
-    function setDelegationToken(address token, bool yes) external onlyOwner {
-        tokens[token] = yes;
-        emit SetDelegationToken(token, yes);
+    /**
+     * setTokenWeight updates token weight
+     * @param token the locking token address, the token's decimals must be 18
+     * @param weight the weight for the validator power
+     * if weight is 0, the token will be not able to lock
+     */
+    function setTokenWeight(address token, uint64 weight) external onlyOwner {
+        require(tokens[token].valid, "token not found");
+        require(weight < MAX_WEIGHT, "invalid weight");
+        tokens[token].weight = weight;
+        if (weight == 0) {
+            _removeCreationThreshold(token);
+        }
+        emit UpdateTokenWeight(token, weight);
+    }
+
+    /**
+     * setTokenLimit updates token limit
+     * @param token the token address
+     * @param limit the lock limit, 0 represents no limit
+     */
+    function setTokenLimit(address token, uint256 limit) external onlyOwner {
+        require(tokens[token].valid, "token not found");
+        tokens[token].limit = limit;
+        emit UpdateTokenLimit(token, limit);
     }
 
     /**
      * create creates a new validator
      * @param pubkey the validator secp256k1 public key
-     * @param commissionRate the commission percent rate
      * @param sigR the validator sig
      * @param sigS the validator sig
      * @param sigV the validator sig
      *
      * the pubkey, an uncompressed secp256k1 public key
-     * It is composed of 32 bytes X-coordinate and 32 bytes Y-coordinate
-     *
-     * the data to sign =
-     * abi.encodePacked(block.chainid, validator address, validator owner, commission)
+     * It is composed of the public key's 32 bytes X-coordinate and 32 bytes Y-coordinate
      *
      * the validator address =
      * sha256(ripemd160(compressed pubkey))
      *
-     * the sign data includes the validator address to prevent client encoding error
+     * the data to sign =
+     * abi.encodePacked(block.chainid, validator address, validator owner(msg.sender))
+     * it includes the validator address to prevent usage error
      */
     function create(
         bytes32[2] calldata pubkey,
-        uint8 commissionRate,
         bytes32 sigR,
         bytes32 sigS,
         uint8 sigV
     ) external payable {
-        require(commissionRate < 101, "invalid commission rate");
         address validator = pubkey.ConsAddress();
         bytes32 hash = keccak256(
-            abi.encodePacked(
-                block.chainid,
-                validator,
-                msg.sender,
-                commissionRate
-            )
+            abi.encodePacked(block.chainid, validator, msg.sender)
         );
         require(
             pubkey.EthAddress() == ECDSA.recover(hash, sigV, sigR, sigS),
             "signer mismatched"
         );
-        Validator storage config = validators[validator];
-        require(config.owner == address(0), "validator has been created");
-        config.owner = msg.sender;
-        config.commissionRate = commissionRate;
-        emit Create(validator, msg.sender, pubkey, commissionRate);
-        _delegate(validator, param.minSelfDelegation);
+        require(owners[validator] == address(0), "validator has been created");
+        owners[validator] = msg.sender;
+        emit Create(validator, msg.sender, pubkey);
+        _lock(validator, param.creationThreshold);
     }
 
     /**
-     * setCommission sets validator commitssion percent rate by the valiator owner
+     * lock locks tokens to a validator
      * @param validator the validator address
-     * @param commission the new commission value
+     * @param values the Locking values
      */
-    function setCommission(address validator, uint8 commission) external {
-        require(commission < 101, "invalid commission rate");
-        Validator storage config = validators[validator];
-        require(config.owner == msg.sender, "not the validator owner");
-        config.commissionRate = commission;
-        emit SetCommission(validator, commission);
-    }
-
-    /**
-     * delegate delegates tokens to a validator
-     * @param validator the validator address
-     * @param delegations the delegation information
-     */
-    function delegate(
+    function lock(
         address validator,
-        Delegation[] calldata delegations
-    ) external payable {
-        require(
-            validators[validator].owner != address(0),
-            "validator not found"
-        );
-        _delegate(validator, delegations);
+        Locking[] calldata values
+    ) external payable OnlyValidatorOwner(validator) {
+        _lock(validator, values);
     }
 
     /**
-     * undelegate undelegates tokens from a validator
-     * @param token the token address to undelegate
-     * @param amount the max amount to undelegate
-     *
-     * if the delegator is slashed, the actual amount will be less than the request amount
-     *
-     * the consensus layer will send back a `completeUndelegation` tx for the undelegation
+     * changeValidatorOwner update the validator owner
+     * @param validator the validator address
+     * @param newOwner the new owner address
      */
-    function undelegate(address token, uint256 amount) external {
-        Delegator storage d = delegators[msg.sender];
-        require(d.validator != address(0), "no delegation");
-        require(amount > 0 && d.delegating[token] >= amount, "invalid amount");
-        d.delegating[token] -= amount;
-        delegated[token] -= amount;
-        emit Undelegate(reqId++, msg.sender, token, amount);
+    function changeValidatorOwner(
+        address validator,
+        address newOwner
+    ) external OnlyValidatorOwner(validator) {
+        owners[validator] = newOwner;
+        emit ChangeValidatorOwner(validator, newOwner);
+    }
+
+    /**
+     * unlock withdraws tokens from consensus layer
+     * @param validator the validator address
+     * @param recipient the recipient address
+     * @param lks the token to unlocks
+     *
+     * if the validator is slashed, the actual amount will be less than the request amount
+     *
+     * the consensus layer will send back a `completeUnlock` tx for the undelegation
+     */
+    function unlock(
+        address validator,
+        address recipient,
+        Locking[] calldata lks
+    ) external OnlyValidatorOwner(validator) {
+        require(lks.length > 0, "no delegations");
+        for (uint i = 0; i < lks.length; i++) {
+            Locking memory d = lks[i];
+            require(d.amount > 0, "invalid amount");
+            locking[validator][d.token] -= d.amount;
+            totalLocking[d.token] -= d.amount;
+            emit Unlock(reqId++, validator, recipient, d.token, d.amount);
+        }
     }
 
     /**
      * claim claims rewards
+     * @param validator the validator address
      * @param recipient the reward recipient address
      *
      * the consensus layer will send back a `distributeReward` tx for the claiming
      */
-    function claim(address recipient) external {
-        Delegator storage d = delegators[msg.sender];
-        require(d.validator != address(0), "no delegation");
-        emit Claim(reqId++, msg.sender, recipient);
+    function claim(
+        address validator,
+        address recipient
+    ) external OnlyValidatorOwner(validator) {
+        require(param.claim, "claim is not open");
+        emit Claim(reqId++, validator, recipient);
     }
 
     /**
-     * distributeReward distributes delegation reward(including the goat token and gas fee)
-     * @param id the request index
+     * distributeReward distributes Locking reward(including the goat token and gas fee)
+     * @param id the request id
      * @param recipient the reward recipient address
      * @param goat the goat reward
      * @param amount the gas fee reward
@@ -197,62 +244,60 @@ contract Locking is Ownable, BaseAccess, ILocking {
         uint256 goat,
         uint256 amount
     ) external OnlyLockingExecutor {
-        IGoatToken(PreDeployedAddresses.GoatToken).mint(recipient, goat);
-        emit DistributeReward(
-            id,
-            recipient,
-            PreDeployedAddresses.GoatToken,
-            goat
-        );
-        // performacing the adding in the runtime
-        emit DistributeReward(id, recipient, address(0), amount);
+        // performacing the native token adding in the runtime
+        if (amount > 0) {
+            emit DistributeReward(id, address(0), amount);
+        }
+
+        if (remainReward == 0) {
+            return;
+        }
+
+        if (remainReward < goat) {
+            goat = remainReward;
+        }
+
+        if (goat == 0) {
+            return;
+        }
+
+        IERC20(PreDeployedAddresses.GoatToken).safeTransfer(recipient, goat);
+        emit DistributeReward(id, PreDeployedAddresses.GoatToken, goat);
+        remainReward -= goat;
     }
 
     /**
-     * completeUndelegation completes the undelegation operation and sends back tokens to the delegator
-     * @param id the request index
-     * @param delegator the delegator address
+     * completeUnlock completes the unlock operation and sends back tokens to the delegator
+     * @param id the request id
+     * @param recipient the recipient
      * @param token the goat reward
      * @param amount the amount to send back
      */
-    function completeUndelegation(
+    function completeUnlock(
         uint64 id,
-        address delegator,
+        address recipient,
         address token,
         uint256 amount
     ) external OnlyLockingExecutor {
         if (token != address(0)) {
-            IERC20(token).safeTransfer(delegator, amount);
+            IERC20(token).safeTransfer(recipient, amount);
         }
-        // for the native token
-        // sending back it in the runtime
-        emit CompleteUndelegation(id, delegator, token, amount);
+        // sends back the native token in the runtime
+        emit CompleteUnlock(id, token, amount);
     }
 
-    function _delegate(
-        address validator,
-        Delegation[] memory delegations
-    ) internal {
-        require(delegations.length > 0, "no delegations");
-
-        Delegator storage delegator = delegators[msg.sender];
-        if (delegator.validator == address(0)) {
-            delegator.validator = validator;
-        } else {
-            require(
-                delegator.validator == validator,
-                "delegate to multiple validators"
-            );
-        }
-
+    function _lock(address validator, Locking[] memory locks) internal {
+        require(locks.length > 0, "no delegations");
         uint256 msgValue = msg.value;
-        for (uint256 i = 0; i < delegations.length; i++) {
-            Delegation memory d = delegations[i];
-            require(d.amount > 0, "invalid amount");
-            require(tokens[d.token], "not delegation token");
+        for (uint256 i = 0; i < locks.length; i++) {
+            Locking memory d = locks[i];
+            Token memory t = tokens[d.token];
+
+            require(d.amount > 1e15, "invalid amount"); // It's for the minimal power (=1e3)
+            require(t.weight > 0, "not lockable token");
 
             if (d.token == address(0)) {
-                require(msgValue >= d.amount, "msg.value too low");
+                require(msgValue == d.amount, "invalid msg.value");
                 msgValue -= d.amount;
             } else {
                 IERC20(d.token).safeTransferFrom(
@@ -261,10 +306,27 @@ contract Locking is Ownable, BaseAccess, ILocking {
                     d.amount
                 );
             }
-            delegator.delegating[d.token] += d.amount;
-            delegated[d.token] += d.amount;
-            emit Delegate(validator, msg.sender, d.token, d.amount);
+            uint256 limit = totalLocking[d.token] + d.amount;
+            require(t.limit == 0 || t.limit >= limit, "lock amount exceed");
+            totalLocking[d.token] = limit;
+
+            locking[validator][d.token] += d.amount;
+            emit Lock(validator, d.token, d.amount);
         }
-        require(msgValue == 0, "msg.value too high");
+    }
+
+    function _removeCreationThreshold(address token) internal {
+        Locking[] storage p = param.creationThreshold;
+        for (uint256 i = 0; i < p.length; i++) {
+            Locking memory dlg = p[i];
+            if (dlg.token == token) {
+                if (i != p.length - 1) {
+                    p[i] = p[p.length - 1];
+                }
+                p.pop();
+                emit RemoveCreationThreshold(token);
+                return;
+            }
+        }
     }
 }
