@@ -288,6 +288,7 @@ describe("Locking", async () => {
         await expect(locking.lock(others[1], [])).revertedWith("validator not found")
         await expect(locking.connect(others[0]).lock(validator, [])).revertedWith("not validator owner")
         await expect(locking.lock(validator, [])).revertedWith("no tokens to lock")
+        await expect(locking.lock(validator, [{ token: others[1], amount: 1n }])).revertedWith("not lockable token")
         await expect(locking.lock(validator, [{ token: ethers.ZeroAddress, amount: 1n }, { token: ethers.ZeroAddress, amount: 1n }], { value: 1n })).revertedWith("invalid msg.value")
         await testToken.approve(locking, 0n);
         await expect(locking.lock(validator, [{ token: testToken, amount: 1n }], { value: 1n })).revertedWithCustomError(testToken, "ERC20InsufficientAllowance").withArgs(locking, 0, 1n)
