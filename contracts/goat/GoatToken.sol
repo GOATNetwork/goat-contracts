@@ -7,8 +7,6 @@ import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20P
 import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 
-import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
-
 contract GoatToken is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes {
     constructor(address owner) ERC20("GOAT", "GOAT") ERC20Permit("GOAT") {
         // owner must distribute the tokens then
