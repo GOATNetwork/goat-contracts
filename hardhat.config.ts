@@ -30,7 +30,7 @@ const config: HardhatUserConfig = {
     },
   },
   gasReporter: {
-    enabled: true,
+    enabled: process.env.GAS_REPORT === "true",
   },
   ignition: {
     requiredConfirmations: 1,

@@ -19,3 +19,5 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm test
+        env:
+          GAS_REPORT: "true"
