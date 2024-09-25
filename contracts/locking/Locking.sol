@@ -224,7 +224,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
      */
     function creationThreshold() public view returns (Locking[] memory) {
         Locking[] memory res = new Locking[](threshold.length);
-        for (uint i = 0; i < threshold.length; i++) {
+        for (uint256 i = 0; i < threshold.length; i++) {
             address addr = threshold[i];
             res[i] = Locking(addr, tokens[addr].threshold);
         }
