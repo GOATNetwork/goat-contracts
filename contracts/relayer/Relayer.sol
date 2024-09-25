@@ -6,9 +6,9 @@ import {IRelayer} from "../interfaces/Relayer.sol";
 
 contract Relayer is Ownable, IRelayer {
     // It ensures efficiency for BLS signature aggregation and TSS operations
-    uint16 public constant MAX_VOTER_COUNT = 256;
+    uint256 public constant MAX_VOTER_COUNT = 256;
 
-    uint16 public total;
+    uint256 public total;
     mapping(bytes32 vtkh => bool exists) public pubkeys;
     mapping(address voter => bool exists) public voters;
 
