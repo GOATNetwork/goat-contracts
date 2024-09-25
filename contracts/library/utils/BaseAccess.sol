@@ -13,4 +13,11 @@ contract BaseAccess {
         }
         _;
     }
+
+    modifier OnlyLockingExecutor() {
+        if (msg.sender != Executor.Locking) {
+            revert AccessDenied();
+        }
+        _;
+    }
 }
