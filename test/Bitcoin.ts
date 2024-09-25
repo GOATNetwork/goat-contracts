@@ -14,7 +14,7 @@ describe("Bitcoin", async () => {
   const blockHash101 =
     "0x393cc15d9c3860e02fc55b2e5a49e1c3e68ef829213f39e3fecd1dc2b0d75267";
 
-  const networkName = "mainnet"
+  const networkName = "mainnet";
 
   const relayer = Executors.relayer;
 
@@ -26,7 +26,7 @@ describe("Bitcoin", async () => {
     const bitcoin: Bitcoin = await factory.deploy(
       100,
       blockHash100,
-      networkName
+      networkName,
     );
 
     await impersonateAccount(relayer);
