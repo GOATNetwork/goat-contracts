@@ -43,19 +43,11 @@ interface IBridge {
 
     struct Withdrawal {
         address sender;
+        uint16 maxTxPrice;
+        WithdrawalStatus status;
         uint256 amount; // msg.value - tax
         uint256 tax; // tax for goat foundation
-        uint16 maxTxPrice;
         uint256 updatedAt;
-        string receiver;
-        WithdrawalStatus status;
-    }
-
-    // the payment receipt
-    struct Receipt {
-        bytes32 txid;
-        uint32 txout;
-        uint256 received;
     }
 
     function isDeposited(
