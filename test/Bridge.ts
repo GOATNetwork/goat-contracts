@@ -174,7 +174,6 @@ describe("Bridge", async () => {
         expect(withdrawal.tax).eq(tax);
         expect(withdrawal.maxTxPrice).eq(txPrice);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-        expect(withdrawal.receiver).eq(addr1);
         expect(withdrawal.status).eq(1);
         expect(withdrawal.amount + withdrawal.tax, "actual + tax = amount").eq(
           amount,
@@ -217,12 +216,6 @@ describe("Bridge", async () => {
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
         expect(withdrawal.status).eq(5);
 
-        const receipt = await bridge.receipts(wid);
-
-        expect(receipt.txid).eq(txid);
-        expect(receipt.txout).eq(txout);
-        expect(receipt.received).eq(paid);
-
         expect(
           await ethers.provider.getBalance(await bridge.getAddress()),
           "bridge balance",
@@ -253,7 +246,6 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(0n);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.receiver).eq(addr1);
       expect(withdrawal.status).eq(1);
     });
 
@@ -276,7 +268,6 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(dust);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.receiver).eq(addr1);
       expect(withdrawal.status).eq(1);
     });
 

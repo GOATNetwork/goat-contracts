@@ -21,9 +21,6 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
 
     Withdrawal[] public withdrawals;
 
-    // the withdrawal receipts
-    mapping(uint256 id => Receipt receipt) public receipts;
-
     // 1 satoshi = 10 gwei
     uint256 internal constant SATOSHI = 10 gwei;
 
@@ -140,7 +137,6 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
                 tax: tax,
                 maxTxPrice: _maxTxPrice,
                 updatedAt: block.timestamp,
-                receiver: _receiver,
                 status: WithdrawalStatus.Pending
             })
         );
@@ -271,7 +267,6 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
                 status == WithdrawalStatus.Canceling
         );
 
-        receipts[_wid] = Receipt(_txid, _txout, _received);
         withdrawal.status = WithdrawalStatus.Paid;
         withdrawal.updatedAt = block.timestamp;
 
