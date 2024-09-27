@@ -8,6 +8,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ILocking} from "../interfaces/Locking.sol";
+import {IGoatToken} from "../interfaces/GoatToken.sol";
 import {Pubkey} from "../library/codec/pubkey.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 
@@ -21,9 +22,6 @@ contract Locking is Ownable, BaseAccess, ILocking {
     uint64 internal reqId;
 
     uint256 public remainReward;
-
-    // claimable represents current status of reward claiming
-    bool public claimable;
 
     // threshold for validator creation
     address[] internal threshold;
@@ -140,6 +138,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
         Locking[] calldata values
     ) external OnlyValidatorOwner(validator) {
         require(values.length > 0, "no tokens to unlock");
+        require(recipient != address(0), "invalid recipient");
         for (uint256 i = 0; i < values.length; i++) {
             Locking memory d = values[i];
             require(d.amount > 0, "invalid amount");
@@ -166,7 +165,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
             IERC20(token).safeTransfer(recipient, amount);
         }
         // sends back the native token in the runtime
-        emit CompleteUnlock(id, token, amount);
+        emit CompleteUnlock(id, amount);
     }
 
     /**
@@ -180,7 +179,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
         address validator,
         address recipient
     ) external OnlyValidatorOwner(validator) {
-        require(claimable, "claim is not open");
+        require(recipient != address(0), "invalid recipient");
         emit Claim(reqId++, validator, recipient);
     }
 
@@ -197,26 +196,18 @@ contract Locking is Ownable, BaseAccess, ILocking {
         uint256 goat,
         uint256 amount
     ) external OnlyLockingExecutor {
-        // performacing the native token adding in the runtime
-        if (amount > 0) {
-            emit DistributeReward(id, address(0), amount);
-        }
-
-        if (remainReward == 0) {
-            return;
-        }
-
         if (remainReward < goat) {
             goat = remainReward;
         }
 
-        if (goat == 0) {
-            return;
+        if (goat != 0) {
+            IGoatToken(goatToken).mint(recipient, goat);
+            remainReward -= goat;
         }
 
-        IERC20(goatToken).safeTransfer(recipient, goat);
         emit DistributeReward(id, goatToken, goat);
-        remainReward -= goat;
+        // performacing the native token adding in the runtime
+        emit DistributeReward(id, address(0), amount);
     }
 
     /**
@@ -229,15 +220,6 @@ contract Locking is Ownable, BaseAccess, ILocking {
             res[i] = Locking(addr, tokens[addr].threshold);
         }
         return res;
-    }
-
-    /**
-     * openClaim let claim is open
-     */
-    function openClaim() external onlyOwner {
-        require(!claimable, "claim is open");
-        claimable = true;
-        emit OpenCliam();
     }
 
     /**

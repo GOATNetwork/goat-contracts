@@ -16,7 +16,7 @@ describe("Locking", async () => {
         const goat = await goatFactory.deploy(owner);
 
         const locking: Locking = await factory.deploy(owner, goat, 1000n);
-        await goat.transfer(locking, 1000n)
+        await goat.grantRole(await goat.MINTER_ROLE(), locking);
 
         await impersonateAccount(Executors.locking);
         await payer.sendTransaction({ // gas fee
@@ -309,6 +309,8 @@ describe("Locking", async () => {
         await expect(locking.unlock(others[1], owner, [])).revertedWith("validator not found")
         await expect(locking.connect(others[0]).unlock(validator, owner, [])).revertedWith("not validator owner")
         await expect(locking.unlock(validator, owner, [])).revertedWith("no tokens to unlock")
+        await expect(locking.unlock(validator, ethers.ZeroAddress, [{ token: ethers.ZeroAddress, amount: 1n }])).revertedWith("invalid recipient")
+
         await expect(locking.unlock(validator, owner, [{ token: ethers.ZeroAddress, amount: 0n }])).revertedWith("invalid amount")
         await expect(await locking.unlock(validator, owner,
             [{ token: ethers.ZeroAddress, amount: 1n }, { token: testToken, amount: 1n }]))
@@ -317,20 +319,15 @@ describe("Locking", async () => {
 
         await expect(locking.completeUnlock(0, owner, ethers.ZeroAddress, 1)).revertedWithCustomError(locking, "AccessDenied")
         await expect(await locking.connect(executor).completeUnlock(0, owner, ethers.ZeroAddress, 1))
-            .emit(locking, "CompleteUnlock").withArgs(0, ethers.ZeroAddress, 1)
+            .emit(locking, "CompleteUnlock").withArgs(0, 1)
 
         await expect(await locking.connect(executor).completeUnlock(1, owner, testToken, 1))
-            .emit(locking, "CompleteUnlock").withArgs(1, testToken, 1)
+            .emit(locking, "CompleteUnlock").withArgs(1, 1)
         await expect(await testToken.balanceOf(locking)).eq(100)
 
         await expect(locking.claim(others[1], owner)).revertedWith("validator not found")
         await expect(locking.connect(others[0]).claim(validator, owner)).revertedWith("not validator owner")
-        await expect(locking.connect(others[0]).openClaim()).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-        await expect(locking.claim(validator, owner)).revertedWith("claim is not open")
-
-        expect(await locking.openClaim()).emit(locking, "OpenCliam")
-        await expect(locking.openClaim()).revertedWith("claim is open")
-        expect(await locking.claimable()).to.be.true;
+        await expect(locking.claim(validator, ethers.ZeroAddress)).revertedWith("invalid recipient")
 
         await expect(await locking.claim(validator, owner)).emit(locking, "Claim").withArgs(2, validator, owner)
         await expect(locking.distributeReward(2, owner, 1, 1)).revertedWithCustomError(locking, "AccessDenied")
@@ -338,7 +335,8 @@ describe("Locking", async () => {
         expect(await locking.remainReward()).eq(1000)
         await expect(await locking.connect(executor).distributeReward(2, owner, 1000, 0))
             .emit(locking, "DistributeReward").withArgs(2, goat, 1000)
-            .emit(goat, "Transfer").withArgs(locking, owner, 1000)
+            .emit(locking, "DistributeReward").withArgs(2, ethers.ZeroAddress, 0)
+            .emit(goat, "Transfer").withArgs(ethers.ZeroAddress, owner, 1000)
 
         await expect(await goat.balanceOf(locking)).eq(0)
         expect(await locking.remainReward()).eq(0)
@@ -346,5 +344,6 @@ describe("Locking", async () => {
         await expect(await locking.claim(validator, owner)).emit(locking, "Claim").withArgs(3, validator, owner)
         await expect(await locking.connect(executor).distributeReward(3, owner, 0, 1000))
             .emit(locking, "DistributeReward").withArgs(3, ethers.ZeroAddress, 1000)
+            .emit(locking, "DistributeReward").withArgs(3, goat, 0)
     })
 });

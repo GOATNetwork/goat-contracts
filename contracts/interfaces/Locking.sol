@@ -30,7 +30,7 @@ interface ILocking {
         address token,
         uint256 amount
     );
-    event CompleteUnlock(uint64 id, address token, uint256 amount);
+    event CompleteUnlock(uint64 id, uint256 amount);
 
     event Claim(uint64 id, address validator, address recipient);
     event DistributeReward(uint64 id, address token, uint256 amount);
