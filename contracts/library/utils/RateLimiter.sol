@@ -11,7 +11,7 @@ contract RateLimiter {
     error RequestTooFrequent();
     error RateLimitExceeded();
 
-    uint256 public immutable REQUEST_PER_BLOCK = 32;
+    uint256 public immutable REQUEST_PER_BLOCK;
 
     constructor(uint256 count) {
         REQUEST_PER_BLOCK = count;
