@@ -12,9 +12,11 @@ contract RateLimiter {
     error RateLimitExceeded();
 
     uint256 public immutable REQUEST_PER_BLOCK;
+    bool internal immutable CHECK_SENDER;
 
-    constructor(uint256 count) {
+    constructor(uint256 count, bool checkSender) {
         REQUEST_PER_BLOCK = count;
+        CHECK_SENDER = checkSender;
     }
 
     struct RateLimit {
@@ -36,13 +38,15 @@ contract RateLimiter {
     }
 
     function _checkLimiting(address newCaller, uint256 count) internal {
-        require(
-            rateLimit.callers[msg.sender] != block.number,
-            TooManyRequest()
-        );
-        rateLimit.callers[msg.sender] = block.number;
-        if (msg.sender != newCaller) {
-            rateLimit.callers[newCaller] = block.number;
+        if (CHECK_SENDER) {
+            require(
+                rateLimit.callers[msg.sender] != block.number,
+                TooManyRequest()
+            );
+            rateLimit.callers[msg.sender] = block.number;
+            if (msg.sender != newCaller) {
+                rateLimit.callers[newCaller] = block.number;
+            }
         }
 
         if (block.number == rateLimit.height) {

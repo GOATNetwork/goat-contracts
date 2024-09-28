@@ -21,6 +21,8 @@ describe("RateLimiter", async () => {
         await rateLimiter.pass1()
         await rateLimiter.pass2()
         await rateLimiter.pass3()
+        await rateLimiter.pass4()
+        await rateLimiter.pass5()
     })
 
     it("fail", async () => {

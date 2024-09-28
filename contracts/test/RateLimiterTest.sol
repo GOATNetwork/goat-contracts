@@ -4,7 +4,10 @@ pragma solidity ^0.8.24;
 import {RateLimiter} from "../library/utils/RateLimiter.sol";
 
 contract RateLimiterCallee is RateLimiter {
-    constructor(uint256 limit) RateLimiter(limit) {}
+    constructor(
+        uint256 limit,
+        bool checkSender
+    ) RateLimiter(limit, checkSender) {}
 
     function test1() public RateLimiting {}
 
@@ -31,10 +34,10 @@ contract RateLimiterCaller {
 }
 
 contract RateLimiterTest is RateLimiter {
-    constructor() RateLimiter(1) {}
+    constructor() RateLimiter(0, false) {}
 
     function pass1() public {
-        RateLimiterCallee callee = new RateLimiterCallee(2);
+        RateLimiterCallee callee = new RateLimiterCallee(2, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         RateLimiterCaller caller2 = new RateLimiterCaller(callee);
 
@@ -43,7 +46,7 @@ contract RateLimiterTest is RateLimiter {
     }
 
     function pass2() public {
-        RateLimiterCallee callee = new RateLimiterCallee(3);
+        RateLimiterCallee callee = new RateLimiterCallee(3, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         RateLimiterCaller caller2 = new RateLimiterCaller(callee);
 
@@ -52,7 +55,24 @@ contract RateLimiterTest is RateLimiter {
     }
 
     function pass3() public {
-        RateLimiterCallee callee = new RateLimiterCallee(2);
+        RateLimiterCallee callee = new RateLimiterCallee(2, true);
+        RateLimiterCaller caller1 = new RateLimiterCaller(callee);
+        RateLimiterCaller caller2 = new RateLimiterCaller(callee);
+
+        caller1.test1();
+        caller2.test2(block.coinbase, 1);
+    }
+
+    function pass4() public {
+        RateLimiterCallee callee = new RateLimiterCallee(2, false);
+        RateLimiterCaller caller1 = new RateLimiterCaller(callee);
+
+        caller1.test1();
+        caller1.test1();
+    }
+
+    function pass5() public {
+        RateLimiterCallee callee = new RateLimiterCallee(2, false);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         RateLimiterCaller caller2 = new RateLimiterCaller(callee);
 
@@ -61,14 +81,14 @@ contract RateLimiterTest is RateLimiter {
     }
 
     function fail1() public {
-        RateLimiterCallee callee = new RateLimiterCallee(2);
+        RateLimiterCallee callee = new RateLimiterCallee(2, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         caller1.test1();
         caller1.test1();
     }
 
     function fail2() public {
-        RateLimiterCallee callee = new RateLimiterCallee(2);
+        RateLimiterCallee callee = new RateLimiterCallee(2, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         RateLimiterCaller caller2 = new RateLimiterCaller(callee);
         RateLimiterCaller caller3 = new RateLimiterCaller(callee);
@@ -79,7 +99,7 @@ contract RateLimiterTest is RateLimiter {
     }
 
     function fail3() public {
-        RateLimiterCallee callee = new RateLimiterCallee(2);
+        RateLimiterCallee callee = new RateLimiterCallee(2, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         RateLimiterCaller caller2 = new RateLimiterCaller(callee);
 
@@ -88,7 +108,7 @@ contract RateLimiterTest is RateLimiter {
     }
 
     function fail4() public {
-        RateLimiterCallee callee = new RateLimiterCallee(2);
+        RateLimiterCallee callee = new RateLimiterCallee(2, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         caller1.test2(msg.sender, 3);
     }

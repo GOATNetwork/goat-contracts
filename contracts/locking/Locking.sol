@@ -45,7 +45,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address owner,
         address goat,
         uint256 totalReward
-    ) Ownable(owner) RateLimiter(32) {
+    ) Ownable(owner) RateLimiter(32, true) {
         tokens[goat] = Token(true, 1, 0, 0);
         tokens[address(0)] = Token(true, 12000, 0, 0);
         goatToken = goat;

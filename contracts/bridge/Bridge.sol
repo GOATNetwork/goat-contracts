@@ -41,7 +41,7 @@ contract Bridge is
     uint256 internal constant WITHDRAWAL_UPDATED_DURATION = 5 minutes;
 
     // It is only for testing
-    constructor(address owner) Ownable(owner) RateLimiter(32) {
+    constructor(address owner) Ownable(owner) RateLimiter(32, false) {
         param = Param({
             depositTaxBP: 0,
             maxDepositTax: 0,
