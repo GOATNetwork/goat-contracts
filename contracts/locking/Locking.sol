@@ -128,7 +128,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     function changeValidatorOwner(
         address validator,
         address newOwner
-    ) external OnlyValidatorOwner(validator) RateLimiting2(newOwner, 1) {
+    ) external OnlyValidatorOwner(validator) RateLimiting2(newOwner, 0) {
         require(newOwner != address(0), "invalid address");
         owners[validator] = newOwner;
         emit ChangeValidatorOwner(validator, newOwner);

@@ -21,6 +21,7 @@ describe("RateLimiter", async () => {
     await rateLimiter.pass3();
     await rateLimiter.pass4();
     await rateLimiter.pass5();
+    await rateLimiter.pass6();
   });
 
   it("fail", async () => {
@@ -40,6 +41,10 @@ describe("RateLimiter", async () => {
     await expect(rateLimiter.fail4()).revertedWithCustomError(
       rateLimiter,
       "RateLimitExceeded",
+    );
+    await expect(rateLimiter.fail5()).revertedWithCustomError(
+      rateLimiter,
+      "TooManyRequest",
     );
   });
 });

@@ -49,6 +49,10 @@ contract RateLimiter {
             }
         }
 
+        if (count == 0) {
+            return;
+        }
+
         if (block.number == rateLimit.height) {
             rateLimit.count += count;
         } else {
