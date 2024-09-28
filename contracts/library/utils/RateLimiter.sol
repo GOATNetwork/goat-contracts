@@ -1,33 +1,56 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+/**
+ * @title The rate limiter for consensus request
+ * @author
+ * @notice
+ */
+contract RateLimiter {
+    error TooManyRequest();
+    error RequestTooFrequent();
+    error RateLimitExceeded();
 
-contract RateLimiter is Ownable {
-    uint256 internal lastRequestBlock = 0;
-    uint256 internal lastRequestCount = 0;
+    uint256 public immutable REQUEST_PER_BLOCK;
 
-    uint256 public requestPerBlock = 16;
+    constructor(uint256 count) {
+        REQUEST_PER_BLOCK = count;
+    }
 
-    event RequestPerBlockUpdated(uint256 throttle);
+    struct RateLimit {
+        uint256 height;
+        uint256 count;
+        mapping(address caller => uint256 height) callers;
+    }
 
-    constructor(address owner) Ownable(owner) {}
+    RateLimit internal rateLimit;
 
-    modifier Limiting() {
-        if (block.number == lastRequestBlock) {
-            require(lastRequestCount < requestPerBlock, "rate limit exceeded");
-            lastRequestCount++;
-        } else {
-            lastRequestBlock = block.number;
-            lastRequestCount = 1;
-        }
+    modifier RateLimiting() {
+        _checkLimiting(msg.sender, 1);
         _;
     }
 
-    function setRequestPerBlock(uint256 _new) external onlyOwner {
-        require(_new >= 8, "throttle too low");
-        require(_new <= 100, "throttle too high");
-        requestPerBlock = _new;
-        emit RequestPerBlockUpdated(_new);
+    modifier RateLimiting2(address newCaller, uint256 count) {
+        _checkLimiting(newCaller, count);
+        _;
+    }
+
+    function _checkLimiting(address newCaller, uint256 count) internal {
+        require(
+            rateLimit.callers[msg.sender] != block.number,
+            TooManyRequest()
+        );
+        rateLimit.callers[msg.sender] = block.number;
+        if (msg.sender != newCaller) {
+            rateLimit.callers[newCaller] = block.number;
+        }
+
+        if (block.number == rateLimit.height) {
+            rateLimit.count += count;
+        } else {
+            rateLimit.height = block.number;
+            rateLimit.count = count;
+        }
+        require(rateLimit.count <= REQUEST_PER_BLOCK, RateLimitExceeded());
     }
 }

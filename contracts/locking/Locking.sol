@@ -11,8 +11,9 @@ import {ILocking} from "../interfaces/Locking.sol";
 import {IGoatToken} from "../interfaces/GoatToken.sol";
 import {Pubkey} from "../library/codec/pubkey.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
+import {RateLimiter} from "../library/utils/RateLimiter.sol";
 
-contract Locking is Ownable, BaseAccess, ILocking {
+contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     using SafeERC20 for IERC20;
     using Pubkey for bytes32[2];
 
@@ -38,11 +39,13 @@ contract Locking is Ownable, BaseAccess, ILocking {
 
     uint64 public constant MAX_WEIGHT = 1e6;
 
+    uint256 public constant MAX_TOKEN_SIZE = 8;
+
     constructor(
         address owner,
         address goat,
         uint256 totalReward
-    ) Ownable(owner) {
+    ) Ownable(owner) RateLimiter(32) {
         tokens[goat] = Token(true, 1, 0, 0);
         tokens[address(0)] = Token(true, 12000, 0, 0);
         goatToken = goat;
@@ -78,7 +81,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
         bytes32 sigR,
         bytes32 sigS,
         uint8 sigV
-    ) external payable {
+    ) external payable RateLimiting2(msg.sender, threshold.length + 1) {
         require(threshold.length > 0, "not started");
 
         address validator = pubkey.ConsAddress();
@@ -104,8 +107,16 @@ contract Locking is Ownable, BaseAccess, ILocking {
     function lock(
         address validator,
         Locking[] calldata values
-    ) external payable OnlyValidatorOwner(validator) {
-        require(values.length > 0, "no tokens to lock");
+    )
+        external
+        payable
+        OnlyValidatorOwner(validator)
+        RateLimiting2(msg.sender, values.length)
+    {
+        require(
+            values.length > 0 && values.length <= MAX_TOKEN_SIZE,
+            "invalid tokens size"
+        );
         _lock(validator, values);
     }
 
@@ -117,7 +128,8 @@ contract Locking is Ownable, BaseAccess, ILocking {
     function changeValidatorOwner(
         address validator,
         address newOwner
-    ) external OnlyValidatorOwner(validator) {
+    ) external OnlyValidatorOwner(validator) RateLimiting2(newOwner, 1) {
+        require(newOwner != address(0), "invalid address");
         owners[validator] = newOwner;
         emit ChangeValidatorOwner(validator, newOwner);
     }
@@ -136,8 +148,15 @@ contract Locking is Ownable, BaseAccess, ILocking {
         address validator,
         address recipient,
         Locking[] calldata values
-    ) external OnlyValidatorOwner(validator) {
-        require(values.length > 0, "no tokens to unlock");
+    )
+        external
+        OnlyValidatorOwner(validator)
+        RateLimiting2(msg.sender, values.length)
+    {
+        require(
+            values.length > 0 && values.length <= MAX_TOKEN_SIZE,
+            "invalid tokens size"
+        );
         require(recipient != address(0), "invalid recipient");
         for (uint256 i = 0; i < values.length; i++) {
             Locking memory d = values[i];
@@ -178,7 +197,7 @@ contract Locking is Ownable, BaseAccess, ILocking {
     function claim(
         address validator,
         address recipient
-    ) external OnlyValidatorOwner(validator) {
+    ) external OnlyValidatorOwner(validator) RateLimiting {
         require(recipient != address(0), "invalid recipient");
         emit Claim(reqId++, validator, recipient);
     }
@@ -247,6 +266,10 @@ contract Locking is Ownable, BaseAccess, ILocking {
 
         if (thrs > 0) {
             require(limit == 0 || limit >= thrs, "limit < threshold");
+            require(
+                threshold.length < MAX_TOKEN_SIZE,
+                "threshold length too large"
+            );
             threshold.push(token);
             emit SetThreshold(token, thrs);
         }
@@ -316,6 +339,10 @@ contract Locking is Ownable, BaseAccess, ILocking {
         emit SetThreshold(token, amount);
 
         if (thres == 0 && amount > 0) {
+            require(
+                threshold.length < MAX_TOKEN_SIZE,
+                "threshold length too large"
+            );
             threshold.push(token);
             return;
         }

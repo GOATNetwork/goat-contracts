@@ -154,7 +154,6 @@ describe("Bridge", async () => {
       const param = await bridge.param();
       expect(param.withdrawalTaxBP).eq(20n);
       expect(param.maxWithdrawalTax).eq((BigInt(1e18) * 20n) / BigInt(1e4));
-      expect(param.rateLimit).eq(300);
 
       const wid = 0n;
       const amount = BigInt(1e18);
@@ -187,7 +186,7 @@ describe("Bridge", async () => {
 
       // rbf
       {
-        await timeHelper.increase(param.rateLimit + 1n);
+        await timeHelper.increase(300n + 1n);
 
         const newTxPrice = txPrice + 1n;
         expect(await bridge.replaceByFee(wid, txPrice + 1n))
@@ -289,7 +288,7 @@ describe("Bridge", async () => {
 
         await expect(bridge.cancel1(wid)).revertedWithCustomError(
           bridge,
-          "RateLimitExceeded",
+          "RequestTooFrequent",
         );
 
         await expect(bridge.cancel2(wid)).revertedWithCustomError(
@@ -299,7 +298,7 @@ describe("Bridge", async () => {
       }
 
       {
-        await timeHelper.increase(param.rateLimit + 1n);
+        await timeHelper.increase(300n + 1n);
 
         expect(await bridge.cancel1(wid))
           .emit(bridge, "Canceling")
