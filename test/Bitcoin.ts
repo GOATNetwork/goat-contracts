@@ -44,35 +44,32 @@ describe("Bitcoin", async () => {
     };
   }
 
-  describe("bitcoin", async () => {
-    it("init", async () => {
-      const { bitcoin } = await loadFixture(fixture);
+  it("init", async () => {
+    const { bitcoin } = await loadFixture(fixture);
+    expect(await bitcoin.startHeight()).eq(100);
+    expect(await bitcoin.latestHeight()).eq(100);
+    expect(await bitcoin.blockHash(100)).eq(blockHash100);
+  });
 
-      expect(await bitcoin.startHeight()).eq(100);
-      expect(await bitcoin.latestHeight()).eq(100);
-      expect(await bitcoin.blockHash(100)).eq(blockHash100);
-    });
+  it("networkName", async () => {
+    const { bitcoin } = await loadFixture(fixture);
+    expect(await bitcoin.networkName()).eq(networkName);
+  });
 
-    it("network", async () => {
-      const { bitcoin } = await loadFixture(fixture);
-      expect(await bitcoin.networkName()).eq(networkName);
-    });
+  it("newBlockHash", async () => {
+    const { bitcoin, relayer } = await loadFixture(fixture);
 
-    it("new", async () => {
-      const { bitcoin, relayer } = await loadFixture(fixture);
+    await expect(bitcoin.newBlockHash(blockHash101)).revertedWithCustomError(
+      bitcoin,
+      "AccessDenied",
+    );
 
-      await expect(bitcoin.newBlockHash(blockHash101)).revertedWithCustomError(
-        bitcoin,
-        "AccessDenied",
-      );
+    expect(await bitcoin.connect(relayer).newBlockHash(blockHash101))
+      .emit(bitcoin, "NewBlockHash")
+      .withArgs(blockHash101);
 
-      expect(await bitcoin.connect(relayer).newBlockHash(blockHash101))
-        .emit(bitcoin, "NewBlockHash")
-        .withArgs(blockHash101);
-
-      expect(await bitcoin.startHeight()).eq(100);
-      expect(await bitcoin.latestHeight()).eq(101);
-      expect(await bitcoin.blockHash(101)).eq(blockHash101);
-    });
+    expect(await bitcoin.startHeight()).eq(100);
+    expect(await bitcoin.latestHeight()).eq(101);
+    expect(await bitcoin.blockHash(101)).eq(blockHash101);
   });
 });
