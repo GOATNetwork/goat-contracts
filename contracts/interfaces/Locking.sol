@@ -16,8 +16,8 @@ interface ILocking {
 
     event OpenCliam();
 
-    event SetThreshold(address token, uint256 amount);
-    event UpdateTokenWeight(address token, uint64 power);
+    event UpdateTokenThreshold(address token, uint256 amount);
+    event UpdateTokenWeight(address token, uint64 weight);
     event UpdateTokenLimit(address token, uint256 limit);
 
     event Create(address validator, address owner, bytes32[2] pubkey);

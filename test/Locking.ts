@@ -63,7 +63,7 @@ describe("Locking", async () => {
       .withArgs(testToken, 1)
       .emit(locking, "UpdateTokenLimit")
       .withArgs(testToken, 0)
-      .emit(locking, "SetThreshold")
+      .emit(locking, "UpdateTokenThreshold")
       .withArgs(testToken, 1000);
 
     let token = await locking.tokens(testToken);
@@ -152,7 +152,7 @@ describe("Locking", async () => {
     );
     await expect(locking.setThreshold(testToken, 0)).revertedWith("no changes");
     await expect(await locking.setThreshold(testToken, 100))
-      .emit(locking, "SetThreshold")
+      .emit(locking, "UpdateTokenThreshold")
       .withArgs(testToken, 100);
 
     token = await locking.tokens(testToken);
@@ -167,7 +167,7 @@ describe("Locking", async () => {
     expect(threshold[0].amount).eq(100);
 
     await expect(await locking.setThreshold(testToken, 1000))
-      .emit(locking, "SetThreshold")
+      .emit(locking, "UpdateTokenThreshold")
       .withArgs(testToken, 1000);
 
     threshold = await locking.creationThreshold();
@@ -181,7 +181,7 @@ describe("Locking", async () => {
       .withArgs(testToken2, 1)
       .emit(locking, "UpdateTokenLimit")
       .withArgs(testToken2, 0)
-      .emit(locking, "SetThreshold")
+      .emit(locking, "UpdateTokenThreshold")
       .withArgs(testToken2, 12);
 
     threshold = await locking.creationThreshold();
@@ -190,7 +190,7 @@ describe("Locking", async () => {
     expect(threshold[1].amount).eq(12);
 
     await expect(await locking.setThreshold(testToken, 0))
-      .emit(locking, "SetThreshold")
+      .emit(locking, "UpdateTokenThreshold")
       .withArgs(testToken, 0);
 
     threshold = await locking.creationThreshold();

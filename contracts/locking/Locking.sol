@@ -271,7 +271,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
                 "threshold length too large"
             );
             threshold.push(token);
-            emit SetThreshold(token, thrs);
+            emit UpdateTokenThreshold(token, thrs);
         }
     }
 
@@ -308,7 +308,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
                 threshold[i] = threshold[threshold.length - 1];
             }
             threshold.pop();
-            emit SetThreshold(token, 0);
+            emit UpdateTokenThreshold(token, 0);
             return;
         }
     }
@@ -336,7 +336,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         require(thres != amount, "no changes");
 
         tokens[token].threshold = amount;
-        emit SetThreshold(token, amount);
+        emit UpdateTokenThreshold(token, amount);
 
         if (thres == 0 && amount > 0) {
             require(
