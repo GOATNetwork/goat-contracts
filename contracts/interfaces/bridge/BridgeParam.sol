@@ -8,12 +8,10 @@ interface IBridgeParam {
     event MinWithdrawalUpdated(uint64);
 
     struct Param {
-        uint16 rateLimit;
         uint16 depositTaxBP;
         uint64 maxDepositTax;
         uint16 withdrawalTaxBP;
         uint64 maxWithdrawalTax;
-        uint16 _res1;
         uint64 minWithdrawal;
     }
 
@@ -24,8 +22,6 @@ interface IBridgeParam {
     function setDepositTax(uint16 bp, uint64 max) external;
 
     function setWithdrawalTax(uint16 bp, uint64 max) external;
-
-    function setRateLimit(uint16 sec) external;
 
     function setMinWithdrawal(uint64 amount) external;
 }

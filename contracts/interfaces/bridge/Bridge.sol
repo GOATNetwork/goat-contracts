@@ -38,7 +38,6 @@ interface IBridge {
         Paid
     }
 
-    error RateLimitExceeded();
     error InvalidAddress();
 
     struct Withdrawal {

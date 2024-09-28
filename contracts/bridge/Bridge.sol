@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Burner} from "../library/utils/Burner.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
+import {RateLimiter} from "../library/utils/RateLimiter.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -12,7 +13,14 @@ import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
+contract Bridge is
+    Ownable,
+    BaseAccess,
+    RateLimiter,
+    IBridge,
+    IBridgeParam,
+    IERC165
+{
     using Address for address payable;
 
     Param public param;
@@ -30,16 +38,16 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
     // the max tax base points
     uint256 internal constant MAX_BASE_POINT = 1e4;
 
+    uint256 internal constant WITHDRAWAL_UPDATED_DURATION = 5 minutes;
+
     // It is only for testing
-    constructor(address owner) Ownable(owner) {
+    constructor(address owner) Ownable(owner) RateLimiter(32) {
         param = Param({
-            rateLimit: 300,
             depositTaxBP: 0,
             maxDepositTax: 0,
             withdrawalTaxBP: 20,
             maxWithdrawalTax: 2_000_000 gwei, // 0.002 btc
-            _res1: 0,
-            minWithdrawal: 1e5 // 0.001 btc
+            minWithdrawal: 1_000_000 gwei // 0.001 btc
         });
     }
 
@@ -99,7 +107,7 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
     function withdraw(
         string calldata _receiver,
         uint16 _maxTxPrice
-    ) external payable override {
+    ) external payable override RateLimiting {
         bytes memory addrBytes = bytes(_receiver);
         if (addrBytes.length < 34 || addrBytes.length > 90) {
             revert InvalidAddress();
@@ -109,7 +117,7 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         uint256 tax = 0;
 
         Param memory p = param;
-        require(amount >= p.minWithdrawal * SATOSHI, "amount too low");
+        require(amount >= p.minWithdrawal, "amount too low");
 
         if (p.withdrawalTaxBP > 0) {
             tax = (amount * p.withdrawalTaxBP) / MAX_BASE_POINT;
@@ -149,7 +157,10 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
      * @param _wid the withdrawal id
      * @param _maxTxPrice the new max tx price
      */
-    function replaceByFee(uint256 _wid, uint16 _maxTxPrice) external override {
+    function replaceByFee(
+        uint256 _wid,
+        uint16 _maxTxPrice
+    ) external override RateLimiting {
         Withdrawal storage withdrawal = withdrawals[_wid];
 
         if (withdrawal.status != WithdrawalStatus.Pending) {
@@ -160,8 +171,10 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
             revert AccessDenied();
         }
 
-        if (block.timestamp - withdrawal.updatedAt < param.rateLimit) {
-            revert RateLimitExceeded();
+        if (
+            block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION
+        ) {
+            revert RequestTooFrequent();
         }
 
         require(
@@ -184,7 +197,7 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
      * cancel1 cancels the withdrawal by origin user
      * @param _wid the withdrawal id
      */
-    function cancel1(uint256 _wid) external {
+    function cancel1(uint256 _wid) external RateLimiting {
         Withdrawal storage withdrawal = withdrawals[_wid];
 
         if (withdrawal.status != WithdrawalStatus.Pending) {
@@ -195,8 +208,10 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
             revert AccessDenied();
         }
 
-        if (block.timestamp - withdrawal.updatedAt < param.rateLimit) {
-            revert RateLimitExceeded();
+        if (
+            block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION
+        ) {
+            revert RequestTooFrequent();
         }
 
         withdrawal.updatedAt = block.timestamp;
@@ -282,6 +297,11 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         emit Paid(_wid, _txid, _txout, _received);
     }
 
+    /**
+     * setDepositTax updates current deposit tax config
+     * @param _bp the basic point for the deposit tax rate
+     * @param _max the max tax in wei
+     */
     function setDepositTax(
         uint16 _bp,
         uint64 _max
@@ -303,6 +323,11 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         emit DepositTaxUpdated(_bp, _max);
     }
 
+    /**
+     * setWithdrawalTax updates current withdrawal tax config
+     * @param _bp the basic point for the withdrawal tax rate
+     * @param _max the max tax in wei
+     */
     function setWithdrawalTax(
         uint16 _bp,
         uint64 _max
@@ -324,14 +349,12 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         emit WithdrawalTaxUpdated(_bp, _max);
     }
 
-    function setRateLimit(uint16 _sec) external override onlyOwner {
-        require(_sec > 0, "invalid throttle setting");
-        param.rateLimit = _sec;
-        emit RateLimitUpdated(_sec);
-    }
-
+    /**
+     * setMinWithdrawal updates current min withdrawal amount
+     * @param _amount the amount in wei, the amount should be in range [0.001 btc, 1btc]
+     */
     function setMinWithdrawal(uint64 _amount) external override onlyOwner {
-        require(_amount > 0, "invalid amount");
+        require(_amount >= 1e15 && _amount <= 1 ether, "invalid amount");
         param.minWithdrawal = _amount;
         emit MinWithdrawalUpdated(_amount);
     }
