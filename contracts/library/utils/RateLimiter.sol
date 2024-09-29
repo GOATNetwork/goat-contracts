@@ -2,9 +2,8 @@
 pragma solidity ^0.8.24;
 
 /**
- * @title The rate limiter for consensus request
- * @author
- * @notice
+ * The rate limiter for consensus request
+ * It restrict request count every block
  */
 contract RateLimiter {
     error TooManyRequest();
@@ -32,21 +31,18 @@ contract RateLimiter {
         _;
     }
 
-    modifier RateLimiting2(address newCaller, uint256 count) {
-        _checkLimiting(newCaller, count);
+    modifier RateLimiting2(address target, uint256 count) {
+        _checkLimiting(target, count);
         _;
     }
 
-    function _checkLimiting(address newCaller, uint256 count) internal {
+    function _checkLimiting(address target, uint256 count) internal {
         if (CHECK_SENDER) {
             require(
-                rateLimit.callers[msg.sender] != block.number,
+                rateLimit.callers[target] != block.number,
                 TooManyRequest()
             );
-            rateLimit.callers[msg.sender] = block.number;
-            if (msg.sender != newCaller) {
-                rateLimit.callers[newCaller] = block.number;
-            }
+            rateLimit.callers[target] = block.number;
         }
 
         if (count == 0) {

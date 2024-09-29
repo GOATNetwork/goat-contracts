@@ -13,6 +13,16 @@ import {Pubkey} from "../library/codec/pubkey.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 import {RateLimiter} from "../library/utils/RateLimiter.sol";
 
+/**
+ * Note
+ *
+ * a validator can have only 1 consensus request per block
+ *
+ * all validators can have up to 32 consensus requests per block
+ *
+ * the restriction is to prevent DoS attack, you have to obey the rule
+ */
+
 contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     using SafeERC20 for IERC20;
     using Pubkey for bytes32[2];
@@ -75,13 +85,15 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * the data to sign =
      * abi.encodePacked(block.chainid, validator address, validator owner(msg.sender))
      * it includes the validator address to prevent usage error
+     *
+     * the msg.sender will be the owner of the validator, and an owner can have multiple validators
      */
     function create(
         bytes32[2] calldata pubkey,
         bytes32 sigR,
         bytes32 sigS,
         uint8 sigV
-    ) external payable RateLimiting2(msg.sender, threshold.length + 1) {
+    ) external payable {
         require(threshold.length > 0, "not started");
 
         address validator = pubkey.ConsAddress();
@@ -93,6 +105,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
             "signer mismatched"
         );
         require(owners[validator] == address(0), "duplicated");
+        _checkLimiting(validator, threshold.length + 1);
 
         owners[validator] = msg.sender;
         emit Create(validator, msg.sender, pubkey);
@@ -103,6 +116,8 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * lock locks new tokens to a validator
      * @param validator the validator address
      * @param values the Locking values
+     *
+     * only the validator owner can lock new tokens to prevent mistakes
      */
     function lock(
         address validator,
@@ -111,7 +126,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         external
         payable
         OnlyValidatorOwner(validator)
-        RateLimiting2(msg.sender, values.length)
+        RateLimiting2(validator, values.length)
     {
         require(
             values.length > 0 && values.length <= MAX_TOKEN_SIZE,
@@ -121,14 +136,14 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     }
 
     /**
-     * changeValidatorOwner transfer the validator owner to a new address
+     * changeValidatorOwner transfers the validator owner to a new address
      * @param validator the validator address
-     * @param newOwner the new owner address
+     * @param newOwner the new owner address, the new owner can have a validator before
      */
     function changeValidatorOwner(
         address validator,
         address newOwner
-    ) external OnlyValidatorOwner(validator) RateLimiting2(newOwner, 0) {
+    ) external OnlyValidatorOwner(validator) {
         require(newOwner != address(0), "invalid address");
         owners[validator] = newOwner;
         emit ChangeValidatorOwner(validator, newOwner);
@@ -139,6 +154,9 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * @param validator the validator address
      * @param recipient the recipient address
      * @param values the token to unlocks
+     *
+     * we don't have a storage slot and a function to keep the recipient for the validator
+     * you can have a contract to control the recipient
      *
      * if the validator is slashed, the actual amount will be less than the request amount
      *
@@ -151,7 +169,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     )
         external
         OnlyValidatorOwner(validator)
-        RateLimiting2(msg.sender, values.length)
+        RateLimiting2(validator, values.length)
     {
         require(
             values.length > 0 && values.length <= MAX_TOKEN_SIZE,
@@ -191,6 +209,9 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * claim claims rewards
      * @param validator the validator address
      * @param recipient the reward recipient address
+     *
+     * we don't have a storage slot and a function to keep the recipient for the validator
+     * you can have a contract to control the recipient
      *
      * the consensus layer will send back a `distributeReward` tx for the claiming
      */

@@ -34,7 +34,7 @@ contract RateLimiterCaller {
 }
 
 contract RateLimiterTest is RateLimiter {
-    constructor() RateLimiter(0, false) {}
+    constructor() RateLimiter(0, false) {} // It's to recognize custom errors name in the tests
 
     function pass1() public {
         RateLimiterCallee callee = new RateLimiterCallee(2, true);
@@ -91,6 +91,17 @@ contract RateLimiterTest is RateLimiter {
         caller3.test2(block.coinbase, 1);
     }
 
+    function pass7() public {
+        RateLimiterCallee callee = new RateLimiterCallee(2, true);
+        RateLimiterCaller caller1 = new RateLimiterCaller(callee);
+        RateLimiterCaller caller2 = new RateLimiterCaller(callee);
+        RateLimiterCaller caller3 = new RateLimiterCaller(callee);
+
+        caller1.test1();
+        caller2.test2(address(caller3), 1);
+        caller3.test2(block.coinbase, 0);
+    }
+
     function fail1() public {
         RateLimiterCallee callee = new RateLimiterCallee(2, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
@@ -122,16 +133,5 @@ contract RateLimiterTest is RateLimiter {
         RateLimiterCallee callee = new RateLimiterCallee(2, true);
         RateLimiterCaller caller1 = new RateLimiterCaller(callee);
         caller1.test2(msg.sender, 3);
-    }
-
-    function fail5() public {
-        RateLimiterCallee callee = new RateLimiterCallee(2, true);
-        RateLimiterCaller caller1 = new RateLimiterCaller(callee);
-        RateLimiterCaller caller2 = new RateLimiterCaller(callee);
-        RateLimiterCaller caller3 = new RateLimiterCaller(callee);
-
-        caller1.test1();
-        caller2.test2(address(caller3), 1);
-        caller3.test2(block.coinbase, 0);
     }
 }
