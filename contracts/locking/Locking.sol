@@ -153,7 +153,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * unlock withdraws tokens from consensus layer
      * @param validator the validator address
      * @param recipient the recipient address
-     * @param values the token to unlocks
+     * @param values the token to unlock
      *
      * we don't have a storage slot and a function to keep the recipient for the validator
      * you can have a contract to control the recipient
@@ -224,17 +224,17 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     }
 
     /**
-     * distributeReward distributes Locking reward(including the goat token and gas fee)
+     * distributeReward distributes reward which includes the goat token and gas fee
      * @param id the request id
      * @param recipient the reward recipient address
      * @param goat the goat reward
-     * @param amount the gas fee reward
+     * @param gasReward the gas fee reward
      */
     function distributeReward(
         uint64 id,
         address recipient,
         uint256 goat,
-        uint256 amount
+        uint256 gasReward
     ) external OnlyLockingExecutor {
         if (remainReward < goat) {
             goat = remainReward;
@@ -246,8 +246,8 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         }
 
         emit DistributeReward(id, goatToken, goat);
-        // performacing the native token adding in the runtime
-        emit DistributeReward(id, address(0), amount);
+        // performing the native token adding in the runtime
+        emit DistributeReward(id, address(0), gasReward);
     }
 
     /**

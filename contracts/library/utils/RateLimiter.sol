@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 /**
  * The rate limiter for consensus request
- * It restrict request count every block
  */
 contract RateLimiter {
     error TooManyRequest();
