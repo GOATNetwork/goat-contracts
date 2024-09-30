@@ -10,7 +10,8 @@ import {
 import { Bridge } from "../typechain-types";
 
 describe("Bridge", async () => {
-  const addr1 = "bc1qen5kv3c0epd9yfqvu2q059qsjpwu9hdjywx2v9p5p9l8msxn88fs9y5kx6";
+  const addr1 =
+    "bc1qen5kv3c0epd9yfqvu2q059qsjpwu9hdjywx2v9p5p9l8msxn88fs9y5kx6";
   const addr2 = "invalid";
 
   const relayer = Executors.relayer;
@@ -127,18 +128,22 @@ describe("Bridge", async () => {
       await setNextBlockBaseFeePerGas(0);
       await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
 
-      const amount = BigInt(1e10);
+      const amount = BigInt(1e10 * 1e5);
       const txPrice = 1n;
 
       await expect(
         bridge.withdraw(addr2, txPrice, { value: amount }),
       ).revertedWithCustomError(bridge, "InvalidAddress");
 
+      await expect(bridge.withdraw(addr1, 1, { value: 1n })).revertedWith(
+        "amount too low",
+      );
+
       await expect(bridge.withdraw(addr1, 0, { value: amount })).revertedWith(
         "invalid tx price",
       );
 
-      await expect(bridge.withdraw(addr1, 1, { value: amount })).revertedWith(
+      await expect(bridge.withdraw(addr1, 400, { value: amount })).revertedWith(
         "unaffordable",
       );
     });
@@ -149,7 +154,6 @@ describe("Bridge", async () => {
       const param = await bridge.param();
       expect(param.withdrawalTaxBP).eq(20n);
       expect(param.maxWithdrawalTax).eq((BigInt(1e18) * 20n) / BigInt(1e4));
-      expect(param.rateLimit).eq(300);
 
       const wid = 0n;
       const amount = BigInt(1e18);
@@ -169,7 +173,6 @@ describe("Bridge", async () => {
         expect(withdrawal.tax).eq(tax);
         expect(withdrawal.maxTxPrice).eq(txPrice);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-        expect(withdrawal.receiver).eq(addr1);
         expect(withdrawal.status).eq(1);
         expect(withdrawal.amount + withdrawal.tax, "actual + tax = amount").eq(
           amount,
@@ -183,7 +186,7 @@ describe("Bridge", async () => {
 
       // rbf
       {
-        await timeHelper.increase(param.rateLimit + 1n);
+        await timeHelper.increase(300n + 1n);
 
         const newTxPrice = txPrice + 1n;
         expect(await bridge.replaceByFee(wid, txPrice + 1n))
@@ -211,12 +214,6 @@ describe("Bridge", async () => {
         const withdrawal = await bridge.withdrawals(wid);
         expect(withdrawal.updatedAt).eq(await timeHelper.latest());
         expect(withdrawal.status).eq(5);
-
-        const receipt = await bridge.receipts(wid);
-
-        expect(receipt.txid).eq(txid);
-        expect(receipt.txout).eq(txout);
-        expect(receipt.received).eq(paid);
 
         expect(
           await ethers.provider.getBalance(await bridge.getAddress()),
@@ -248,7 +245,6 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(0n);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.receiver).eq(addr1);
       expect(withdrawal.status).eq(1);
     });
 
@@ -271,7 +267,6 @@ describe("Bridge", async () => {
       expect(withdrawal.tax).eq(dust);
       expect(withdrawal.maxTxPrice).eq(txPrice);
       expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.receiver).eq(addr1);
       expect(withdrawal.status).eq(1);
     });
 
@@ -293,7 +288,7 @@ describe("Bridge", async () => {
 
         await expect(bridge.cancel1(wid)).revertedWithCustomError(
           bridge,
-          "RateLimitExceeded",
+          "RequestTooFrequent",
         );
 
         await expect(bridge.cancel2(wid)).revertedWithCustomError(
@@ -303,7 +298,7 @@ describe("Bridge", async () => {
       }
 
       {
-        await timeHelper.increase(param.rateLimit + 1n);
+        await timeHelper.increase(300n + 1n);
 
         expect(await bridge.cancel1(wid))
           .emit(bridge, "Canceling")

@@ -14,7 +14,7 @@ describe("Bitcoin", async () => {
   const blockHash101 =
     "0x393cc15d9c3860e02fc55b2e5a49e1c3e68ef829213f39e3fecd1dc2b0d75267";
 
-  const networkName = "mainnet"
+  const networkName = "mainnet";
 
   const relayer = Executors.relayer;
 
@@ -26,7 +26,7 @@ describe("Bitcoin", async () => {
     const bitcoin: Bitcoin = await factory.deploy(
       100,
       blockHash100,
-      networkName
+      networkName,
     );
 
     await impersonateAccount(relayer);
@@ -44,35 +44,32 @@ describe("Bitcoin", async () => {
     };
   }
 
-  describe("bitcoin", async () => {
-    it("init", async () => {
-      const { bitcoin } = await loadFixture(fixture);
+  it("init", async () => {
+    const { bitcoin } = await loadFixture(fixture);
+    expect(await bitcoin.startHeight()).eq(100);
+    expect(await bitcoin.latestHeight()).eq(100);
+    expect(await bitcoin.blockHash(100)).eq(blockHash100);
+  });
 
-      expect(await bitcoin.startHeight()).eq(100);
-      expect(await bitcoin.latestHeight()).eq(100);
-      expect(await bitcoin.blockHash(100)).eq(blockHash100);
-    });
+  it("networkName", async () => {
+    const { bitcoin } = await loadFixture(fixture);
+    expect(await bitcoin.networkName()).eq(networkName);
+  });
 
-    it("network", async () => {
-      const { bitcoin } = await loadFixture(fixture);
-      expect(await bitcoin.networkName()).eq(networkName);
-    });
+  it("newBlockHash", async () => {
+    const { bitcoin, relayer } = await loadFixture(fixture);
 
-    it("new", async () => {
-      const { bitcoin, relayer } = await loadFixture(fixture);
+    await expect(bitcoin.newBlockHash(blockHash101)).revertedWithCustomError(
+      bitcoin,
+      "AccessDenied",
+    );
 
-      await expect(bitcoin.newBlockHash(blockHash101)).revertedWithCustomError(
-        bitcoin,
-        "AccessDenied",
-      );
+    expect(await bitcoin.connect(relayer).newBlockHash(blockHash101))
+      .emit(bitcoin, "NewBlockHash")
+      .withArgs(blockHash101);
 
-      expect(await bitcoin.connect(relayer).newBlockHash(blockHash101))
-        .emit(bitcoin, "NewBlockHash")
-        .withArgs(blockHash101);
-
-      expect(await bitcoin.startHeight()).eq(100);
-      expect(await bitcoin.latestHeight()).eq(101);
-      expect(await bitcoin.blockHash(101)).eq(blockHash101);
-    });
+    expect(await bitcoin.startHeight()).eq(100);
+    expect(await bitcoin.latestHeight()).eq(101);
+    expect(await bitcoin.blockHash(101)).eq(blockHash101);
   });
 });

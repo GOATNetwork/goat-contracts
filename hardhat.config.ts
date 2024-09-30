@@ -224,7 +224,7 @@ task("refund", "Refund a transaction")
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.26",
+    version: "0.8.27",
     settings: {
       optimizer: {
         enabled: true,
@@ -265,7 +265,7 @@ const config: HardhatUserConfig = {
     }
   },
   gasReporter: {
-    enabled: true,
+    enabled: process.env.GAS_REPORT === "true",
   },
   ignition: {
     requiredConfirmations: 1,

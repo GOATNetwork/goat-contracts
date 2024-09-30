@@ -1,29 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
+// import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 
-contract GoatToken is
-    ERC20,
-    ERC20Burnable,
-    AccessControl,
-    ERC20Permit,
-    ERC20Votes
-{
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
-    constructor(address owner) ERC20("GOAT", "GOAT") ERC20Permit("GOAT") {
-        _grantRole(DEFAULT_ADMIN_ROLE, owner);
-        _grantRole(MINTER_ROLE, PreDeployedAddresses.Locking);
-    }
-
-    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
-        _mint(to, amount);
+contract GoatToken is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes {
+    constructor(address admin) ERC20("GOAT", "GOAT") ERC20Permit("GOAT") {
+        _mint(admin, 975000000 * 1 ether);
+        _mint(PreDeployedAddresses.Locking, 25000000 * 1 ether);
     }
 
     function _update(

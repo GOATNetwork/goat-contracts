@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Burner} from "../library/utils/Burner.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
+import {RateLimiter} from "../library/utils/RateLimiter.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -12,7 +13,14 @@ import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
+contract Bridge is
+    Ownable,
+    BaseAccess,
+    RateLimiter,
+    IBridge,
+    IBridgeParam,
+    IERC165
+{
     using Address for address payable;
 
     Param public param;
@@ -21,89 +29,89 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
 
     Withdrawal[] public withdrawals;
 
-    // the withdrawal receipts
-    mapping(uint256 id => Receipt receipt) public receipts;
-
     // 1 satoshi = 10 gwei
-    uint256 internal constant satoshi = 10 gwei;
+    uint256 internal constant SATOSHI = 10 gwei;
 
     // 2 p2wsh input + 1 p2tr/p2wsh output + 1 change output
-    uint256 internal constant baseTxSize = 300;
+    uint256 internal constant BASE_TX_SIZE = 300;
 
     // the max tax base points
-    uint256 internal constant maxBasePoints = 1e4;
+    uint256 internal constant MAX_BASE_POINT = 1e4;
+
+    uint256 internal constant WITHDRAWAL_UPDATED_DURATION = 5 minutes;
 
     // It is only for testing
-    constructor(address owner) Ownable(owner) {
+    constructor(address owner) Ownable(owner) RateLimiter(32, false) {
         param = Param({
-            rateLimit: 300,
             depositTaxBP: 0,
             maxDepositTax: 0,
             withdrawalTaxBP: 20,
-            maxWithdrawalTax: 2_000_000 gwei, // 0.002
-            _res1: 0,
-            _res2: 0
+            maxWithdrawalTax: 2_000_000 gwei, // 0.002 btc
+            minWithdrawal: 1_000_000 gwei // 0.001 btc
         });
     }
 
     /**
      * deposit adds balance to the target address
      * goat performs the adding outside EVM to prevent any errors
-     * @param _txid the txid(LE)
-     * @param _txout the txout
-     * @param _target the depoist address
-     * @param _amount the deposit amount
+     * @param txid the txid(LE)
+     * @param txout the txout
+     * @param target the depoist address
+     * @param amount the deposit amount
      */
     function deposit(
-        bytes32 _txid,
-        uint32 _txout,
-        address _target,
-        uint256 _amount
+        bytes32 txid,
+        uint32 txout,
+        address target,
+        uint256 amount
     ) external override OnlyRelayer returns (uint256 tax) {
-        bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
+        bytes32 depositHash = keccak256(abi.encodePacked(txid, txout));
         require(!deposits[depositHash], "duplicated");
 
-        require(_amount > 0 && _amount % satoshi == 0, "invalid amount");
+        require(amount > 0 && amount % SATOSHI == 0, "invalid amount");
 
         Param memory p = param;
         if (p.depositTaxBP > 0) {
-            tax = (_amount * p.depositTaxBP) / maxBasePoints;
+            tax = (amount * p.depositTaxBP) / MAX_BASE_POINT;
             if (tax > p.maxDepositTax) {
                 tax = p.maxDepositTax;
             }
-            _amount -= tax;
+            amount -= tax;
         }
 
         deposits[depositHash] = true;
-        emit Deposit(_target, _amount, _txid, _txout, tax);
+        emit Deposit(target, amount, txid, txout, tax);
 
-        // Add balance to the _target and pay the tax to GF in the runtime
+        // Add balance to the target and pay the tax to GF in the runtime
         return tax;
     }
 
     /**
      * isDeposited checks if the deposit is succeed
-     * @param _txid the txid(LE)
-     * @param _txout the txout index
+     * @param txid the txid(LE)
+     * @param txout the txout index
      */
     function isDeposited(
-        bytes32 _txid,
-        uint32 _txout
+        bytes32 txid,
+        uint32 txout
     ) external view override returns (bool) {
-        bytes32 depositHash = keccak256(abi.encodePacked(_txid, _txout));
+        bytes32 depositHash = keccak256(abi.encodePacked(txid, txout));
         return deposits[depositHash];
     }
 
     /**
      * withdraw initializes a new withdrawal request by a user
-     * @param _receiver the address to withdraw
-     * @param _maxTxPrice the max allowed tx price in sat/vbyte
+     * @param receiver the address to withdraw
+     * @param maxTxPrice the max allowed tx price in sat/vbyte
+     *
+     * consensus layer have a complete validation for the receiver address
+     * if it's invalid, the consensus layer will send back `cancel2` tx to reject it
      */
     function withdraw(
-        string calldata _receiver,
-        uint16 _maxTxPrice
-    ) external payable override {
-        bytes memory addrBytes = bytes(_receiver);
+        string calldata receiver,
+        uint16 maxTxPrice
+    ) external payable override RateLimiting {
+        bytes memory addrBytes = bytes(receiver);
         if (addrBytes.length < 34 || addrBytes.length > 90) {
             revert InvalidAddress();
         }
@@ -112,8 +120,10 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         uint256 tax = 0;
 
         Param memory p = param;
+        require(amount >= p.minWithdrawal, "amount too low");
+
         if (p.withdrawalTaxBP > 0) {
-            tax = (amount * p.withdrawalTaxBP) / maxBasePoints;
+            tax = (amount * p.withdrawalTaxBP) / MAX_BASE_POINT;
             if (tax > p.maxWithdrawalTax) {
                 tax = p.maxWithdrawalTax;
             }
@@ -121,14 +131,14 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         }
 
         // dust as tax
-        uint256 dust = amount % satoshi;
+        uint256 dust = amount % SATOSHI;
         if (dust > 0) {
             tax += dust;
             amount -= dust;
         }
 
-        require(_maxTxPrice > 0, "invalid tx price");
-        require(amount > _maxTxPrice * baseTxSize * satoshi, "unaffordable");
+        require(maxTxPrice > 0, "invalid tx price");
+        require(amount > maxTxPrice * BASE_TX_SIZE * SATOSHI, "unaffordable");
 
         uint256 id = withdrawals.length;
         withdrawals.push(
@@ -136,23 +146,25 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
                 sender: msg.sender,
                 amount: amount,
                 tax: tax,
-                maxTxPrice: _maxTxPrice,
+                maxTxPrice: maxTxPrice,
                 updatedAt: block.timestamp,
-                receiver: _receiver,
                 status: WithdrawalStatus.Pending
             })
         );
 
-        emit Withdraw(id, msg.sender, amount, tax, _maxTxPrice, _receiver);
+        emit Withdraw(id, msg.sender, amount, tax, maxTxPrice, receiver);
     }
 
     /**
      * replaceByFee updates the withdrawal tx price
-     * @param _wid the withdrawal id
-     * @param _maxTxPrice the new max tx price
+     * @param wid the withdrawal id
+     * @param maxTxPrice the new max tx price
      */
-    function replaceByFee(uint256 _wid, uint16 _maxTxPrice) external override {
-        Withdrawal storage withdrawal = withdrawals[_wid];
+    function replaceByFee(
+        uint256 wid,
+        uint16 maxTxPrice
+    ) external override RateLimiting {
+        Withdrawal storage withdrawal = withdrawals[wid];
 
         if (withdrawal.status != WithdrawalStatus.Pending) {
             revert Forbidden();
@@ -162,32 +174,34 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
             revert AccessDenied();
         }
 
-        if (block.timestamp - withdrawal.updatedAt < param.rateLimit) {
-            revert RateLimitExceeded();
+        if (
+            block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION
+        ) {
+            revert RequestTooFrequent();
         }
 
         require(
-            _maxTxPrice > withdrawal.maxTxPrice,
+            maxTxPrice > withdrawal.maxTxPrice,
             "the new tx price should be larger than before"
         );
 
         require(
-            withdrawal.amount > _maxTxPrice * baseTxSize * satoshi,
+            withdrawal.amount > maxTxPrice * BASE_TX_SIZE * SATOSHI,
             "unaffordable"
         );
 
-        withdrawal.maxTxPrice = _maxTxPrice;
+        withdrawal.maxTxPrice = maxTxPrice;
         withdrawal.updatedAt = block.timestamp;
 
-        emit RBF(_wid, _maxTxPrice);
+        emit RBF(wid, maxTxPrice);
     }
 
     /**
      * cancel1 cancels the withdrawal by origin user
-     * @param _wid the withdrawal id
+     * @param wid the withdrawal id
      */
-    function cancel1(uint256 _wid) external {
-        Withdrawal storage withdrawal = withdrawals[_wid];
+    function cancel1(uint256 wid) external RateLimiting {
+        Withdrawal storage withdrawal = withdrawals[wid];
 
         if (withdrawal.status != WithdrawalStatus.Pending) {
             revert Forbidden();
@@ -197,23 +211,25 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
             revert AccessDenied();
         }
 
-        if (block.timestamp - withdrawal.updatedAt < param.rateLimit) {
-            revert RateLimitExceeded();
+        if (
+            block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION
+        ) {
+            revert RequestTooFrequent();
         }
 
         withdrawal.updatedAt = block.timestamp;
         withdrawal.status = WithdrawalStatus.Canceling;
-        emit Canceling(_wid);
+        emit Canceling(wid);
     }
 
     /**
      * cancel2 apporves the cancellation request by relayer
      * relayer can pay the withdrawal to disregard the cancellation request
      * relayer can reject a pending withdrawal as well
-     * @param _wid the withdrwal id
+     * @param wid the withdrwal id
      */
-    function cancel2(uint256 _wid) external OnlyRelayer {
-        Withdrawal storage withdrawal = withdrawals[_wid];
+    function cancel2(uint256 wid) external OnlyRelayer {
+        Withdrawal storage withdrawal = withdrawals[wid];
         WithdrawalStatus status = withdrawal.status;
         require(
             status == WithdrawalStatus.Pending ||
@@ -221,15 +237,15 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         );
         withdrawal.status = WithdrawalStatus.Canceled;
         withdrawal.updatedAt = block.timestamp;
-        emit Canceled(_wid);
+        emit Canceled(wid);
     }
 
     /**
      * refund refunds the amount of the canceled withdrawal to the origin user
-     * @param _wid the withdrwal id
+     * @param wid the withdrwal id
      */
-    function refund(uint256 _wid) external {
-        Withdrawal storage withdrawal = withdrawals[_wid];
+    function refund(uint256 wid) external {
+        Withdrawal storage withdrawal = withdrawals[wid];
 
         if (withdrawal.status != WithdrawalStatus.Canceled) {
             revert Forbidden();
@@ -244,24 +260,24 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
 
         // refund to the owner
         owner.sendValue(withdrawal.amount + withdrawal.tax);
-        emit Refund(_wid);
+        emit Refund(wid);
     }
 
     /**
      * paid finalizes the withdrawal request and burns the withdrawal amount from network
      * It aslo transfers the tax to GF address if the tax is enabled
-     * @param _wid withdrawal id
-     * @param _txid the withdrawal txid(little endian)
-     * @param _txout the tx output index
-     * @param _received the actual paid amount
+     * @param wid withdrawal id
+     * @param txid the withdrawal txid(little endian)
+     * @param txout the tx output index
+     * @param received the actual paid amount
      */
     function paid(
-        uint256 _wid,
-        bytes32 _txid,
-        uint32 _txout,
-        uint256 _received
+        uint256 wid,
+        bytes32 txid,
+        uint32 txout,
+        uint256 received
     ) external OnlyRelayer {
-        Withdrawal storage withdrawal = withdrawals[_wid];
+        Withdrawal storage withdrawal = withdrawals[wid];
 
         WithdrawalStatus status = withdrawal.status;
         require(
@@ -269,7 +285,6 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
                 status == WithdrawalStatus.Canceling
         );
 
-        receipts[_wid] = Receipt(_txid, _txout, _received);
         withdrawal.status = WithdrawalStatus.Paid;
         withdrawal.updatedAt = block.timestamp;
 
@@ -282,55 +297,66 @@ contract Bridge is Ownable, BaseAccess, IBridge, IBridgeParam, IERC165 {
         // Burn the withdrawal amount from network
         new Burner{value: withdrawal.amount, salt: bytes32(0x0)}();
 
-        emit Paid(_wid, _txid, _txout, _received);
+        emit Paid(wid, txid, txout, received);
     }
 
-    function setDepositTax(
-        uint16 _bp,
-        uint64 _max
-    ) external override onlyOwner {
-        if (_bp > maxBasePoints) {
+    /**
+     * setDepositTax updates current deposit tax config
+     * @param bp the basic point for the deposit tax rate
+     * @param max the max tax in wei
+     */
+    function setDepositTax(uint16 bp, uint64 max) external override onlyOwner {
+        if (bp > MAX_BASE_POINT) {
             revert TaxTooHigh();
         }
 
-        if (_max > 1 ether) {
+        if (max > 1 ether) {
             revert TaxTooHigh();
         }
 
-        if (_bp > 0 && _max == 0) {
+        if (bp > 0 && max == 0) {
             revert MalformedTax();
         }
 
-        param.depositTaxBP = _bp;
-        param.maxDepositTax = _max;
-        emit DepositTaxUpdated(_bp, _max);
+        param.depositTaxBP = bp;
+        param.maxDepositTax = max;
+        emit DepositTaxUpdated(bp, max);
     }
 
+    /**
+     * setWithdrawalTax updates current withdrawal tax config
+     * @param bp the basic point for the withdrawal tax rate
+     * @param max the max tax in wei
+     */
     function setWithdrawalTax(
-        uint16 _bp,
-        uint64 _max
+        uint16 bp,
+        uint64 max
     ) external override onlyOwner {
-        if (_bp > maxBasePoints) {
+        if (bp > MAX_BASE_POINT) {
             revert TaxTooHigh();
         }
 
-        if (_max > 1 ether) {
+        if (max > 1 ether) {
             revert TaxTooHigh();
         }
 
-        if (_bp > 0 && _max == 0) {
+        if (bp > 0 && max == 0) {
             revert MalformedTax();
         }
 
-        param.withdrawalTaxBP = _bp;
-        param.maxWithdrawalTax = _max;
-        emit WithdrawalTaxUpdated(_bp, _max);
+        param.withdrawalTaxBP = bp;
+        param.maxWithdrawalTax = max;
+        emit WithdrawalTaxUpdated(bp, max);
     }
 
-    function setRateLimit(uint16 _sec) external override onlyOwner {
-        require(_sec > 0, "invalid throttle setting");
-        param.rateLimit = _sec;
-        emit RateLimitUpdated(_sec);
+    /**
+     * setMinWithdrawal updates current min withdrawal amount
+     * @param amount the amount in wei, the amount should be in range [0.001 btc, 1btc]
+     */
+    function setMinWithdrawal(uint64 amount) external override onlyOwner {
+        require(amount >= 1e15 && amount <= 1 ether, "invalid amount");
+        param.minWithdrawal = amount;
+        emit MinWithdrawalUpdated(amount);
     }
 
     function supportsInterface(

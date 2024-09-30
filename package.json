@@ -7,7 +7,7 @@
     "@graphprotocol/graph-ts": "^0.35.1",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomiclabs/hardhat-solhint": "^4.0.1",
-    "hardhat": "^2.22.10",
+    "hardhat": "^2.22.12",
     "prettier": "^3.3.3",
     "@types/yargs": "^17.0.32",
     "yargs": "^17.7.2",
@@ -35,7 +35,7 @@
     "stop-graph-node": "cd subgraph && docker-compose down",
     "clean-graph-node": "cd subgraph && docker-compose down && sudo rm -rf /mnt/data/graph/",
     "pregenesis": "hardhat compile && docker compose up -d --wait",
-    "genesis": "hardhat create:genesis --network genesis",
+    "genesis": "hardhat create:genesis --network genesis --force true",
     "postgenesis": "docker compose down"
   },
   "prettier": {
