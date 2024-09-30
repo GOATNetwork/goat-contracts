@@ -1,25 +1,13 @@
 name: genesis
 
 services:
-  geth:
-    image: ethereum/client-go:v1.14.8
-    command:
-      - --dev
-      - --dev.period=1 # See https://github.com/ethereum/go-ethereum/issues/29956
-      - --datadir=/tmp
-      - --http
-      - --http.api=eth,net,web3,debug
-      - --http.addr=0.0.0.0
-      - --http.corsdomain=*
-      - --http.vhosts=*
-      - --gcmode=archive
-      - --history.state=0
-      - --history.transactions=0
-      - --cache.preimages=true
+  foundry:
+    image: ghcr.io/foundry-rs/foundry:latest
+    platform: linux/amd64
+    entrypoint:
+      - anvil
+      - --host=0.0.0.0
+      - --auto-impersonate
+      - --no-request-size-limit
     ports:
       - 8545:8545
-    healthcheck:
-      test: ["CMD-SHELL", "geth attach --exec eth.blockNumber /tmp/geth.ipc"]
-      start_period: 1s
-      interval: 1s
-      timeout: 1s

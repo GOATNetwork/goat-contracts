@@ -1,8 +1,6 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 export default buildModule("Genesis", (m) => {
-  const goatToken = m.contract("GoatToken", [m.getParameter("goat.owner")]);
-
   const goatFoundation = m.contract("GoatFoundation", [
     m.getParameter("goat.owner"),
   ]);
@@ -19,7 +17,6 @@ export default buildModule("Genesis", (m) => {
   const relayer = m.contract("Relayer", [m.getParameter("relayer.owner")]);
 
   return {
-    goatToken,
     goatFoundation,
     btcBlock,
     wgbtc,

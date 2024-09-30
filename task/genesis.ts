@@ -2,11 +2,13 @@ import fs from "fs/promises";
 import { task, types } from "hardhat/config";
 
 import { PredployedAddress } from "../test/constant";
-import { JsonrpcClient } from "./jsonrpc";
-import { trim0xPrefix } from "./utils";
+import { print, trim0xPrefix } from "./utils";
+import { IAnvilState, loadAnvilState } from "./anvil";
+import GenesisTemplate from "./template.json";
 
 import GenesisModule from "../ignition/modules/Genesis";
-import GenesisTemplate from "./template.json";
+import GoatTokenModule from "../ignition/modules/GoatToken";
+import LockingModule from "../ignition/modules/Locking";
 
 interface IGenesis {
   config: IChainConfig;
@@ -30,11 +32,13 @@ task("create:genesis")
   .addParam("name", "network name", "regtest")
   .addParam("chainId", "chain id", 48815, types.int)
   .addParam("force", "force to rewrite", false, types.boolean)
+  .addParam("debug", "debug log", false, types.boolean)
   .addOptionalParam("faucet", "faucet address", undefined, types.string)
   .addOptionalParam("amount", "faucet amount in Ether", undefined, types.float)
   .setAction(async (args, hre) => {
+    const debugMode = args["debug"]
     const networkName = args["name"];
-    const outputFile = `./ignition//genesis/${networkName}.json`;
+    const outputFile = `./ignition/genesis/${networkName}.json`;
 
     try {
       await fs.access(outputFile, fs.constants.R_OK);
@@ -43,28 +47,7 @@ task("create:genesis")
       }
     } catch { }
 
-    console.log("Adding fee from coinbase");
-    {
-      // the eth_sendTransaction and eth_accounts are hijacked by hardhat
-
-      const [signer] = await hre.ethers.getSigners();
-      const jsonrpc = new JsonrpcClient(args["rpc"]);
-      const [coinbase] = await jsonrpc.call<string[]>("eth_accounts");
-      const txid = await jsonrpc.call<string>("eth_sendTransaction", {
-        from: coinbase,
-        to: signer.address,
-        value: "0x" + (BigInt(1e18) * 1000n).toString(16),
-      });
-
-      // todo: `hre.ethers.provider.waitForTransaction(txid, 1)` can't work
-      while (!(await hre.ethers.provider.getTransactionReceipt(txid))) {
-        await new Promise((res) => setTimeout(res, 200));
-      }
-    }
-
-    await fs
-      .rm(`./ignition/deployments/${networkName}`, { recursive: true })
-      .catch(() => { });
+    await fs.rm(`./ignition/deployments`, { recursive: true }).catch(() => { });
 
     const paramFile = await fs.readFile(`./ignition/${networkName}.json`, "utf-8");
     const parameters = (() => {
@@ -75,18 +58,30 @@ task("create:genesis")
       }
       // convert it to little endian
       data["Genesis"]["btc.hash"] = "0x" + Buffer.from(blockHash, "hex").reverse().toString("hex")
+      data["Genesis"]["locking.totalReward"] = BigInt(data["Genesis"]["locking.totalReward"])
       console.log("Deloying with", data)
       return data
     })()
 
-    const deployments = await hre.ignition.deploy(GenesisModule, {
-      parameters,
-      deploymentId: networkName,
-    });
+    console.log("Deploy goat token");
+    const goatTokenDeployment = await hre.ignition.deploy(GoatTokenModule, { parameters })
+    let dump: IAnvilState = loadAnvilState(await hre.ethers.provider.send("anvil_dumpState"))
+    const goatToken = await goatTokenDeployment.goatToken.getAddress()
+    for (const [address, state] of Object.entries(dump.accounts)) {
+      if (address.toLowerCase() === goatToken.toLowerCase()) {
+        console.log("Initialize state for canonical goat token");
+        await hre.ethers.provider.send("anvil_setCode", [PredployedAddress.goatToken, state.code])
+        for (const [slot, data] of Object.entries(state.storage)) {
+          await hre.ethers.provider.send("anvil_setStorageAt", [PredployedAddress.goatToken, slot, data])
+        }
+        break
+      }
+    }
 
-    const [goatToken, goatFoundation, btcBlock, wgbtc, bridge, relayer] =
+    console.log("Deploy other contracts...");
+    const deployments = await hre.ignition.deploy(GenesisModule, { parameters });
+    const [goatFoundation, btcBlock, wgbtc, bridge, relayer] =
       await Promise.all([
-        deployments.goatToken.getAddress(),
         deployments.goatFoundation.getAddress(),
         deployments.btcBlock.getAddress(),
         deployments.wgbtc.getAddress(),
@@ -94,18 +89,14 @@ task("create:genesis")
         deployments.relayer.getAddress(),
       ]);
 
-    const blockNumber = await hre.ethers.provider.getBlockNumber();
-    console.log("Getting state");
-    const dump: { accounts: { [address: string]: IAccountState } } =
-      await hre.ethers.provider.send("debug_dumpBlock", [
-        "0x" + blockNumber.toString(16),
-      ]);
+    const lockingDeployment = await hre.ignition.deploy(LockingModule, { parameters });
+    const locking = await lockingDeployment.locking.getAddress();
 
-    const geneis: IGenesis = GenesisTemplate;
-    geneis.timestamp = "0x" + Math.floor((Date.now() / 1000)).toString(16)
+    const genesis: IGenesis = GenesisTemplate;
+    genesis.timestamp = "0x" + Math.floor((Date.now() / 1000)).toString(16)
 
     if (args["chainId"]) {
-      geneis.config.chainId = args["chainId"];
+      genesis.config.chainId = args["chainId"];
     }
 
     if (args["faucet"] && args["amount"]) {
@@ -115,41 +106,70 @@ task("create:genesis")
       }
       const amount = hre.ethers.parseEther(String(args["amount"]));
       console.log("Adding faucet address", facuet, hre.ethers.formatEther(amount))
-      geneis.alloc[trim0xPrefix(facuet)] = {
+      genesis.alloc[trim0xPrefix(facuet)] = {
         balance: "0x" + amount.toString(16),
         nonce: "0x0",
       }
     }
 
+    let count = 0;
+    dump = loadAnvilState(await hre.ethers.provider.send("anvil_dumpState"))
     for (const [address, state] of Object.entries(dump.accounts)) {
       const stv = {
         balance: state.balance,
-        nonce: state.nonce,
+        nonce: "0x" + state.nonce.toString(16),
         code: state.code,
         storage: state.storage,
       }
+
+      if (debugMode) {
+        console.log("state of", address)
+        print(state)
+      }
+
       switch (address.toLowerCase()) {
         case goatToken.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.goatToken)] = stv;
+          console.log("Add genesis state for goat token from", address);
+          genesis.alloc[trim0xPrefix(PredployedAddress.goatToken)] = stv;
+          count++
           break;
         case goatFoundation.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.goatFoundation)] = stv;
+          console.log("Add genesis state for goat foundation from", address);
+          genesis.alloc[trim0xPrefix(PredployedAddress.goatFoundation)] = stv;
+          count++
           break;
         case btcBlock.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.btcBlock)] = stv;
+          console.log("Add genesis state for bitcoin from", address);
+          genesis.alloc[trim0xPrefix(PredployedAddress.btcBlock)] = stv;
+          count++
           break;
         case wgbtc.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.wgbtc)] = stv;
+          console.log("Add genesis state for wrapped goat bitcoin from", address);
+          genesis.alloc[trim0xPrefix(PredployedAddress.wgbtc)] = stv;
+          count++
           break;
         case bridge.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.bridge)] = stv;
+          console.log("Add genesis state for bridge from", address);
+          genesis.alloc[trim0xPrefix(PredployedAddress.bridge)] = stv;
+          count++
           break;
         case relayer.toLowerCase():
-          geneis.alloc[trim0xPrefix(PredployedAddress.relayer)] = stv;
+          console.log("Add genesis state for relayer from", address);
+          genesis.alloc[trim0xPrefix(PredployedAddress.relayer)] = stv;
+          count++
+          break;
+        case locking.toLowerCase():
+          console.log("Add genesis state for locking from", address);
+          genesis.alloc[trim0xPrefix(PredployedAddress.locking)] = stv;
+          count++
           break;
       }
     }
 
+    if (count != 7) {
+      throw new Error("Inconsistent deployment count")
+    }
+
     console.log("Writing genesis");
-    await fs.writeFile(outputFile, JSON.stringify(geneis));
+    await fs.writeFile(outputFile, JSON.stringify(genesis));
   });

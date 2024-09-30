@@ -13,6 +13,7 @@ export function print(data: any) {
       showHidden: false,
       depth: null,
       colors: true,
+      maxStringLength: 128,
     }),
   );
 }
