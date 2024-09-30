@@ -6,34 +6,14 @@ import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+// import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract GoatToken is
-    ERC20,
-    ERC20Burnable,
-    AccessControl,
-    ERC20Permit,
-    ERC20Votes
-{
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER_ROLE");
+import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 
-    constructor(address admin) ERC20("GOAT", "GOAT") ERC20Permit("Goat") {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-    }
-
-    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
-        if (to != address(0)) {
-            super._update(address(0), to, amount);
-        }
-    }
-
-    function isTransferEnabled() public view returns (bool) {
-        return hasRole(TRANSFER_ROLE, address(0));
-    }
-
-    function enableTransfer() external {
-        grantRole(TRANSFER_ROLE, address(0));
+contract GoatToken is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes {
+    constructor(address admin) ERC20("GOAT", "GOAT") ERC20Permit("GOAT") {
+        _mint(admin, 975000000 * 1 ether);
+        _mint(PreDeployedAddresses.Locking, 25000000 * 1 ether);
     }
 
     function _update(
@@ -41,7 +21,6 @@ contract GoatToken is
         address to,
         uint256 value
     ) internal override(ERC20, ERC20Votes) {
-        require(isTransferEnabled(), "transfer disabled");
         super._update(from, to, value);
     }
 

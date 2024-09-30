@@ -16,7 +16,7 @@ describe("Locking", async () => {
     const goat = await goatFactory.deploy(owner);
 
     const locking: Locking = await factory.deploy(owner, goat, 1000n);
-    await goat.grantRole(await goat.MINTER_ROLE(), locking);
+    await goat.transfer(locking, 1000n);
 
     await impersonateAccount(Executors.locking);
     await payer.sendTransaction({
@@ -215,16 +215,17 @@ describe("Locking", async () => {
   });
 
   it("create", async () => {
-    const { locking, owner, testToken } = await loadFixture(fixture);
+    const { locking, owner, others, testToken, goat } =
+      await loadFixture(fixture);
 
     const wallet = ethers.Wallet.createRandom(ethers.provider);
-    const consAddress = ethers.getAddress(
+    const validator = ethers.getAddress(
       hash160(trimPubKeyPrefix(wallet.publicKey)),
     );
     const network = await ethers.provider.getNetwork();
     const sigmsg = ethers.solidityPackedKeccak256(
       ["uint256", "address", "address"],
-      [network.chainId, consAddress, await owner.getAddress()],
+      [network.chainId, validator, await owner.getAddress()],
     );
 
     const sig = wallet.signingKey.sign(sigmsg);
@@ -250,16 +251,46 @@ describe("Locking", async () => {
       await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }),
     )
       .emit(locking, "Create")
-      .withArgs(consAddress, owner, pubkey);
+      .withArgs(validator, owner, pubkey);
+
+    await expect(await ethers.provider.getBalance(locking)).eq(1000);
+    await expect(await testToken.balanceOf(locking)).eq(1000);
+
+    await expect(await locking.owners(validator)).eq(owner);
+    await expect(await locking.totalLocking(ethers.ZeroAddress)).eq(1000n);
+    await expect(await locking.totalLocking(testToken)).eq(1000n);
+    await expect(await locking.locking(validator, testToken)).eq(1000n);
+    await expect(await locking.locking(validator, ethers.ZeroAddress)).eq(
+      1000n,
+    );
 
     await expect(locking.create(pubkey, sig.r, sig.s, sig.v)).revertedWith(
       "duplicated",
     );
+
+    await expect(
+      locking.connect(others[0]).changeValidatorOwner(validator, others[0]),
+    ).revertedWith("not validator owner");
+    await expect(
+      locking.changeValidatorOwner(validator, ethers.ZeroAddress),
+    ).revertedWith("invalid address");
+    await expect(await locking.changeValidatorOwner(validator, others[0]))
+      .emit(locking, "ChangeValidatorOwner")
+      .withArgs(validator, others[0]);
+    await expect(await locking.owners(validator)).eq(others[0]);
+
+    await goat.approve(locking, ethers.MaxUint256);
+    await expect(await locking.grant(100n))
+      .emit(locking, "Grant")
+      .withArgs(100n)
+      .emit(goat, "Transfer")
+      .withArgs(owner, locking, 100n);
+
+    await expect(await locking.remainReward()).eq(1000n + 100n);
   });
 
-  it("lock, unlock, claim", async () => {
-    const { locking, owner, others, testToken, executor, goat } =
-      await loadFixture(fixture);
+  it("lock", async () => {
+    const { locking, owner, others, testToken } = await loadFixture(fixture);
     const wallet = ethers.Wallet.createRandom(ethers.provider);
     const validator = ethers.getAddress(
       hash160(trimPubKeyPrefix(wallet.publicKey)),
@@ -347,6 +378,49 @@ describe("Locking", async () => {
     await expect(await ethers.provider.getBalance(locking)).eq(1000 + 1);
     await expect(await testToken.balanceOf(locking)).eq(100 + 1);
 
+    await locking.setThreshold(ethers.ZeroAddress, 2000);
+    await expect(
+      locking.lock(validator, [{ token: ethers.ZeroAddress, amount: 100n }], {
+        value: 100n,
+      }),
+    ).revertedWith("below threshold");
+  });
+
+  it("unlock", async () => {
+    const { locking, owner, others, testToken, executor } =
+      await loadFixture(fixture);
+    const wallet = ethers.Wallet.createRandom(ethers.provider);
+    const validator = ethers.getAddress(
+      hash160(trimPubKeyPrefix(wallet.publicKey)),
+    );
+    const network = await ethers.provider.getNetwork();
+    const sigmsg = ethers.solidityPackedKeccak256(
+      ["uint256", "address", "address"],
+      [network.chainId, validator, await owner.getAddress()],
+    );
+
+    const sig = wallet.signingKey.sign(sigmsg);
+    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
+    const pubkey: any = [
+      uncompressed.subarray(0, 32),
+      uncompressed.subarray(32),
+    ];
+
+    await locking.setThreshold(ethers.ZeroAddress, 1000);
+    await locking.addToken(testToken, 1, 0, 100);
+    await testToken.approve(locking, ethers.MaxUint256);
+
+    await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
+    await testToken.approve(locking, ethers.MaxUint256);
+    await locking.lock(
+      validator,
+      [
+        { token: ethers.ZeroAddress, amount: 1n },
+        { token: testToken, amount: 1n },
+      ],
+      { value: 1n },
+    );
+
     await expect(locking.unlock(others[1], owner, [])).revertedWith(
       "validator not found",
     );
@@ -395,6 +469,42 @@ describe("Locking", async () => {
       .emit(locking, "CompleteUnlock")
       .withArgs(1, 1);
     await expect(await testToken.balanceOf(locking)).eq(100);
+  });
+
+  it("claim", async () => {
+    const { locking, owner, others, testToken, executor, goat } =
+      await loadFixture(fixture);
+    const wallet = ethers.Wallet.createRandom(ethers.provider);
+    const validator = ethers.getAddress(
+      hash160(trimPubKeyPrefix(wallet.publicKey)),
+    );
+    const network = await ethers.provider.getNetwork();
+    const sigmsg = ethers.solidityPackedKeccak256(
+      ["uint256", "address", "address"],
+      [network.chainId, validator, await owner.getAddress()],
+    );
+
+    const sig = wallet.signingKey.sign(sigmsg);
+    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
+    const pubkey: any = [
+      uncompressed.subarray(0, 32),
+      uncompressed.subarray(32),
+    ];
+
+    await locking.setThreshold(ethers.ZeroAddress, 1000);
+    await locking.addToken(testToken, 1, 0, 100);
+    await testToken.approve(locking, ethers.MaxUint256);
+
+    await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
+    await testToken.approve(locking, ethers.MaxUint256);
+    await locking.lock(
+      validator,
+      [
+        { token: ethers.ZeroAddress, amount: 1n },
+        { token: testToken, amount: 1n },
+      ],
+      { value: 1n },
+    );
 
     await expect(locking.claim(others[1], owner)).revertedWith(
       "validator not found",
@@ -406,36 +516,44 @@ describe("Locking", async () => {
       "invalid recipient",
     );
 
+    await expect(locking.connect(others[0]).openClaim()).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
+    await expect(locking.claim(validator, owner)).revertedWith("claim is not open")
+    expect(await locking.openClaim()).emit(locking, "OpenCliam")
+    await expect(locking.openClaim()).revertedWith("claim is open")
+    expect(await locking.claimable()).to.be.true;
+
     await expect(await locking.claim(validator, owner))
       .emit(locking, "Claim")
-      .withArgs(2, validator, owner);
+      .withArgs(0, validator, owner);
+
     await expect(
       locking.distributeReward(2, owner, 1, 1),
     ).revertedWithCustomError(locking, "AccessDenied");
 
     expect(await locking.remainReward()).eq(1000);
     await expect(
-      await locking.connect(executor).distributeReward(2, owner, 1000, 0),
+      await locking.connect(executor).distributeReward(0, owner, 1000, 0),
     )
       .emit(locking, "DistributeReward")
-      .withArgs(2, goat, 1000)
+      .withArgs(0, goat, 1000)
       .emit(locking, "DistributeReward")
-      .withArgs(2, ethers.ZeroAddress, 0)
+      .withArgs(0, ethers.ZeroAddress, 0)
       .emit(goat, "Transfer")
-      .withArgs(ethers.ZeroAddress, owner, 1000);
+      .withArgs(locking, owner, 1000);
 
     await expect(await goat.balanceOf(locking)).eq(0);
     expect(await locking.remainReward()).eq(0);
 
     await expect(await locking.claim(validator, owner))
       .emit(locking, "Claim")
-      .withArgs(3, validator, owner);
+      .withArgs(1, validator, owner);
+
     await expect(
-      await locking.connect(executor).distributeReward(3, owner, 0, 1000),
+      await locking.connect(executor).distributeReward(1, owner, 0, 1000),
     )
       .emit(locking, "DistributeReward")
-      .withArgs(3, ethers.ZeroAddress, 1000)
+      .withArgs(1, ethers.ZeroAddress, 1000)
       .emit(locking, "DistributeReward")
-      .withArgs(3, goat, 0);
+      .withArgs(1, goat, 0);
   });
 });

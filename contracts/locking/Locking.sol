@@ -37,6 +37,9 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     // threshold for validator creation
     address[] internal threshold;
 
+    // claimable represents current status of reward claiming
+    bool public claimable;
+
     mapping(address validator => address owner) public owners;
 
     // token config for locking
@@ -60,6 +63,17 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         tokens[address(0)] = Token(true, 12000, 0, 0);
         goatToken = goat;
         remainReward = totalReward;
+    }
+
+    /**
+     * grant sends goat token to the reward pool
+     * @param amount the amount
+     */
+    function grant(uint256 amount) external {
+        require(amount > 0, "invalid amount");
+        IERC20(goatToken).safeTransferFrom(msg.sender, address(this), amount);
+        remainReward += amount;
+        emit Grant(amount);
     }
 
     modifier OnlyValidatorOwner(address validator) {
@@ -93,7 +107,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         bytes32 sigR,
         bytes32 sigS,
         uint8 sigV
-    ) external payable {
+    ) external payable override {
         require(threshold.length > 0, "not started");
 
         address validator = pubkey.ConsAddress();
@@ -125,6 +139,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     )
         external
         payable
+        override
         OnlyValidatorOwner(validator)
         RateLimiting2(validator, values.length)
     {
@@ -168,6 +183,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         Locking[] calldata values
     )
         external
+        override
         OnlyValidatorOwner(validator)
         RateLimiting2(validator, values.length)
     {
@@ -197,12 +213,21 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address recipient,
         address token,
         uint256 amount
-    ) external OnlyLockingExecutor {
+    ) external override OnlyLockingExecutor {
         if (token != address(0)) {
             IERC20(token).safeTransfer(recipient, amount);
         }
         // sends back the native token in the runtime
         emit CompleteUnlock(id, amount);
+    }
+
+    /**
+     * openClaim let claim is open
+     */
+    function openClaim() external onlyOwner {
+        require(!claimable, "claim is open");
+        claimable = true;
+        emit OpenCliam();
     }
 
     /**
@@ -218,8 +243,9 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     function claim(
         address validator,
         address recipient
-    ) external OnlyValidatorOwner(validator) RateLimiting {
+    ) external override OnlyValidatorOwner(validator) RateLimiting {
         require(recipient != address(0), "invalid recipient");
+        require(claimable, "claim is not open");
         emit Claim(reqId++, validator, recipient);
     }
 
@@ -235,13 +261,13 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address recipient,
         uint256 goat,
         uint256 gasReward
-    ) external OnlyLockingExecutor {
+    ) external override OnlyLockingExecutor {
         if (remainReward < goat) {
             goat = remainReward;
         }
 
         if (goat != 0) {
-            IGoatToken(goatToken).mint(recipient, goat);
+            IERC20(goatToken).safeTransfer(recipient, goat);
             remainReward -= goat;
         }
 
@@ -253,7 +279,12 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     /**
      * creationThreshold is the threshold to create a new validator
      */
-    function creationThreshold() public view returns (Locking[] memory) {
+    function creationThreshold()
+        public
+        view
+        override
+        returns (Locking[] memory)
+    {
         Locking[] memory res = new Locking[](threshold.length);
         for (uint256 i = 0; i < threshold.length; i++) {
             address addr = threshold[i];
@@ -274,7 +305,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         uint64 weight,
         uint256 limit,
         uint256 thrs
-    ) external onlyOwner {
+    ) external override onlyOwner {
         require(!tokens[token].exist, "token exists");
         if (token != address(0)) {
             require(IERC20Metadata(token).decimals() == 18, "invalid decimals");
@@ -302,7 +333,10 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * @param weight the weight for the validator power
      * if weight is 0, the token will be not able to lock
      */
-    function setTokenWeight(address token, uint64 weight) external onlyOwner {
+    function setTokenWeight(
+        address token,
+        uint64 weight
+    ) external override onlyOwner {
         require(tokens[token].exist, "token not found");
         require(weight < MAX_WEIGHT, "invalid weight");
 
@@ -339,7 +373,10 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * @param token the token address
      * @param limit the lock limit, 0 represents no limit
      */
-    function setTokenLimit(address token, uint256 limit) external onlyOwner {
+    function setTokenLimit(
+        address token,
+        uint256 limit
+    ) external override onlyOwner {
         require(tokens[token].exist, "token not found");
         tokens[token].limit = limit;
         emit UpdateTokenLimit(token, limit);
@@ -350,7 +387,10 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * @param token the locking token to update
      * @param amount the new amount, if the amount is 0, then removes it from the list
      */
-    function setThreshold(address token, uint256 amount) external onlyOwner {
+    function setThreshold(
+        address token,
+        uint256 amount
+    ) external override onlyOwner {
         require(tokens[token].exist, "token not found");
 
         uint256 thres = tokens[token].threshold;
@@ -388,7 +428,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
 
     function getAddressByPubkey(
         bytes32[2] calldata pubkey
-    ) public pure returns (address, address) {
+    ) public pure override returns (address, address) {
         return (pubkey.ConsAddress(), pubkey.EthAddress());
     }
 
@@ -400,6 +440,12 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
 
             require(d.amount > 0, "invalid amount");
             require(t.weight > 0, "not lockable token");
+
+            // the threshold changed
+            uint256 locked = locking[validator][d.token];
+            if (locked < t.threshold) {
+                require(d.amount >= t.threshold - locked, "below threshold");
+            }
 
             if (d.token == address(0)) {
                 require(msgValue == d.amount, "invalid msg.value");
