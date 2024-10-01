@@ -23,7 +23,7 @@ dataSources:
       eventHandlers:
         - event: Deposit(indexed address,indexed uint256,bytes32,uint32,uint256)
           handler: handleDeposit
-        - event: Withdraw(indexed uint256,indexed address,uint256,uint256,uint256,string)
+        - event: Withdraw(indexed uint256,indexed address,uint256,uint256,uint16,string)
           handler: handleWithdrawal
         - event: Paid(indexed uint256,bytes32,uint32,uint256)
           handler: handlePaid
@@ -33,6 +33,54 @@ dataSources:
           handler: handleCanceled
         - event: Refund(indexed uint256)
           handler: handleRefund
-        - event: RBF(indexed uint256,uint256)
+        - event: RBF(indexed uint256,uint16)
           handler: handleRBF
+      file: ./scripts/mapping.ts
+
+  - kind: ethereum/contract
+    name: Locking
+    network: localhost
+    source:
+      address: "{{Locking}}"
+      abi: Locking
+      startBlock: {{blockNumber}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - Token
+        - Validator
+        - Locking
+        - Unlock
+        - Claim
+        - LockingStats
+      abis:
+        - name: Locking
+          file: artifacts/contracts/locking/Locking.sol/Locking.json
+      eventHandlers:
+        - event: UpdateTokenThreshold(address,uint256)
+          handler: handleUpdateTokenThreshold
+        - event: UpdateTokenWeight(address,uint64)
+          handler: handleUpdateTokenWeight
+        - event: UpdateTokenLimit(address,uint256)
+          handler: handleUpdateTokenLimit
+        - event: Grant(uint256)
+          handler: handleGrant
+        - event: OpenCliam()
+          handler: handleOpenCliam
+        - event: Create(address,address,bytes32[2])
+          handler: handleCreate
+        - event: Lock(address,address,uint256)
+          handler: handleLock
+        - event: Unlock(uint64,address,address,address,uint256)
+          handler: handleUnlock
+        - event: CompleteUnlock(uint64,uint256)
+          handler: handleCompleteUnlock
+        - event: Claim(uint64,address,address)
+          handler: handleClaim
+        - event: DistributeReward(uint64,address,uint256)
+          handler: handleDistributeReward
+        - event: ChangeValidatorOwner(address,address)
+          handler: handleChangeValidatorOwner
       file: ./scripts/mapping.ts
