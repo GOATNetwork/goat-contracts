@@ -131,35 +131,35 @@ export function handlePaid(event: Paid): void {
   loadAndUpdateBridgeTxn(id, "Paid", btcTxid);
 }
 
-
-export function handleUpdateTokenThreshold(event: UpdateTokenThreshold): void {
-  let token = TokenEntity.load(event.params.token.toHexString())
+function ensureToken(tokenAddress: string): TokenEntity {
+  let token = TokenEntity.load(tokenAddress)
   if (!token) {
-    token = new TokenEntity(event.params.token.toHexString())
-    token.address = event.params.token
+    token = new TokenEntity(tokenAddress)
+    token.address = Bytes.fromHexString(tokenAddress)
     token.exist = true
     token.weight = BigInt.fromI32(0)
     token.limit = BigInt.fromI32(0)
     token.totalLocking = BigInt.fromI32(0)
   }
+  return token
+}
+
+export function handleUpdateTokenThreshold(event: UpdateTokenThreshold): void {
+  const token = ensureToken(event.params.token.toHexString())
   token.threshold = event.params.amount
   token.save()
 }
 
 export function handleUpdateTokenWeight(event: UpdateTokenWeight): void {
-  let token = TokenEntity.load(event.params.token.toHexString())
-  if (token) {
-    token.weight = BigInt.fromU64(event.params.weight)
-    token.save()
-  }
+  const token = ensureToken(event.params.token.toHexString())
+  token.weight = BigInt.fromU64(event.params.weight)
+  token.save()
 }
 
 export function handleUpdateTokenLimit(event: UpdateTokenLimit): void {
-  let token = TokenEntity.load(event.params.token.toHexString())
-  if (token) {
-    token.limit = event.params.limit
-    token.save()
-  }
+  const token = ensureToken(event.params.token.toHexString())
+  token.limit = event.params.limit
+  token.save()
 }
 
 export function handleGrant(event: Grant): void {
@@ -186,6 +186,54 @@ export function handleOpenCliam(event: OpenCliam): void {
   stats.save()
 }
 
+
+/*
+{
+  "id": "0x1234...abcd",
+  "address": "0x1234...abcd",
+  "owner": "0x5678...efgh",
+  "pubkeyX": "0xabcdef1234...",
+  "pubkeyY": "0x9876fedcba...",
+  "lockings": [
+    {
+      "id": "0x1234...abcd-0x1234...abcd",
+      "validator": "0x1234...abcd",
+      "token": "0x1234...abcd",
+      "amount": "1000000000000000000"
+    },
+    {
+      "id": "0x1234...abcd-0x1234...abcd",
+      "validator": "0x1234...abcd",
+      "token": "0x1234...abcd",
+      "amount": "1000000000000000000"
+    },
+    {
+      "id": "0x1234...abcd-0x1234...abcd",
+      "validator": "0x1234...abcd",
+      "token": "0x1234...abcd",
+      "amount": "1000000000000000000"
+    }
+  ],
+  "claims": [
+    {
+      "id": "0x1234...abcd-0x1234...abcd",
+      "requestId": "1",
+      "validator": "0x1234...abcd",
+      "recipient": "0x5678...efgh",
+      "distributed": false,
+      "distributedAmount": "0"
+    },
+    {
+      "id": "0x1234...abcd-0x1234...abcd",
+      "requestId": "2",
+      "validator": "0x1234...abcd",
+      "recipient": "0x5678...efgh",
+      "distributed": false,
+      "distributedAmount": "0"
+    }
+  ]
+}
+*/
 export function handleCreate(event: Create): void {
   let validator = new ValidatorEntity(event.params.validator.toHexString())
   validator.address = event.params.validator
