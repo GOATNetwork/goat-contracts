@@ -24,6 +24,7 @@ dataSources:
         - event: Deposit(indexed address,indexed uint256,bytes32,uint32,uint256)
           handler: handleDeposit
         - event: Withdraw(indexed uint256,indexed address,uint256,uint256,uint16,string)
+        - event: Withdraw(indexed uint256,indexed address,uint256,uint256,uint16,string)
           handler: handleWithdrawal
         - event: Paid(indexed uint256,bytes32,uint32,uint256)
           handler: handlePaid
@@ -33,6 +34,7 @@ dataSources:
           handler: handleCanceled
         - event: Refund(indexed uint256)
           handler: handleRefund
+        - event: RBF(indexed uint256,uint16)
         - event: RBF(indexed uint256,uint16)
           handler: handleRBF
       file: ./scripts/mapping.ts
