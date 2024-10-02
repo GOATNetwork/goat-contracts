@@ -26,3 +26,57 @@ type BridgeTxnWidIndex @entity {
   id: String!
   bridgeTxnId: String!
 }
+
+type TokenEntity @entity {
+  id: ID!
+  address: Bytes!
+  exist: Boolean!
+  weight: BigInt!
+  limit: BigInt!
+  threshold: BigInt!
+  totalLocking: BigInt!
+}
+
+type ValidatorEntity @entity {
+  id: ID!
+  address: Bytes!
+  owner: Bytes!
+  pubkeyX: Bytes!
+  pubkeyY: Bytes!
+  lockings: [LockingEntity!]! @derivedFrom(field: "validator")
+  claims: [ClaimEntity!]! @derivedFrom(field: "validator")
+}
+
+type LockingEntity @entity {
+  id: ID!
+  validator: ValidatorEntity!
+  token: TokenEntity!
+  amount: BigInt!
+}
+
+type UnlockEntity @entity {
+  id: ID!
+  requestId: BigInt!
+  validator: ValidatorEntity!
+  recipient: Bytes!
+  token: TokenEntity!
+  amount: BigInt!
+  completed: Boolean!
+  completedAmount: BigInt
+}
+
+type ClaimEntity @entity {
+  id: ID!
+  requestId: BigInt!
+  validator: ValidatorEntity!
+  recipient: Bytes!
+  distributed: Boolean!
+  distributedAmount: BigInt
+}
+
+type LockingStatsEntity @entity {
+  id: ID!
+  totalReward: BigInt!
+  remainReward: BigInt!
+  claimable: Boolean!
+}
