@@ -104,7 +104,7 @@ contract Bridge is
      * @param receiver the address to withdraw
      * @param maxTxPrice the max allowed tx price in sat/vbyte
      *
-     * consensus layer have a complete validation for the receiver address
+     * consensus layer has a complete validation for the receiver address
      * if it's invalid, the consensus layer will send back `cancel2` tx to reject it
      */
     function withdraw(
