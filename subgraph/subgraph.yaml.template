@@ -41,9 +41,9 @@ dataSources:
     name: Locking
     network: localhost
     source:
-      address: "{{Locking}}"
+      address: "{{LockingInfo.Locking}}"
       abi: Locking
-      startBlock: {{blockNumber}}
+      startBlock: {{LockingInfo.blockNumber}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
