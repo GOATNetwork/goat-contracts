@@ -93,10 +93,10 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * the first index represents the X-coordinate and second is the Y-coordinate
      *
      * the validator address =
-     * sha256(ripemd160(compressed pubkey))
+     * ripemd160(sha256(compressed pubkey))
      *
      * the data to sign =
-     * abi.encodePacked(block.chainid, validator address, validator owner(msg.sender))
+     * keccak256(abi.encodePacked(block.chainid, validator address, validator owner(msg.sender)))
      * it includes the validator address to prevent usage error
      *
      * the msg.sender will be the owner of the validator, and an owner can have multiple validators
