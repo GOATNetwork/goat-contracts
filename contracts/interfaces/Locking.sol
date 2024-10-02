@@ -73,6 +73,8 @@ interface ILocking {
 
     function creationThreshold() external view returns (Locking[] memory);
 
+    function grant(uint256 amount) external;
+
     function addToken(
         address token,
         uint64 weight,

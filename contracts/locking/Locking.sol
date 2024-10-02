@@ -69,7 +69,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
      * grant sends goat token to the reward pool
      * @param amount the amount
      */
-    function grant(uint256 amount) external {
+    function grant(uint256 amount) external override onlyOwner {
         require(amount > 0, "invalid amount");
         IERC20(goatToken).safeTransferFrom(msg.sender, address(this), amount);
         remainReward += amount;

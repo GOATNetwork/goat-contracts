@@ -280,6 +280,11 @@ describe("Locking", async () => {
     await expect(await locking.owners(validator)).eq(others[0]);
 
     await goat.approve(locking, ethers.MaxUint256);
+    await expect(locking.connect(others[0]).grant(1n)).revertedWithCustomError(
+      locking,
+      "OwnableUnauthorizedAccount",
+    );
+    await expect(locking.grant(0n)).revertedWith("invalid amount");
     await expect(await locking.grant(100n))
       .emit(locking, "Grant")
       .withArgs(100n)
@@ -516,10 +521,14 @@ describe("Locking", async () => {
       "invalid recipient",
     );
 
-    await expect(locking.connect(others[0]).openClaim()).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.claim(validator, owner)).revertedWith("claim is not open")
-    expect(await locking.openClaim()).emit(locking, "OpenCliam")
-    await expect(locking.openClaim()).revertedWith("claim is open")
+    await expect(
+      locking.connect(others[0]).openClaim(),
+    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
+    await expect(locking.claim(validator, owner)).revertedWith(
+      "claim is not open",
+    );
+    expect(await locking.openClaim()).emit(locking, "OpenCliam");
+    await expect(locking.openClaim()).revertedWith("claim is open");
     expect(await locking.claimable()).to.be.true;
 
     await expect(await locking.claim(validator, owner))
