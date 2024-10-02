@@ -8,7 +8,6 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ILocking} from "../interfaces/Locking.sol";
-import {IGoatToken} from "../interfaces/GoatToken.sol";
 import {Pubkey} from "../library/codec/pubkey.sol";
 import {BaseAccess} from "../library/utils/BaseAccess.sol";
 import {RateLimiter} from "../library/utils/RateLimiter.sol";
