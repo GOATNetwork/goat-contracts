@@ -2,6 +2,66 @@ import { parseEther, formatEther } from "ethers";
 import { task, types } from "hardhat/config";
 import * as path from "path";
 import * as fs from 'fs';
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+
+// 0xba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0d67351e5f06073092499336ab0839ef8a521afd334e53807205fa2f08eec74f4
+async function checkSignature(publicKey: string, hre: HardhatRuntimeEnvironment) {
+  const { ethers } = hre;
+  const [_, validator] = await ethers.getSigners();
+
+  // Public key for the validator (secp256k1 uncompressed key)
+  const pubkeyX = `0x${publicKey.slice(4, 68)}`;
+  const pubkeyY = `0x${publicKey.slice(68)}`;
+
+  const pubkey: [string, string] = [pubkeyX, pubkeyY];
+
+  console.log("Public key X:", pubkeyX);
+  console.log("Public key Y:", pubkeyY);
+
+  // Calculate validator address from public key (use keccak256 like in the contract for EthAddress)
+  const ethAddress = ethers.getAddress(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["bytes32", "bytes32"], pubkey)).slice(26));
+  console.log("Calculated EthAddress (Validator Address):", ethAddress);
+  console.log("Validator address:", validator.address);
+
+  // Calculate Cosmos address (ConsAddress) from public key (use sha256 and ripemd160)
+  const prefix = (parseInt(pubkeyY.slice(-1), 16) % 2 === 0) ? '0x02' : '0x03';
+  const compressedPubKey = ethers.concat([prefix, pubkeyX]);
+  const sha256Hash = ethers.sha256(compressedPubKey);
+  const consAddress = ethers.ripemd160(ethers.getBytes(sha256Hash));  // Last 20 bytes for Cosmos address
+  console.log("Calculated ConsAddress (Cosmos Address):", consAddress);
+
+  // Create the message hash (same as the Solidity code)
+  const chainId = await hre.network.config.chainId;
+  const messageHash = ethers.solidityPackedKeccak256(
+    ["uint256", "address", "address"],
+    [chainId, ethAddress, validator.address]
+  );
+
+  console.log("Message Hash:", messageHash);
+
+  // Sign the message
+  const signature = await validator.signMessage(ethers.getBytes(messageHash));
+  const { v, r, s } = ethers.Signature.from(signature);
+
+  console.log("Signature: v =", v, "r =", r, "s =", s);
+
+  // Recover the address from the signature
+  // Note: We need to hash the message with the Ethereum Signed Message prefix
+  const prefixedMessageHash = ethers.hashMessage(ethers.getBytes(messageHash));
+  const recoveredAddress = ethers.recoverAddress(prefixedMessageHash, signature);
+
+  console.log("Recovered Address:", recoveredAddress);
+
+  // Compare the recovered address with the validator's address
+  if (recoveredAddress.toLowerCase() === validator.address.toLowerCase()) {
+    console.log("Signature is valid, addresses match.");
+  } else {
+    console.log("Signature mismatch, addresses do not match.");
+    throw new Error("Signature mismatch, addresses do not match.");
+  }
+
+  return { pubkey, r, s, v };
+}
 
 function getLockingAddress(network: string) {
   const networkName = network === 'localhost' ? 'testnet' : network;
@@ -45,6 +105,17 @@ task("init-locking", "Initialize Locking contract and set token thresholds")
     await goatTx.wait();
     console.log(`GOAT token threshold set to ${taskArgs.goatThreshold} GOAT`);
 
+    // Set weights
+    console.log("Setting ETH weight...");
+    const ethWeightTx = await locking.setTokenWeight(ethers.ZeroAddress, 12000);
+    await ethWeightTx.wait();
+    console.log(`ETH weight set to 12000`);
+
+    console.log("Setting GOAT token weight...");
+    const goatWeightTx = await locking.setTokenWeight(goatToken, 1);
+    console.log(`GOAT weight set to 1`);
+    await goatWeightTx.wait();
+
     // Check updated thresholds
     const updatedEthTokenInfo = await locking.tokens(ethers.ZeroAddress);
     const updatedGoatTokenInfo = await locking.tokens(goatToken);
@@ -66,24 +137,13 @@ task("create-validator", "Create a new validator")
     const wallet = new ethers.Wallet(privateKey, ethers.provider);
 
     const publicKey = wallet.signingKey.publicKey;
-    const pubkeyX = `0x${publicKey.slice(4, 68)}`;
-    const pubkeyY = `0x${publicKey.slice(68)}`;
+    // const pubkeyX = `0x${publicKey.slice(4, 68)}`;
+    // const pubkeyY = `0x${publicKey.slice(68)}`;
 
-    // make pubkey to 32 bytes
-    const pubkey: [string, string] = [pubkeyX, pubkeyY];
+    // const publicKey = "0xba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0d67351e5f06073092499336ab0839ef8a521afd334e53807205fa2f08eec74f4"; // [1]
 
-    console.log("Validator address:", validator.address);
-    console.log("Validator public key:", pubkey);
 
-    const messageHash = ethers.solidityPackedKeccak256(
-      ["uint256", "address", "address"],
-      [hre.network.config.chainId, validator.address, validator.address]
-    );
-
-    const signature = await validator.signMessage(ethers.getBytes(messageHash));
-    const { v, r, s } = ethers.Signature.from(signature);
-
-    console.log({ pubkey, messageHash, signature, v, r, s });
+    const { pubkey, r, s, v } = await checkSignature(publicKey, hre);
 
     // before approve transfer GOAT Token, get GoatToken contract address
     const goatToken = await locking.goatToken();
@@ -99,7 +159,7 @@ task("create-validator", "Create a new validator")
     // step 2: call create function, pass ETH
     console.log("Creating validator...");
     const createTx = await locking.create(
-      pubkey,
+      pubkey as [string, string],
       r,
       s,
       v,
@@ -343,4 +403,12 @@ task("locking-creation-threshold", "Get the current creation threshold")
     for (const t of threshold) {
       console.log(`Token ${t.token}: ${formatEther(t.amount)}`);
     }
+  });
+
+  task("print-accounts", "Prints all hardhat accounts", async (taskArgs, hre) => {
+    const accounts = await hre.ethers.getSigners();
+
+    accounts.forEach((account, index) => {
+      console.log(`Account ${index + 1}: ${account.address}`);
+    });
   });
