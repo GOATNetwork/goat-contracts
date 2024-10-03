@@ -1,8 +1,9 @@
-import { parseEther, formatEther } from "ethers";
+import { parseEther, formatEther, SigningKey } from "ethers";
 import { task, types } from "hardhat/config";
 import * as path from "path";
 import * as fs from 'fs';
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { Executors, hash160, trimPubKeyPrefix } from "../test/constant";
 
 // 0xba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0d67351e5f06073092499336ab0839ef8a521afd334e53807205fa2f08eec74f4
 async function checkSignature(publicKey: string, hre: HardhatRuntimeEnvironment) {
@@ -125,32 +126,47 @@ task("init-locking", "Initialize Locking contract and set token thresholds")
 
 // Create validator and lock GOAT tokens
 task("create-validator", "Create a new validator")
+  .addParam("privateKey", "Validator's private key") // 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d private key, 0xc4841b8f5e6f10a38dc5e672e183ffd9be0cd12f cosAddress
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
-
-    const [_, validator] = await ethers.getSigners();
+    const [owner, _] = await ethers.getSigners();
 
     const lockingAddress = getLockingAddress(hre.network.name);
     const locking = await ethers.getContractAt("Locking", lockingAddress);
 
-    const privateKey = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"; // [1]
-    const wallet = new ethers.Wallet(privateKey, ethers.provider);
+    const privateKey = taskArgs.privateKey; // validator private key cosAddress
+    const wallet = new ethers.Wallet(privateKey);
 
-    const publicKey = wallet.signingKey.publicKey;
-    // const pubkeyX = `0x${publicKey.slice(4, 68)}`;
-    // const pubkeyY = `0x${publicKey.slice(68)}`;
+    const compressed = SigningKey.computePublicKey(wallet.signingKey.publicKey);
 
-    // const publicKey = "0xba5734d8f7091719471e7f7ed6b9df170dc70cc661ca05e688601ad984f068b0d67351e5f06073092499336ab0839ef8a521afd334e53807205fa2f08eec74f4"; // [1]
+    const validator = ethers.getAddress(
+      hash160(trimPubKeyPrefix(compressed)),
+    );
+    console.log("Validator address:", validator);
 
+    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
+    const pubkey: [string, string] = [
+      ethers.hexlify(uncompressed.subarray(0, 32)),
+      ethers.hexlify(uncompressed.subarray(32))
+    ];
 
-    const { pubkey, r, s, v } = await checkSignature(publicKey, hre);
+    console.log("Validator ConsAddress:", validator);
+    console.log("Public key X:", pubkey[0]);
+    console.log("Public key Y:", pubkey[1]);
 
-    // before approve transfer GOAT Token, get GoatToken contract address
+    const network = await ethers.provider.getNetwork();
+    const sigmsg = ethers.solidityPackedKeccak256(
+      ["uint256", "address", "address"],
+      [network.chainId, validator, await owner.getAddress()]
+    );
+
+    const sig = wallet.signingKey.sign(sigmsg);
+
     const goatToken = await locking.goatToken();
-    const goatAmount = ethers.parseEther("10"); // lock 10 GOAT token
+    const goatAmount = ethers.parseEther("10");
     const goatContract = await ethers.getContractAt("IERC20", goatToken);
 
-    // step 1: user approve contract to transfer GOAT Token
+    // step 1: approve GOAT Token
     console.log("Approving GOAT tokens...");
     const approveTx = await goatContract.approve(lockingAddress, goatAmount);
     await approveTx.wait();
@@ -159,94 +175,164 @@ task("create-validator", "Create a new validator")
     // step 2: call create function, pass ETH
     console.log("Creating validator...");
     const createTx = await locking.create(
-      pubkey as [string, string],
-      r,
-      s,
-      v,
+      pubkey,
+      sig.r,
+      sig.s,
+      sig.v,
       { value: ethers.parseEther("1") } // send 1 ETH
     );
     await createTx.wait();
-    console.log(`Validator created: ${validator.address}`);
+    console.log(`Validator created: ${validator}`);
 
-    // step 3: call lock function to lock GOAT token
-    console.log("Locking GOAT tokens...");
-    const lockTx = await locking.lock(validator.address, [{
-      token: goatToken,
-      amount: goatAmount
-    }]);
-    await lockTx.wait();
-    console.log(`Locked 10 GOAT tokens for validator ${validator.address}`);
+    // check validator owner
+    const validatorOwner = await locking.owners(validator);
+    console.log("Validator owner:", validatorOwner);
+    if (validatorOwner === owner.address) {
+      console.log("Validator creation successful!");
+    } else {
+      console.log("Validator creation failed!");
+    }
   });
 
 
-// Lock tokens
-task("lock-tokens", "Lock tokens for a validator")
+// Lock token
+task("lock-token", "Lock tokens for a validator")
   .addParam("validator", "Validator's address")
   .addParam("token", "Token address (use 0x0 for ETH)")
   .addParam("amount", "Amount to lock")
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
-
+    // Fetch the locking contract
     const lockingAddress = getLockingAddress(hre.network.name);
     const locking = await ethers.getContractAt("Locking", lockingAddress);
 
+    // Parse the amount from the provided argument
+    const amount = ethers.parseEther(taskArgs.amount);
+
+    // Create values array for the lock operation
     const values = [{
       token: taskArgs.token,
-      amount: parseEther(taskArgs.amount)
+      amount
     }];
 
-    console.log("Locking tokens...");
-    const tx = await locking.lock(taskArgs.validator, values, {
-      value: taskArgs.token === ethers.ZeroAddress ? parseEther(taskArgs.amount) : 0
-    });
-    await tx.wait();
+    // Check if locking an ERC20 token or ETH
+    if (taskArgs.token !== ethers.ZeroAddress) {
+      // ERC20 Token: Ensure approval and balance
+      const tokenContract = await ethers.getContractAt("IERC20", taskArgs.token);
 
-    console.log(`Locked ${taskArgs.amount} tokens for validator ${taskArgs.validator}`);
+      // Check sender's token balance
+      const balance = await tokenContract.balanceOf(await owner.getAddress());
+      console.log(`Sender's token balance: ${ethers.formatEther(balance)} tokens`);
+
+      // Ensure the sender has enough tokens to lock
+      if (balance < amount) {
+        throw new Error("Insufficient token balance to lock");
+      }
+
+      // Approve the locking contract to transfer tokens
+      console.log("Approving the locking contract to transfer tokens...");
+      const approveTx = await tokenContract.approve(lockingAddress, amount);
+      await approveTx.wait();
+      console.log(`Approved ${ethers.formatEther(amount)} tokens for locking contract`);
+    }
+
+    // Log the locking process
+    console.log("Locking tokens...");
+
+    try {
+      // Lock the tokens or ETH
+      const tx = await locking.lock(taskArgs.validator, values, {
+        value: taskArgs.token === ethers.ZeroAddress ? amount : 0, // ETH if token is 0x0
+        gasLimit: 1000000 // Set a high gas limit to avoid out-of-gas errors
+      });
+      await tx.wait();
+
+      // Log success message
+      console.log(`Locked ${ethers.formatEther(amount)} tokens for validator: ${taskArgs.validator}`);
+      console.log(`Token: ${taskArgs.token === ethers.ZeroAddress ? 'ETH' : taskArgs.token}`);
+    } catch (error) {
+      console.error("Error occurred during locking:", error);
+    }
   });
+
+
 
 // Unlock tokens
 task("unlock-tokens", "Unlock tokens for a validator")
   .addParam("validator", "Validator's address")
   .addParam("recipient", "Recipient's address")
-  .addParam("token", "Token address (use 0x0 for ETH)")
-  .addParam("amount", "Amount to unlock")
+  .addParam("tokens", "Comma-separated list of token addresses")
+  .addParam("amounts", "Comma-separated list of amounts to unlock")
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
-    const [owner] = await ethers.getSigners();
 
     const lockingAddress = getLockingAddress(hre.network.name);
     const locking = await ethers.getContractAt("Locking", lockingAddress);
 
-    const values = [{
-      token: taskArgs.token,
-      amount: parseEther(taskArgs.amount)
-    }];
+    // Parse the input tokens and amounts
+    const tokens = taskArgs.tokens.split(',');
+    const amounts = taskArgs.amounts.split(',').map(ethers.parseEther);
+
+    // Ensure the number of tokens matches the number of amounts
+    if (tokens.length !== amounts.length) {
+      throw new Error("The number of token addresses and amounts must match");
+    }
+
+    // Construct values array for the unlock operation
+    const values = tokens.map((token: string, index: number) => ({
+      token,
+      amount: amounts[index]
+    }));
 
     console.log("Unlocking tokens...");
+
+    // Send transaction to unlock tokens
     const tx = await locking.unlock(taskArgs.validator, taskArgs.recipient, values);
     await tx.wait();
 
-    console.log(`Unlocked ${taskArgs.amount} tokens for validator ${taskArgs.validator}`);
+    // Log details of the unlock operation
+    console.log(`Unlock request submitted for validator: ${taskArgs.validator}`);
+    console.log(`Recipient: ${taskArgs.recipient}`);
+    values.forEach(({ token, amount }: { token: string, amount: bigint }) => {
+      console.log(`Token ${token}: Unlocking amount ${ethers.formatEther(amount)}`);
+    });
   });
 
-// Claim rewards
-task("claim-rewards", "Claim rewards for a validator")
-  .addParam("validator", "Validator's address")
-  .addParam("recipient", "Recipient's address for rewards")
+
+// Complete unlock
+task("complete-unlock", "Complete the unlock operation")
+  .addParam("id", "Request ID", undefined, types.string)
+  .addParam("recipient", "Recipient's address")
+  .addParam("token", "Token address (use 0x0 for native token)")
+  .addParam("amount", "Amount to unlock", undefined, types.string)
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
-    const [owner] = await ethers.getSigners();
 
     const lockingAddress = getLockingAddress(hre.network.name);
     const locking = await ethers.getContractAt("Locking", lockingAddress);
 
-    console.log("Claiming rewards...");
-    const tx = await locking.claim(taskArgs.validator, taskArgs.recipient);
-    await tx.wait();
+    console.log("Completing unlock...");
 
-    console.log(`Claimed rewards for validator ${taskArgs.validator}`);
+    // Parse the amount to unlock
+    const amount = ethers.parseEther(taskArgs.amount);
+
+    // Execute completeUnlock transaction
+    const tx = await locking.completeUnlock(
+      taskArgs.id,
+      taskArgs.recipient,
+      taskArgs.token,
+      amount
+    );
+
+    // Wait for the transaction to be mined
+    const receipt = await tx.wait();
+
+    // Log details of the completed unlock operation
+    console.log(`Unlock completed for request ID: ${taskArgs.id}`);
+    console.log(`  Amount: ${ethers.formatEther(amount)} ${taskArgs.token === ethers.ZeroAddress ? 'ETH' : 'tokens'}`);
   });
+
 
 // Add new token
 task("add-token", "Add a new token to the Locking contract")
@@ -412,3 +498,110 @@ task("locking-creation-threshold", "Get the current creation threshold")
       console.log(`Account ${index + 1}: ${account.address}`);
     });
   });
+
+task("grant-rewards", "Grant GOAT tokens to the reward pool")
+  .addParam("amount", "Amount of GOAT tokens to grant", undefined, types.string)
+  .setAction(async (taskArgs, hre) => {
+    const { ethers } = hre;
+    const [owner] = await ethers.getSigners();
+
+    const lockingAddress = getLockingAddress(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const goatToken = await locking.goatToken();
+    const goatContract = await ethers.getContractAt("IERC20", goatToken);
+
+    const amount = ethers.parseEther(taskArgs.amount);
+
+    console.log("Approving GOAT tokens...");
+    await goatContract.approve(lockingAddress, amount);
+
+    console.log(`Granting ${taskArgs.amount} GOAT tokens to the reward pool...`);
+    const tx = await locking.grant(amount);
+    await tx.wait();
+
+    console.log("Grant successful!");
+  });
+
+task("open-claim", "Open the claim for rewards")
+  .setAction(async (_, hre) => {
+    const { ethers } = hre;
+    const [owner] = await ethers.getSigners();
+
+    const lockingAddress = getLockingAddress(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", lockingAddress);
+
+    console.log("Opening claim...");
+    const tx = await locking.openClaim();
+    await tx.wait();
+
+    console.log("Claim opened successfully!");
+  });
+
+task("claim-rewards", "Claim rewards for a validator")
+  .addParam("validator", "The validator's address")
+  .addParam("recipient", "The recipient's address for the rewards")
+  .setAction(async (taskArgs, hre) => {
+    const { ethers } = hre;
+    const [owner] = await ethers.getSigners();
+
+    const lockingAddress = getLockingAddress(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", lockingAddress);
+
+    console.log(`Claiming rewards for validator ${taskArgs.validator}...`);
+    const tx = await locking.claim(taskArgs.validator, taskArgs.recipient);
+    await tx.wait();
+
+    console.log("Claim submitted successfully!");
+  });
+
+  task("distribute-reward", "Distribute rewards to a recipient")
+  .addParam("id", "The request ID", undefined, types.string)
+  .addParam("recipient", "The recipient's address")
+  .addParam("goat", "Amount of GOAT tokens to distribute", undefined, types.string)
+  .addOptionalParam("gasReward", "Amount of gas reward to distribute", "0", types.string)
+  .setAction(async (taskArgs, hre) => {
+    const { ethers } = hre;
+    const [owner] = await ethers.getSigners();
+
+    const lockingAddress = getLockingAddress(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", lockingAddress);
+
+    // Fetch the remaining GOAT tokens and format them for comparison
+    const remainReward = await locking.remainReward();
+    console.log(`Remaining GOAT tokens in contract: ${ethers.formatEther(remainReward)} GOAT`);
+
+    const goatToDistribute = ethers.parseEther(taskArgs.goat);
+    console.log(`Requested GOAT to distribute: ${ethers.formatEther(goatToDistribute)} GOAT`);
+
+    // Ensure remaining rewards are sufficient, log actual and requested values
+    if (goatToDistribute > remainReward) {
+      console.log(`Insufficient GOAT tokens! Available: ${ethers.formatEther(remainReward)}, Requested: ${ethers.formatEther(goatToDistribute)}`);
+      return;
+    }
+
+    // Fetch the contract's balance in native tokens (e.g., ETH)
+    const contractBalance = await ethers.provider.getBalance(lockingAddress);
+    console.log(`Contract ETH balance: ${ethers.formatEther(contractBalance)} ETH`);
+
+    const gasReward = ethers.parseEther(taskArgs.gasReward);
+    console.log(`Requested gas reward: ${ethers.formatEther(gasReward)} ETH`);
+
+    // Ensure contract has enough ETH for gas reward, log actual and requested values
+    if (gasReward > contractBalance) {
+      console.log(`Insufficient ETH for gas reward! Available: ${ethers.formatEther(contractBalance)}, Requested: ${ethers.formatEther(gasReward)}`);
+      return;
+    }
+
+    // Distribute the rewards
+    console.log(`Distributing ${ethers.formatEther(goatToDistribute)} GOAT and ${ethers.formatEther(gasReward)} ETH to ${taskArgs.recipient}...`);
+    const tx = await locking.distributeReward(
+      taskArgs.id,
+      taskArgs.recipient,
+      goatToDistribute,
+      gasReward
+    );
+    await tx.wait();
+
+    console.log("Rewards distributed successfully!");
+  });
+

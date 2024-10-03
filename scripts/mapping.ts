@@ -166,8 +166,8 @@ export function handleGrant(event: Grant): void {
   let stats = LockingStatsEntity.load("1")
   if (!stats) {
     stats = new LockingStatsEntity("1")
-    stats.totalReward = BigInt.fromI32(0)
-    stats.remainReward = BigInt.fromI32(0)
+    stats.totalReward = BigInt.fromI32(1000).times(BigInt.fromI32(10).pow(18))
+    stats.remainReward = BigInt.fromI32(1000).times(BigInt.fromI32(10).pow(18))
     stats.claimable = false
   }
   stats.totalReward = stats.totalReward.plus(event.params.amount)
