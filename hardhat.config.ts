@@ -231,7 +231,7 @@ const config: HardhatUserConfig = {
       optimizer: {
         enabled: true,
         runs: 800,
-        viaIR: true
+        // viaIR: true
       },
       evmVersion: "cancun",
       metadata: {

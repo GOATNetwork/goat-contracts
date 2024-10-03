@@ -68,7 +68,7 @@ export function handleRefund(event: Refund): void {
 export function handleRBF(event: RBF): void {
   const id = event.params.id.toString();
   log.info('Handling RBF event for ID {}', [id]);
-  loadAndUpdateBridgeTxn(id, "Pending", null, event.params.maxTxPrice);
+  loadAndUpdateBridgeTxn(id, "Pending", null, BigInt.fromI32(event.params.maxTxPrice));
 }
 
 
@@ -97,7 +97,7 @@ export function handleWithdrawal(event: Withdraw): void {
   entity.timestamp = event.block.timestamp;
   entity.withdrawId = event.params.id;
   entity.amount = event.params.amount;
-  entity.maxTxPrice = event.params.maxTxPrice;
+  entity.maxTxPrice = BigInt.fromI32(event.params.maxTxPrice);
   entity.receiver = event.params.receiver;
   entity.target = event.params.from;
   entity.tax = event.params.tax;
@@ -152,7 +152,7 @@ export function handleUpdateTokenThreshold(event: UpdateTokenThreshold): void {
 
 export function handleUpdateTokenWeight(event: UpdateTokenWeight): void {
   const token = ensureToken(event.params.token.toHexString())
-  token.weight = BigInt.fromU64(event.params.weight)
+  token.weight = event.params.weight
   token.save()
 }
 
