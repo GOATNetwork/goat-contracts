@@ -269,8 +269,8 @@ const config: HardhatUserConfig = {
       url: "http://3.15.141.150:8545",
       chainId: 2345,
       accounts: [
-        '0x0fdce9a033c223590e32ffb24e48d8c66bef942464f7e593925c5317fff0d71e',  // replayer and owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'   // GoatFoundation 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+        '0x0fdce9a033c223590e32ffb24e48d8c66bef942464f7e593925c5317fff0d71e',  // replayer and owner 0x9139Ee5450fD3B0D07E3A623eE5e3df013BFDEa7
+        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'   // GoatFoundation 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 [0]
       ]
     }
   },
