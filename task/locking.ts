@@ -1,4 +1,4 @@
-import { parseEther, formatEther, SigningKey } from "ethers";
+import { parseEther, formatEther, SigningKey, Wallet, HDNodeWallet } from "ethers";
 import { task, types } from "hardhat/config";
 import * as path from "path";
 import * as fs from 'fs';
@@ -126,7 +126,7 @@ task("init-locking", "Initialize Locking contract and set token thresholds")
 
 // Create validator and lock GOAT tokens
 task("create-validator", "Create a new validator")
-  .addParam("privateKey", "Validator's private key") // 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d private key, 0xc4841b8f5e6f10a38dc5e672e183ffd9be0cd12f cosAddress
+  .addOptionalParam("privateKey", "Validator's private key") // 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d private key, 0xc4841b8f5e6f10a38dc5e672e183ffd9be0cd12f cosAddress
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
     const [owner, _] = await ethers.getSigners();
@@ -134,10 +134,15 @@ task("create-validator", "Create a new validator")
     const lockingAddress = getLockingAddress(hre.network.name);
     const locking = await ethers.getContractAt("Locking", lockingAddress);
 
-    const privateKey = taskArgs.privateKey; // validator private key cosAddress
-    const wallet = new ethers.Wallet(privateKey);
-
-    const compressed = SigningKey.computePublicKey(wallet.signingKey.publicKey);
+    let wallet: Wallet | HDNodeWallet;
+    let compressed: string;
+    if (taskArgs.privateKey) {
+      wallet = new ethers.Wallet(taskArgs.privateKey) as Wallet;
+      compressed = SigningKey.computePublicKey(wallet.signingKey.publicKey);
+    } else {
+      wallet = ethers.Wallet.createRandom(ethers.provider) as HDNodeWallet;
+      compressed = wallet.publicKey;
+    }
 
     const validator = ethers.getAddress(
       hash160(trimPubKeyPrefix(compressed)),
@@ -192,6 +197,18 @@ task("create-validator", "Create a new validator")
     } else {
       console.log("Validator creation failed!");
     }
+
+    // create a random name, avatar, desc, url
+    const name = Math.random().toString(36).substring(2, 15);
+    console.log("Validator:", {
+      name,
+      avatar: `{BASEDIR}/assets/${name}.png`,
+      desc: `random ${name} description`,
+      address: wallet.address,
+      seq_addr: validator,
+      pubkey: wallet.signingKey.publicKey,
+      url: `https://www.random${name}.com`
+    });
   });
 
 

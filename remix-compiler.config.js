@@ -3,9 +3,8 @@ module.exports = {
               settings: {
                 optimizer: {
                   enabled: false,
-                  runs: 200,
-                  viaIR: true,
-                  irOptimizer: true
+                  runs: 200
                 }
               }
             }
+            
