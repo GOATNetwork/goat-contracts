@@ -199,7 +199,7 @@ task("create-validator", "Create a new validator")
       console.log("Validator creation failed!");
     }
 
-    const name = Math.random().toString(36).substring(2, 15);
+    const name = wallet.address;
     const sequeuce = {
       name,
       avatar: `{BASEDIR}/assets/${name}.png`,
@@ -207,7 +207,7 @@ task("create-validator", "Create a new validator")
       address: wallet.address,
       seq_addr: validator,
       pubkey: wallet.signingKey.publicKey,
-      url: `https://www.random${name}.com`
+      url: `https://www.${name}.com`
     };
     console.log("Validator:", validator);
     console.log(taskArgs.privateKey ? taskArgs.privateKey : wallet.privateKey);
@@ -414,7 +414,7 @@ task("update-token-limit", "Update token limit")
 // Update creation threshold
 task("update-threshold", "Update creation threshold for a token")
   .addParam("token", "Token address")
-  .addParam("amount", "New threshold amount (0 to remove from threshold list)")
+  .addParam("threshold", "New threshold amount (0 to remove from threshold list)")
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
@@ -423,10 +423,10 @@ task("update-threshold", "Update creation threshold for a token")
     const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Updating creation threshold...");
-    const tx = await locking.setThreshold(taskArgs.token, parseEther(taskArgs.amount));
+    const tx = await locking.setThreshold(taskArgs.token, parseEther(taskArgs.threshold));
     await tx.wait();
 
-    console.log(`Updated creation threshold for token ${taskArgs.token} to ${taskArgs.amount}`);
+    console.log(`Updated creation threshold for token ${taskArgs.token} to ${taskArgs.threshold}`);
   });
 
 task("locking-info", "Get detailed information about the Locking contract")
@@ -645,11 +645,6 @@ task("integration-test", "Run a full integration test")
   .setAction(async (_, hre: HardhatRuntimeEnvironment) => {
     const { ethers, run } = hre;
     const [deployer, user1, user2, user3] = await ethers.getSigners();
-
-    console.log(deployer.address);
-    console.log(user1.address);
-    console.log(user2.address);
-    console.log(user3.address);
 
     console.log("Starting integration test...");
 
