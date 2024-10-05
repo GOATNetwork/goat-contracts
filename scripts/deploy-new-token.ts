@@ -62,6 +62,7 @@ async function main() {
   });
 
   console.log("Updated deployment information with the new token.");
+  return otherToken;
 }
 
 main()

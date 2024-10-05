@@ -64,11 +64,12 @@ async function checkSignature(publicKey: string, hre: HardhatRuntimeEnvironment)
   return { pubkey, r, s, v };
 }
 
-function getLockingAddress(network: string) {
+function getTestNetConfig(network: string) {
   const networkName = network === 'localhost' ? 'testnet' : network;
   const testnetConfigPath = path.join(__dirname, `../subgraph/${networkName}.json`);
   const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
-  return testnetConfig.LockingInfo.Locking;
+  console.log(testnetConfig);
+  return testnetConfig;
 }
 
 // Initialize Locking contract and set token thresholds
@@ -79,8 +80,8 @@ task("init-locking", "Initialize Locking contract and set token thresholds")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Checking Locking contract initialization...");
 
@@ -131,8 +132,8 @@ task("create-validator", "Create a new validator")
     const { ethers } = hre;
     const [owner, _] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     let wallet: Wallet | HDNodeWallet;
     let compressed: string;
@@ -173,7 +174,7 @@ task("create-validator", "Create a new validator")
 
     // step 1: approve GOAT Token
     console.log("Approving GOAT tokens...");
-    const approveTx = await goatContract.approve(lockingAddress, goatAmount);
+    const approveTx = await goatContract.approve(Locking, goatAmount);
     await approveTx.wait();
     console.log("Approved GOAT tokens.");
 
@@ -198,9 +199,8 @@ task("create-validator", "Create a new validator")
       console.log("Validator creation failed!");
     }
 
-    // create a random name, avatar, desc, url
     const name = Math.random().toString(36).substring(2, 15);
-    console.log("Validator:", {
+    const sequeuce = {
       name,
       avatar: `{BASEDIR}/assets/${name}.png`,
       desc: `random ${name} description`,
@@ -208,7 +208,11 @@ task("create-validator", "Create a new validator")
       seq_addr: validator,
       pubkey: wallet.signingKey.publicKey,
       url: `https://www.random${name}.com`
-    });
+    };
+    console.log("Validator:", validator);
+    console.log(taskArgs.privateKey ? taskArgs.privateKey : wallet.privateKey);
+
+    return { validatorAddress: validator, sequeuce };
   });
 
 
@@ -221,8 +225,8 @@ task("lock-token", "Lock tokens for a validator")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
     // Fetch the locking contract
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     // Parse the amount from the provided argument
     const amount = ethers.parseEther(taskArgs.amount);
@@ -249,7 +253,7 @@ task("lock-token", "Lock tokens for a validator")
 
       // Approve the locking contract to transfer tokens
       console.log("Approving the locking contract to transfer tokens...");
-      const approveTx = await tokenContract.approve(lockingAddress, amount);
+      const approveTx = await tokenContract.approve(Locking, amount);
       await approveTx.wait();
       console.log(`Approved ${ethers.formatEther(amount)} tokens for locking contract`);
     }
@@ -284,8 +288,8 @@ task("unlock-tokens", "Unlock tokens for a validator")
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     // Parse the input tokens and amounts
     const tokens = taskArgs.tokens.split(',');
@@ -326,8 +330,8 @@ task("complete-unlock", "Complete the unlock operation")
   .setAction(async (taskArgs, hre) => {
     const { ethers } = hre;
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Completing unlock...");
 
@@ -361,8 +365,8 @@ task("add-token", "Add a new token to the Locking contract")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Adding new token...");
     const tx = await locking.addToken(taskArgs.token, taskArgs.weight, parseEther(taskArgs.limit), parseEther(taskArgs.threshold));
@@ -379,8 +383,8 @@ task("update-token-weight", "Update token weight")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Updating token weight...");
     const tx = await locking.setTokenWeight(taskArgs.token, taskArgs.weight);
@@ -397,8 +401,8 @@ task("update-token-limit", "Update token limit")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Updating token limit...");
     const tx = await locking.setTokenLimit(taskArgs.token, parseEther(taskArgs.limit));
@@ -415,8 +419,8 @@ task("update-threshold", "Update creation threshold for a token")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Updating creation threshold...");
     const tx = await locking.setThreshold(taskArgs.token, parseEther(taskArgs.amount));
@@ -427,8 +431,8 @@ task("update-threshold", "Update creation threshold for a token")
 
 task("locking-info", "Get detailed information about the Locking contract")
   .setAction(async (_, hre) => {
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await hre.ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await hre.ethers.getContractAt("Locking", Locking);
 
     const goatToken = await locking.goatToken();
     const ethToken = hre.ethers.ZeroAddress;
@@ -436,7 +440,7 @@ task("locking-info", "Get detailed information about the Locking contract")
     const claimable = await locking.claimable();
 
     console.log("Locking Contract Information:");
-    console.log(`Address: ${lockingAddress}`);
+    console.log(`Address: ${Locking}`);
     console.log(`GOAT Token: ${goatToken}`);
     console.log(`Remaining Reward: ${formatEther(remainReward)} GOAT`);
     console.log(`Claimable: ${claimable}`);
@@ -451,8 +455,8 @@ task("locking-info", "Get detailed information about the Locking contract")
 task("locking-validator-info", "Get information about a specific validator")
   .addParam("validator", "The validator's address")
   .setAction(async (taskArgs, hre) => {
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await hre.ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await hre.ethers.getContractAt("Locking", Locking);
 
     const owner = await locking.owners(taskArgs.validator);
 
@@ -465,8 +469,8 @@ task("locking-validator-info", "Get information about a specific validator")
 task("locking-token-info", "Get information about a specific token")
   .addParam("token", "The token's address")
   .setAction(async (taskArgs, hre) => {
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await hre.ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await hre.ethers.getContractAt("Locking", Locking);
 
     const tokenInfo = await locking.tokens(taskArgs.token);
     const totalLocking = await locking.totalLocking(taskArgs.token);
@@ -482,8 +486,8 @@ task("locking-token-info", "Get information about a specific token")
 task("locking-validator-tokens", "Get token locking information for a validator")
   .addParam("validator", "The validator's address")
   .setAction(async (taskArgs, hre) => {
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await hre.ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await hre.ethers.getContractAt("Locking", Locking);
 
     const tokens = await locking.creationThreshold();
     console.log(`Token Locking Information for Validator ${taskArgs.validator}:`);
@@ -497,8 +501,8 @@ task("locking-validator-tokens", "Get token locking information for a validator"
 
 task("locking-creation-threshold", "Get the current creation threshold")
   .setAction(async (_, hre) => {
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await hre.ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await hre.ethers.getContractAt("Locking", Locking);
 
     const threshold = await locking.creationThreshold();
 
@@ -522,15 +526,15 @@ task("grant-rewards", "Grant GOAT tokens to the reward pool")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
     const goatToken = await locking.goatToken();
     const goatContract = await ethers.getContractAt("IERC20", goatToken);
 
     const amount = ethers.parseEther(taskArgs.amount);
 
     console.log("Approving GOAT tokens...");
-    await goatContract.approve(lockingAddress, amount);
+    await goatContract.approve(Locking, amount);
 
     console.log(`Granting ${taskArgs.amount} GOAT tokens to the reward pool...`);
     const tx = await locking.grant(amount);
@@ -544,8 +548,8 @@ task("open-claim", "Open the claim for rewards")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log("Opening claim...");
     const tx = await locking.openClaim();
@@ -561,8 +565,8 @@ task("claim-rewards", "Claim rewards for a validator")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     console.log(`Claiming rewards for validator ${taskArgs.validator}...`);
     const tx = await locking.claim(taskArgs.validator, taskArgs.recipient);
@@ -580,8 +584,8 @@ task("claim-rewards", "Claim rewards for a validator")
     const { ethers } = hre;
     const [owner] = await ethers.getSigners();
 
-    const lockingAddress = getLockingAddress(hre.network.name);
-    const locking = await ethers.getContractAt("Locking", lockingAddress);
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
 
     // Fetch the remaining GOAT tokens and format them for comparison
     const remainReward = await locking.remainReward();
@@ -597,7 +601,7 @@ task("claim-rewards", "Claim rewards for a validator")
     }
 
     // Fetch the contract's balance in native tokens (e.g., ETH)
-    const contractBalance = await ethers.provider.getBalance(lockingAddress);
+    const contractBalance = await ethers.provider.getBalance(Locking);
     console.log(`Contract ETH balance: ${ethers.formatEther(contractBalance)} ETH`);
 
     const gasReward = ethers.parseEther(taskArgs.gasReward);
@@ -622,3 +626,124 @@ task("claim-rewards", "Claim rewards for a validator")
     console.log("Rewards distributed successfully!");
   });
 
+task("deploy-other-token", "Deploy the Other Token")
+  .setAction(async (_, hre) => {
+    const { ethers } = hre;
+    const [deployer] = await ethers.getSigners();
+
+    const OtherToken = await ethers.getContractFactory("GoatToken");
+    const otherToken = await OtherToken.deploy(deployer.address);
+    await otherToken.waitForDeployment();
+
+    const otherTokenAddress = await otherToken.getAddress();
+    console.log("Other Token deployed to:", otherTokenAddress);
+
+    return { otherTokenAddress };
+  });
+
+task("integration-test", "Run a full integration test")
+  .setAction(async (_, hre: HardhatRuntimeEnvironment) => {
+    const { ethers, run } = hre;
+    const [deployer, user1, user2, user3] = await ethers.getSigners();
+
+    console.log(deployer.address);
+    console.log(user1.address);
+    console.log(user2.address);
+    console.log(user3.address);
+
+    console.log("Starting integration test...");
+
+    console.log("\n1. Initializing Locking contract...");
+    await run("init-locking", { ethThreshold: "1", goatThreshold: "10" });
+
+    console.log("\n2. Creating multiple validators...");
+    const { validatorAddress: validator1Address, sequeuce: sequeuce1 } = await run("create-validator", { privateKey: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d" });
+    const { validatorAddress: validator2Address, sequeuce: sequeuce2 } = await run("create-validator", { privateKey: "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a" });
+    const { validatorAddress: validator3Address, sequeuce: sequeuce3 } = await run("create-validator", { privateKey: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a" });
+
+    console.log([ sequeuce1, sequeuce2, sequeuce3 ]);
+
+    console.log("\n3. Locking tokens for validators...");
+
+    const { LockingInfo: { Locking } }  = getTestNetConfig(hre.network.name);
+    const locking = await ethers.getContractAt("Locking", Locking);
+    const goatToken = await locking.goatToken();
+
+    await run("lock-token", {
+      validator: validator1Address,
+      token: ethers.ZeroAddress, // ETH
+      amount: "1"
+    });
+
+    await run("lock-token", {
+      validator: validator2Address,
+      token: goatToken, // GOAT
+      amount: "10"
+    });
+
+    console.log("\n4. Unlocking tokens...");
+    await run("unlock-tokens", { // id 1
+      validator: validator3Address,
+      recipient: user3.address,
+      tokens: ethers.ZeroAddress,
+      amounts: "1"
+    });
+
+    await run("unlock-tokens", { // id 2
+      validator: validator3Address,
+      recipient: user3.address,
+      tokens: goatToken,
+      amounts: "10"
+    });
+
+    console.log("\n5. Completing unlock...");
+    await run("complete-unlock", {
+      id: "1",
+      recipient: user3.address,
+      token: ethers.ZeroAddress,
+      amount: "1"
+    });
+
+    await run("complete-unlock", {
+      id: "2",
+      recipient: user3.address,
+      token: goatToken,
+      amount: "10"
+    });
+
+    console.log("\n6. Granting rewards...");
+    await run("grant-rewards", { amount: "100" });
+
+    console.log("\n6. Opening claim...");
+    await run("open-claim");
+
+    console.log("\n7. Claiming rewards...");
+    await run("claim-rewards", { // id 3
+      validator: validator1Address,
+      recipient: user1.address
+    });
+
+    await run("claim-rewards", { // id 4
+      validator: validator2Address,
+      recipient: user2.address
+    });
+
+    console.log("\n8. Distributing rewards...");
+    await run("distribute-reward", {
+      id: "3",
+      recipient: user1.address,
+      goat: "10",
+      // gasReward: "0.1"
+    });
+
+    // 12. Print final state
+    console.log("\n12. Printing final state...");
+    await run("locking-info");
+    await run("locking-validator-info", { validator: validator1Address });
+    await run("locking-validator-info", { validator: validator2Address });
+    await run("locking-validator-info", { validator: validator3Address });
+    await run("locking-token-info", { token: ethers.ZeroAddress });
+    await run("locking-token-info", { token: goatToken });
+
+    console.log("\nIntegration test completed successfully!");
+  });

@@ -253,13 +253,10 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8546",
       chainId: 3456,
       accounts: [
-        // "0x0fdce9a033c223590e32ffb24e48d8c66bef942464f7e593925c5317fff0d71e", // replayer and owner
-        // "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // replayer and owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-        // "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // GoatFoundation 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // hardhat:0 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 locking executor
-        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // hardhat:1 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 validator owner
-
+        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // hardhat:0 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 [0]
+        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // hardhat:1 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 [1]
+        "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a", // hardhat:2 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC [2]
+        "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", // hardhat:3 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 [3]
       ],
     },
     hardhat: {
@@ -270,7 +267,9 @@ const config: HardhatUserConfig = {
       chainId: 2345,
       accounts: [
         '0x0fdce9a033c223590e32ffb24e48d8c66bef942464f7e593925c5317fff0d71e',  // replayer and owner 0x9139Ee5450fD3B0D07E3A623eE5e3df013BFDEa7
-        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'   // GoatFoundation 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 [0]
+        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', // executor 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 [1]
+        '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',   // GoatFoundation 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC [2]
+        '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a', // validator owner 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 [3]
       ]
     }
   },

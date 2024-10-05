@@ -7,6 +7,6 @@ library Executor {
 //          0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     address internal constant Locking =
-        // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // hardhat accounts[0]
+        // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // hardhat accounts[0] for localhost
         0x9139Ee5450fD3B0D07E3A623eE5e3df013BFDEa7; // devnet
 }
