@@ -1,14 +1,1 @@
-{
-  "Bridge": "0xbc10000000000000000000000000000000000003",
-  "blockNumber": 0,
-  "LockingInfo": {
-    "GoatToken": "0x649FDEBeb9462f5686259614882f489e21AA3444",
-    "Locking": "0x6b99a75870FA16D4fBea03519BF4541e0f7A2D44",
-    "LockingOwner": "0x9139Ee5450fD3B0D07E3A623eE5e3df013BFDEa7",
-    "network": "devnet",
-    "blockNumber": 282432
-  },
-  "OtherTokens": [
-    "0x5fd0B8114ca6aDe778e65132DbBeA48bCa0835DC"
-  ]
-}
+{"Bridge":"0xbc10000000000000000000000000000000000003","blockNumber":0,"LockingInfo":{"GoatToken":"0xF4eA1E22c0bB76C119B9a8bE27F75169138a78E5","Locking":"0xB07020784D788Bdd7168373b545037D40377FDD7","LockingOwner":"0x9139Ee5450fD3B0D07E3A623eE5e3df013BFDEa7","network":"devnet","blockNumber":298771},"OtherTokens":["0x5fd0B8114ca6aDe778e65132DbBeA48bCa0835DC"]}
