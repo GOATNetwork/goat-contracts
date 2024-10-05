@@ -15,7 +15,7 @@ import {
   DistributeReward,
   ChangeValidatorOwner
 } from "../generated/Locking/Locking"
-import { TokenEntity, ValidatorEntity, LockingEntity, UnlockEntity, ClaimEntity, LockingStatsEntity } from "../generated/schema"
+import { TokenEntity, ValidatorEntity, LockingEntity, UnlockEntity, ClaimEntity, LockingStatsEntity, RequestCounter } from "../generated/schema"
 
 function loadAndUpdateBridgeTxn(id: string, newStatus: string, newBtcTxid: Bytes | null = null, newMaxTxPrice: BigInt | null = null): void {
   const index = BridgeTxnWidIndex.load(id);
@@ -314,6 +314,17 @@ export function handleUnlock(event: Unlock): void {
   unlock.save()
   log.info('New UnlockEntity created with ID: {}', [id])
 
+  // Update RequestCounter
+  let counter = RequestCounter.load("1")
+  if (!counter) {
+    counter = new RequestCounter("1")
+    counter.lastUnlockReqId = BigInt.fromI32(0)
+    counter.lastClaimReqId = BigInt.fromI32(0)
+  }
+  counter.lastUnlockReqId = event.params.id
+  counter.save()
+  log.info('RequestCounter updated. Last Unlock reqId: {}', [event.params.id.toString()])
+
   let lockingId = event.params.validator.toHexString() + '-' + event.params.token.toHexString()
   let locking = LockingEntity.load(lockingId)
   if (locking) {
@@ -362,6 +373,17 @@ export function handleClaim(event: Claim): void {
   claim.distributed = false
   claim.save()
   log.info('New ClaimEntity created with ID: {}', [id])
+
+  // Update RequestCounter
+  let counter = RequestCounter.load("1")
+  if (!counter) {
+    counter = new RequestCounter("1")
+    counter.lastUnlockReqId = BigInt.fromI32(0)
+    counter.lastClaimReqId = BigInt.fromI32(0)
+  }
+  counter.lastClaimReqId = event.params.id
+  counter.save()
+  log.info('RequestCounter updated. Last Claim reqId: {}', [event.params.id.toString()])
 }
 
 export function handleDistributeReward(event: DistributeReward): void {

@@ -80,3 +80,9 @@ type LockingStatsEntity @entity {
   remainReward: BigInt!
   claimable: Boolean!
 }
+
+type RequestCounter @entity {
+  id: ID!
+  lastUnlockReqId: BigInt!
+  lastClaimReqId: BigInt!
+}
