@@ -184,7 +184,7 @@ export function handleGrant(event: Grant): void {
   log.info('Handling Grant event with amount: {}', [event.params.amount.toString()])
   let stats = LockingStatsEntity.load("1")
   if (!stats) {
-    log.info('LockingStatsEntity not found. Creating new entity.', [event.params.toString()])
+    log.info('LockingStatsEntity not found. Creating new entity.', [])
     stats = new LockingStatsEntity("1")
     stats.totalReward = BigInt.fromI32(1000).times(BigInt.fromI32(10).pow(18))
     stats.remainReward = BigInt.fromI32(1000).times(BigInt.fromI32(10).pow(18))
@@ -199,14 +199,14 @@ export function handleGrant(event: Grant): void {
 }
 
 export function handleOpenCliam(event: OpenCliam): void {
-  log.info('Handling OpenClaim event', [event.params.toString()])
+  log.info('Handling OpenClaim event', [])
   let stats = LockingStatsEntity.load("1")
   if (!stats) {
-    log.info('LockingStatsEntity not found. Creating new entity.', [event.params.toString()])
+    log.info('LockingStatsEntity not found. Creating new entity.', [])
     stats = new LockingStatsEntity("1")
     stats.totalReward = BigInt.fromI32(0)
     stats.remainReward = BigInt.fromI32(0)
-    log.info('New LockingStatsEntity created with zero values', [event.params.toString()])
+    log.info('New LockingStatsEntity created with zero values', [])
   }
   log.info('Previous claimable status: {}', [stats.claimable.toString()])
   stats.claimable = true
