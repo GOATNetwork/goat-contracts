@@ -265,14 +265,13 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
             goat = remainReward;
         }
 
+        // performing the native token adding in the runtime
         if (goat != 0) {
             IERC20(goatToken).safeTransfer(recipient, goat);
             remainReward -= goat;
         }
 
-        emit DistributeReward(id, goatToken, goat);
-        // performing the native token adding in the runtime
-        emit DistributeReward(id, address(0), gasReward);
+        emit DistributeReward(id, goat, gasReward);
     }
 
     /**

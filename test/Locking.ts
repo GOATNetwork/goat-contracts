@@ -544,9 +544,7 @@ describe("Locking", async () => {
       await locking.connect(executor).distributeReward(0, owner, 1000, 0),
     )
       .emit(locking, "DistributeReward")
-      .withArgs(0, goat, 1000)
-      .emit(locking, "DistributeReward")
-      .withArgs(0, ethers.ZeroAddress, 0)
+      .withArgs(0, 1000, 0)
       .emit(goat, "Transfer")
       .withArgs(locking, owner, 1000);
 
@@ -561,8 +559,6 @@ describe("Locking", async () => {
       await locking.connect(executor).distributeReward(1, owner, 0, 1000),
     )
       .emit(locking, "DistributeReward")
-      .withArgs(1, ethers.ZeroAddress, 1000)
-      .emit(locking, "DistributeReward")
-      .withArgs(1, goat, 0);
+      .withArgs(1, 0, 1000);
   });
 });

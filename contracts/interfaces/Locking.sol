@@ -33,7 +33,7 @@ interface ILocking {
     event CompleteUnlock(uint64 id, uint256 amount);
 
     event Claim(uint64 id, address validator, address recipient);
-    event DistributeReward(uint64 id, address token, uint256 amount);
+    event DistributeReward(uint64 id, uint256 goat, uint256 gas);
 
     event ChangeValidatorOwner(address validator, address owner);
 
