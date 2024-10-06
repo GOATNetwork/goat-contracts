@@ -64,10 +64,23 @@ npx hardhat refund --network devnet --wid <wid>
 ### locking
 
 ```sh
-npx hardhat init-locking --eth-threshold 1 --goat-threshold 10 --network localhost
-npx hardhat locking-info --network localhost
-npx hardhat locking-validator-info --validator <validator-address> --network localhost
-npx hardhat locking-token-info --token <token-address> --network localhost
-npx hardhat locking-validator-tokens --validator <validator-address> --network localhost
-npx hardhat locking-creation-threshold --network localhost
+npx hardhat init-locking --eth-threshold 1 --goat-threshold 10 --network devnet
+npx hardhat create-validator --private-key <private-key> --network devnet
+npx hardhat grant-rewards --amount 100 --network devnet
+npx hardhat open-claim --network devnet
+npx hardhat claim-rewards --validator <validator_address> --recipient <recipient_address> --network devnet
+npx hardhat distribute-reward --id <request_id> --recipient <recipient_address> --goat <goat_amount> --gas-reward <gas_reward_amount> --network devnet
+
+npx hardhat lock-token --validator 0x1fb4ec3b5df58e9b8d62fecd78ee64b4c20c92df --token 0x649FDEBeb9462f5686259614882f489e21AA3444 --amount 5 --network devnet
+
+npx hardhat unlock-tokens --validator 0x3f691db54bf4c77a7495bf64c97ac77c369d4fa0 --recipient 0xcB2D241791622eDbD739856bdfBF6696C2BE0F32 --tokens 0x649FDEBeb9462f5686259614882f489e21AA3444 --amounts 5 --network devnet
+
+npx hardhat complete-unlock --id 2 --recipient 0xcB2D241791622eDbD739856bdfBF6696C2BE0F32 --token 0x649FDEBeb9462f5686259614882f489e21AA3444 --amount 5 --network devnet
+
+npx hardhat locking-info --network devnet
+npx hardhat locking-validator-info --validator <validator-address> --network devnet
+npx hardhat locking-token-info --token <token-address> --network devnet
+npx hardhat locking-validator-tokens --validator <validator-address> --network devnet
+npx hardhat locking-creation-threshold --network devnet
+
 ```
