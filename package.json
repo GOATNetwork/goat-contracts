@@ -3,14 +3,21 @@
   "license": "Business Source License 1.1",
   "author": "Goat Foundation",
   "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.80.0",
+    "@graphprotocol/graph-ts": "^0.35.1",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomiclabs/hardhat-solhint": "^4.0.1",
+    "@types/yargs": "^17.0.32",
+    "ethers": "^6.13.3",
     "hardhat": "^2.22.12",
     "prettier": "^3.3.3",
-    "prettier-plugin-solidity": "^1.4.1"
+    "prettier-plugin-solidity": "^1.4.1",
+    "yargs": "^17.7.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.2"
+    "@openzeppelin/contracts": "^5.0.2",
+    "btc-script-factory": "github:GOATNetwork/btc-script-factory#main"
   },
   "scripts": {
     "fmt": "prettier --plugin=prettier-plugin-solidity --check test 'contracts/**/*.sol'",
@@ -19,6 +26,20 @@
     "compile": "hardhat compile",
     "build": "hardhat compile",
     "test": "hardhat test",
+    "deploy-locking": "hardhat run scripts/deploy-locking.ts --network localhost",
+    "codegen": "graph codegen",
+    "compile-graph": "mustache subgraph/testnet.json subgraph/subgraph.yaml.template > subgraph.yaml && graph codegen & graph build",
+    "compile-graph:devnet": "mustache subgraph/devnet.json subgraph/subgraph.yaml.template > subgraph.yaml && graph codegen & graph build",
+    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ Bridge",
+    "create-local": "graph create --node http://localhost:8020/ Bridge",
+    "create-local:lock": "graph create --node http://localhost:8020/ Locking",
+    "remove-local": "graph remove --node http://localhost:8020/ Bridge",
+    "remove-local:lock": "graph remove --node http://localhost:8020/ Locking",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 Bridge",
+    "deploy-local:lock": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 Locking",
+    "start-graph-node": "cd subgraph && docker-compose up -d",
+    "stop-graph-node": "cd subgraph && docker-compose down",
+    "clean-graph-node": "cd subgraph && docker-compose down && sudo rm -rf /mnt/data/graph/",
     "pregenesis": "hardhat compile && docker compose up -d --wait",
     "genesis": "hardhat create:genesis --network genesis --force true",
     "postgenesis": "docker compose down"

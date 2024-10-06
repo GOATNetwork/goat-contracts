@@ -12,7 +12,7 @@ library PreDeployedAddresses {
         0xbC10000000000000000000000000000000000001;
 
     address payable internal constant GoatFoundation =
-        payable(0xBc10000000000000000000000000000000000002);
+        payable(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
 
     address internal constant Bridge =
         0xBC10000000000000000000000000000000000003;
