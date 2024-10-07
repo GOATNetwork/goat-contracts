@@ -17,6 +17,10 @@ export const hash160 = (data: Buffer) => {
   return "0x" + createHash("ripemd160").update(sum256).digest("hex");
 };
 
+export const sha256 = (data: Buffer) => {
+  return createHash("sha256").update(data).digest("hex")
+};
+
 export function trim0xPrefix(address: string) {
   if (address.startsWith("0x")) {
     return address.slice(2);

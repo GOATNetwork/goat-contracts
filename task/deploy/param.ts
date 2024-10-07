@@ -26,7 +26,7 @@ export interface BitcoinParam {
 
 export interface RelayerParam {
     owner: string;
-    voters: Array<{ address: string, blsKey: string }>;
+    voters: Array<{ txKey?: string, voteKey?: string, address?: string, voteKeyHash?: string }>;
 }
 
 export interface LockingParam {
