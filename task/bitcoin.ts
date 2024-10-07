@@ -1,6 +1,6 @@
 import { task, types } from "hardhat/config";
-import { JsonrpcClient } from "./jsonrpc";
-import { print } from "./utils";
+import { JsonrpcClient } from "../common/jsonrpc";
+import { print } from "../common/utils";
 
 task("btc:getblockhash")
   .addParam("rpc", "rpc endpoint", "http://localhost:8332")

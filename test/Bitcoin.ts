@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
-import { Executors } from "./constant";
+import { Executors } from "../common/constants";
 import {
   loadFixture,
   impersonateAccount,

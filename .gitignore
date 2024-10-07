@@ -15,7 +15,6 @@ node_modules
 
 tmp/
 
-ignition/deployments/
-ignition/regtest.json
-ignition/genesis/regtest.json
-
+genesis/regtest.json
+genesis/regtest-config.json
+ignition/

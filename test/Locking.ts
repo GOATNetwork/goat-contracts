@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
-import { Executors, hash160, trimPubKeyPrefix } from "./constant";
+import { Executors } from "../common/constants";
+import { hash160, trimPubKeyPrefix } from "../common/utils";
 import {
   loadFixture,
   impersonateAccount,
@@ -17,6 +18,8 @@ describe("Locking", async () => {
 
     const locking: Locking = await factory.deploy(owner, goat, 1000n);
     await goat.transfer(locking, 1000n);
+
+    await locking.addToken(ethers.ZeroAddress, 12000, 0, 0);
 
     await impersonateAccount(Executors.locking);
     await payer.sendTransaction({

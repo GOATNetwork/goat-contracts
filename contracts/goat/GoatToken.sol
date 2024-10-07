@@ -11,9 +11,8 @@ import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
 
 contract GoatToken is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes {
-    constructor(address admin) ERC20("GOAT", "GOAT") ERC20Permit("GOAT") {
-        _mint(admin, 975000000 * 1 ether);
-        _mint(PreDeployedAddresses.Locking, 25000000 * 1 ether);
+    constructor(address owner) ERC20("GOAT", "GOAT") ERC20Permit("GOAT") {
+        _mint(owner, 1e9 * 1 ether);
     }
 
     function _update(
