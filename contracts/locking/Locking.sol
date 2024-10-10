@@ -214,7 +214,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address token,
         uint256 amount
     ) external override OnlyLockingExecutor {
-        if (token != address(0)) {
+        if (token != address(0) && amount > 0) {
             IERC20(token).safeTransfer(recipient, amount);
         }
         // sends back the native token in the runtime
