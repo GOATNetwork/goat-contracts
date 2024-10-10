@@ -43,6 +43,7 @@ export interface LockingParam {
         pubkey?: string;
         signature?: string;
     }>;
+    gas: string | number;
 }
 
 export interface BridgeParam {
