@@ -49,6 +49,9 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     mapping(address validator => mapping(address token => uint256 amount))
         public locking;
 
+    // unclaimed goat balances before goat token is enabled
+    mapping(address owner => uint256 amount) public unclaimed;
+
     uint64 public constant MAX_WEIGHT = 1e6;
 
     uint256 public constant MAX_TOKEN_SIZE = 8;
@@ -242,7 +245,6 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address recipient
     ) external override OnlyValidatorOwner(validator) RateLimiting {
         require(recipient != address(0), "invalid recipient");
-        require(claimable, "claim is not open");
         emit Claim(reqId++, validator, recipient);
     }
 
@@ -265,11 +267,25 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
 
         // performing the native token adding in the runtime
         if (goat != 0) {
-            IERC20(goatToken).safeTransfer(recipient, goat);
+            if (claimable) {
+                IERC20(goatToken).safeTransfer(recipient, goat);
+            } else {
+                unclaimed[recipient] += goat;
+            }
             remainReward -= goat;
         }
-
         emit DistributeReward(id, goat, gasReward);
+    }
+
+    /**
+     * reclaim withdraws accumulated goat tokens when claim is available
+     */
+    function reclaim() external {
+        require(claimable, "claim is not open");
+        uint256 amount = unclaimed[msg.sender];
+        require(amount > 0, "no unclaimed");
+        unclaimed[msg.sender] = 0;
+        IERC20(goatToken).safeTransfer(msg.sender, amount);
     }
 
     /**
