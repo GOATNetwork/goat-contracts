@@ -354,7 +354,7 @@ contract Bridge is
      * @param amount the amount in wei, the amount should be in range [0.001 btc, 1btc]
      */
     function setMinWithdrawal(uint64 amount) external override onlyOwner {
-        require(amount >= 1e15 && amount <= 1 ether, "invalid amount");
+        require(amount >= 1e14 && amount <= 1 ether, "invalid amount");
         param.minWithdrawal = amount;
         emit MinWithdrawalUpdated(amount);
     }
