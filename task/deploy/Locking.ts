@@ -3,7 +3,6 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { LockingParam } from "./param";
 import { PredployedAddress } from "../../common/constants";
 import { hash160, trimPubKeyPrefix } from "../../common/utils";
-import { ethers } from "hardhat";
 
 export const deploy = async (
     hre: HardhatRuntimeEnvironment,
@@ -87,7 +86,7 @@ export const deploy = async (
                     `No enough goat balance for genesis validator owner` + config.owner,
                 );
             }
-            await goatToken.connect(owner).approve(locking, ethers.MaxUint256)
+            await goatToken.connect(owner).approve(locking, hre.ethers.MaxUint256)
         }
 
         if ("prvkey" in config && config.prvkey) {

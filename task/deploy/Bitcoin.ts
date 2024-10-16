@@ -1,7 +1,6 @@
 import { Bitcoin } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { BitcoinParam } from "./param";
-import { inspect } from "node:util";
 
 export const deploy = async (hre: HardhatRuntimeEnvironment, param: BitcoinParam) => {
     if (param.hash.startsWith("0x")) {
