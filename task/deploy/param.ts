@@ -7,6 +7,7 @@ export interface Param {
     WrappedBitcoin: {};
     Relayer: RelayerParam;
     Locking: LockingParam;
+    Consensus: ConsensusParam;
 }
 
 export interface GoatFoundationParam {
@@ -26,7 +27,10 @@ export interface BitcoinParam {
 
 export interface RelayerParam {
     owner: string;
-    voters: Array<{ txKey?: string, voteKey?: string, address?: string, voteKeyHash?: string }>;
+    voters: Array<
+        | { txKey: string; voteKey: string }
+        | { address: string; voteKeyHash: string }
+    >;
 }
 
 export interface LockingParam {
@@ -37,20 +41,28 @@ export interface LockingParam {
         limit: number | string;
         threshold: number | string;
     }>;
-    validators: Array<{
-        owner: string;
-        prvkey?: string;
-        pubkey?: string;
-        signature?: string;
-    }>;
-    gas: string | number;
+    validators: Array<
+        | { owner: string; prvkey: string }
+        | { owner: string; pubkey: string; signature: string }
+    >;
+    strict?: boolean; // check if the deposit value is consistent with creation threshold
+    gas?: string | number; // unit test only
 }
 
 export interface BridgeParam {
     owner: string;
     depositTaxBP?: number | string;
-    maxDepositTax?: number | string;
+    maxDepositTaxInWei?: number | string;
     withdrawalTaxBP?: number | string;
     maxWithdrawalTax?: number | string;
-    minWithdrawal?: number | string;
+    minWithdrawalInWei?: number | string;
+    deposits: Array<{ txid: string; txout: number; address: string; satoshi: number; }>
+}
+
+export interface ConsensusParam {
+    Bridge: { minDepositInSat: number };
+    Relayer: {
+        tssPubkey: string;
+        acceptProposerTimeout: string; // go duration
+    };
 }

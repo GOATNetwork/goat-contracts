@@ -5,11 +5,11 @@ import { inspect } from "node:util";
 
 export const deploy = async (hre: HardhatRuntimeEnvironment, param: BitcoinParam) => {
     if (param.hash.startsWith("0x")) {
-        param.hash = param.hash.slice(2)
+        throw new Error("block hash has 0x prefix")
     }
-    param.hash = "0x" + Buffer.from(param.hash, "hex").reverse().toString("hex")
-    console.log("Deploy bitcoin with", inspect(param));
+    console.log("Deploy bitcoin with", param);
+    const blockHash = Buffer.from(param.hash, "hex").reverse()
     const factory = await hre.ethers.getContractFactory("Bitcoin")
-    const contrat: Bitcoin = await factory.deploy(param.height, param.hash, param.network)
+    const contrat: Bitcoin = await factory.deploy(param.height, blockHash, param.network)
     return contrat.getAddress()
 }

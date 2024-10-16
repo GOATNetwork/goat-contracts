@@ -11,11 +11,10 @@ export const deploy = async (hre: HardhatRuntimeEnvironment, param: RelayerParam
     const contract: Relayer = await factory.deploy(signer)
 
     for (const voter of param.voters) {
-        console.log("Add relayer", voter)
-        if (voter.address && voter.voteKeyHash) {
-            console.log("Add relayer", voter)
+        if ('address' in voter && voter.address && voter.voteKeyHash) {
+            console.log("Add relayer from pubkey hash", voter)
             await contract.addVoter(voter.address, voter.voteKeyHash)
-        } else if (voter.txKey && voter.voteKey) {
+        } else if ('txKey' in voter && voter.txKey && voter.voteKey) {
             const txKey = Buffer.from(trim0xPrefix(voter.txKey), "hex")
             if (txKey.length != 33) {
                 throw new Error("invalid voter tx key length")

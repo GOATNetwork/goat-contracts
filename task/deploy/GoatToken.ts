@@ -1,6 +1,6 @@
 import { GoatToken } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types"
-import { IAnvilState, loadAnvilState } from "../../common/anvil";
+import { loadAnvilState } from "../../common/anvil";
 import { PredployedAddress } from "../../common/constants";
 import { GoatTokenParam } from "./param";
 
@@ -24,10 +24,12 @@ export const deploy = async (hre: HardhatRuntimeEnvironment, param: GoatTokenPar
     }
 
     const balance = await goatToken.balanceOf(signer)
-    console.log("Transfer remain tokens to owner", param.owner, hre.ethers.formatEther(balance))
-    await goatToken.transfer(param.owner, balance)
+    if (balance > 0n) {
+        console.log("Transfer remain goat tokens to owner", param.owner, hre.ethers.formatEther(balance))
+        await goatToken.transfer(param.owner, balance)
+    }
 
-    let dump: IAnvilState = loadAnvilState(await hre.ethers.provider.send("anvil_dumpState"))
+    const dump = loadAnvilState(await hre.ethers.provider.send("anvil_dumpState"))
     const goatTokenAddress = await goatToken.getAddress()
     console.log("Apply state to canonical address", PredployedAddress.goatToken)
     let init = false

@@ -6,6 +6,6 @@ export const deploy = async (hre: HardhatRuntimeEnvironment, param: GoatFoundati
     console.log("Deploy goat foundation with", param);
 
     const factory = await hre.ethers.getContractFactory("GoatFoundation")
-    const goatToken: GoatFoundation = await factory.deploy(param.owner)
-    return goatToken.getAddress()
+    const contract: GoatFoundation = await factory.deploy(param.owner)
+    return contract.getAddress()
 }
