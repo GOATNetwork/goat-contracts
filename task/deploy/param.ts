@@ -65,4 +65,8 @@ export interface ConsensusParam {
         tssPubkey: string;
         acceptProposerTimeout: string; // go duration
     };
+    Locking: {
+        exitDuration: string; // go duration
+        unlockDuration: string; // go duration
+    },
 }
