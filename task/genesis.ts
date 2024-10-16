@@ -37,7 +37,7 @@ interface IAccountState {
 task("create:genesis")
   .addParam("rpc", "rpc endpoint", "http://localhost:8545")
   .addParam("name", "network name", "regtest")
-  .addParam("param", "param file path", "./genesis/regtest-config.json")
+  .addParam("param", "param file path", "./genesis/config.json")
   .addParam("chainId", "chain id", 48815, types.int)
   .addParam("force", "force to rewrite", false, types.boolean)
   .addParam("debug", "debug log", false, types.boolean)

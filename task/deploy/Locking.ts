@@ -35,12 +35,14 @@ export const deploy = async (
         console.log("Adding token", item.address);
         const threshold = BigInt(item.threshold);
         const token = item.address.toLowerCase()
-        if (token === hre.ethers.ZeroAddress && threshold === 0n) {
-            throw new Error("native token should have threshold value")
-        }
-
-        if (token != PredployedAddress.goatToken.toLowerCase() && threshold != 0n) {
-            throw new Error(`non goat erc20 ${token} has threshold value`)
+        if (token === hre.ethers.ZeroAddress) {
+            if (threshold === 0n) {
+                throw new Error("native token should have threshold value")
+            }
+        } else if (token != PredployedAddress.goatToken.toLowerCase()) {
+            if (threshold != 0n) {
+                throw new Error(`non goat erc20 ${token} has threshold value`)
+            }
         }
 
         await locking.addToken(

@@ -9,9 +9,9 @@ export const deploy = async (hre: HardhatRuntimeEnvironment, param: BridgeParam)
 
     const [signer] = await hre.ethers.getSigners();
     const contract: Bridge = await factory.deploy(signer)
-
     // validator should deposit first
     const relayer = await hre.ethers.getImpersonatedSigner(Executors.relayer)
+    await signer.sendTransaction({ to: Executors.relayer, value: BigInt(1e18) })
     for (const deposit of param.deposits) {
         console.log("Add deposit", deposit)
         if (deposit.txid.startsWith("0x")) {
@@ -20,7 +20,7 @@ export const deploy = async (hre: HardhatRuntimeEnvironment, param: BridgeParam)
         if (!Number.isInteger(deposit.satoshi)) {
             throw new Error(`amount is not integer`)
         }
-        const txid = Buffer.from(deposit.txid).reverse()
+        const txid = Buffer.from(deposit.txid, "hex").reverse()
         const amount = BigInt(1e10) * BigInt(deposit.satoshi);
         await contract.connect(relayer).deposit(txid, deposit.txout, deposit.address, amount)
         await signer.sendTransaction({ to: deposit.address, value: amount })
