@@ -56,9 +56,9 @@ const param: Param = {
         ],
     },
     Bitcoin: {
-        height: 3127833,
+        height: 3191651,
         network: "testnet3",
-        hash: "000000000000007f07b843bb8ec36dd310ec6edb72a95389bc99ed2470a4e2b5",
+        hash: "000000000ebcb157e154584adb14244f4b9d6f7ab6ad6236caa7690b4f485e0a",
     },
     WrappedBitcoin: {},
     Relayer: {
@@ -148,4 +148,4 @@ const param: Param = {
     },
 };
 
-writeFileSync("./genesis/config.json", JSON.stringify(param, null, "  "));
+writeFileSync("./genesis/testnet-config.json", JSON.stringify(param, null, "  "));

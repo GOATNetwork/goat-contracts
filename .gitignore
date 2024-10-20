@@ -18,5 +18,6 @@ tmp/
 # genesis
 genesis/regtest.json
 genesis/regtest.ts
+genesis/*-config.json
 genesis/config.json
 ignition/
