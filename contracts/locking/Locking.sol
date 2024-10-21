@@ -222,12 +222,12 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     }
 
     /**
-     * openClaim let claim is open
+     * openClaim opens claim
      */
     function openClaim() external onlyOwner {
         require(!claimable, "claim is open");
         claimable = true;
-        emit OpenCliam();
+        emit OpenClaim();
     }
 
     /**

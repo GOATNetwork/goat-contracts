@@ -550,7 +550,7 @@ describe("Locking", async () => {
 
     await expect(locking.reclaim()).revertedWith("claim is not open");
 
-    expect(await locking.openClaim()).emit(locking, "OpenCliam");
+    await expect(await locking.openClaim()).emit(locking, "OpenClaim");
     await expect(locking.openClaim()).revertedWith("claim is open");
     expect(await locking.claimable()).to.be.true;
 
