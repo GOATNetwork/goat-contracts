@@ -243,7 +243,12 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     function claim(
         address validator,
         address recipient
-    ) external override OnlyValidatorOwner(validator) RateLimiting {
+    )
+        external
+        override
+        OnlyValidatorOwner(validator)
+        RateLimiting2(validator, 1)
+    {
         require(recipient != address(0), "invalid recipient");
         emit Claim(reqId++, validator, recipient);
     }
