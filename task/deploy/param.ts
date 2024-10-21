@@ -56,11 +56,16 @@ export interface BridgeParam {
     withdrawalTaxBP?: number | string;
     maxWithdrawalTax?: number | string;
     minWithdrawalInWei?: number | string;
-    deposits: Array<{ txid: string; txout: number; address: string; satoshi: number; }>
+    deposits: Array<{
+        txid: string;
+        txout: number;
+        address: string;
+        satoshi: number;
+    }>;
 }
 
 export interface ConsensusParam {
-    Bridge: { minDepositInSat: number };
+    Bridge: { minDepositInSat: number; confirmationNumber: number };
     Relayer: {
         tssPubkey: string;
         acceptProposerTimeout: string; // go duration
@@ -68,5 +73,5 @@ export interface ConsensusParam {
     Locking: {
         exitDuration: string; // go duration
         unlockDuration: string; // go duration
-    },
+    };
 }

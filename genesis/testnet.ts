@@ -140,6 +140,7 @@ const param: Param = {
         },
         Bridge: {
             minDepositInSat: 1e4,
+            confirmationNumber: 20,
         },
         Locking: {
             exitDuration: "3600s",
