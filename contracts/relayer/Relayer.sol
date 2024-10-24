@@ -11,6 +11,7 @@ contract Relayer is Ownable, IRelayer {
     uint256 public total;
     mapping(bytes32 vtkh => bool exists) public pubkeys;
     mapping(address voter => bool exists) public voters;
+    mapping(address voter => bool deleted) public deletes;
 
     constructor(address owner) Ownable(owner) {}
 
@@ -31,6 +32,7 @@ contract Relayer is Ownable, IRelayer {
     function addVoter(address voter, bytes32 vtkey) external onlyOwner {
         require(!pubkeys[vtkey], "duplicated key");
         require(!voters[voter], "duplicated voter");
+        require(!deletes[voter], "deleted voter");
         require(++total < MAX_VOTER_COUNT, "too many voters");
 
         voters[voter] = true;
@@ -47,8 +49,9 @@ contract Relayer is Ownable, IRelayer {
     function removeVoter(address voter) external onlyOwner {
         require(voters[voter], "voter not found");
         require(total > 1, "too few voters");
-        // we don't delete the pubkey, it cant be reused next time
+        // the pubkey and address can not be reused
         voters[voter] = false;
+        deletes[voter] = true;
         total--;
         emit RemovedVoter(voter);
     }

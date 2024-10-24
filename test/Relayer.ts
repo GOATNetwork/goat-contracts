@@ -58,8 +58,15 @@ describe("Relayer", async () => {
       .emit(relayer, "RemoveVoter")
       .withArgs(address2);
     expect(await relayer.voters(address2)).to.be.false;
+    expect(await relayer.deletes(address2)).to.be.true;
+    expect(await relayer.total()).eq(1);
 
     await expect(relayer.removeVoter(address2)).revertedWith("voter not found");
     await expect(relayer.removeVoter(address)).revertedWith("too few voters");
+
+    const pubkey3 = "0x56cbf59902b656153f3596b281cdbb818a3b9d9814a7deff61ee2560e4553ecd"
+    await expect(relayer.addVoter(address2, pubkey3)).revertedWith(
+      "deleted voter",
+    );
   });
 });
