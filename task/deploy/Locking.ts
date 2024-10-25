@@ -34,14 +34,14 @@ export const deploy = async (
     for (const item of param.tokens) {
         console.log("Adding token", item.address);
         const threshold = BigInt(item.threshold);
-        const token = item.address.toLowerCase()
+        const token = item.address.toLowerCase();
         if (token === hre.ethers.ZeroAddress) {
             if (threshold === 0n) {
-                throw new Error("native token should have threshold value")
+                throw new Error("native token should have threshold value");
             }
         } else if (token != PredployedAddress.goatToken.toLowerCase()) {
             if (threshold != 0n) {
-                throw new Error(`non goat erc20 ${token} has threshold value`)
+                throw new Error(`non goat erc20 ${token} has threshold value`);
             }
         }
 
@@ -58,7 +58,7 @@ export const deploy = async (
         throw new Error("no native token config");
     }
 
-    const goat = await locking.tokens(PredployedAddress.goatToken)
+    const goat = await locking.tokens(PredployedAddress.goatToken);
     const network = await hre.ethers.provider.getNetwork();
 
     for (const config of param.validators) {
@@ -74,7 +74,10 @@ export const deploy = async (
                     `No deposit for genesis validator owner` + config.owner,
                 );
             } else {
-                await signer.sendTransaction({ to: config.owner, value: native.threshold });
+                await signer.sendTransaction({
+                    to: config.owner,
+                    value: native.threshold,
+                });
             }
         }
 
@@ -82,13 +85,13 @@ export const deploy = async (
         await signer.sendTransaction({ to: config.owner, value: BigInt(1e18) });
         const owner = await hre.ethers.getImpersonatedSigner(config.owner);
         if (goat.exist && goat.threshold > 0n) {
-            const tokenBalance = await goatToken.balanceOf(config.owner)
+            const tokenBalance = await goatToken.balanceOf(config.owner);
             if (tokenBalance < goat.threshold) {
                 throw new Error(
                     `No enough goat balance for genesis validator owner` + config.owner,
                 );
             }
-            await goatToken.connect(owner).approve(locking, hre.ethers.MaxUint256)
+            await goatToken.connect(owner).approve(locking, hre.ethers.MaxUint256);
         }
 
         if ("prvkey" in config && config.prvkey) {
@@ -107,6 +110,7 @@ export const deploy = async (
                 uncompressed.subarray(0, 32),
                 uncompressed.subarray(32),
             ];
+            await locking.approve(validator);
             await locking
                 .connect(owner)
                 .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });
@@ -119,6 +123,10 @@ export const deploy = async (
                 uncompressed.subarray(32),
             ];
             const sig = hre.ethers.Signature.from(config.signature);
+            const validator = hre.ethers.getAddress(
+                hre.ethers.SigningKey.computePublicKey(config.pubkey, true),
+            );
+            await locking.approve(validator);
             await locking
                 .connect(owner)
                 .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });

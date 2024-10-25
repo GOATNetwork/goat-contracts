@@ -18,6 +18,7 @@ interface ILocking {
     event UpdateTokenWeight(address token, uint64 weight);
     event UpdateTokenLimit(address token, uint256 limit);
     event Grant(uint256 amount);
+    event Approval(address validator);
     event OpenClaim();
 
     event Create(address validator, address owner, bytes32[2] pubkey);
@@ -74,6 +75,8 @@ interface ILocking {
     function creationThreshold() external view returns (Locking[] memory);
 
     function grant(uint256 amount) external;
+
+    function approve(address validator) external;
 
     function addToken(
         address token,
