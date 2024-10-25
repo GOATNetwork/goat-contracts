@@ -13,8 +13,8 @@
     "@openzeppelin/contracts": "^5.0.2"
   },
   "scripts": {
-    "fmt": "prettier --check test task contracts",
-    "fmt:fix": "prettier --write test task contracts",
+    "fmt": "prettier --check test task common contracts",
+    "fmt:fix": "prettier --write test task common contracts",
     "lint": "hardhat check",
     "compile": "hardhat compile",
     "build": "hardhat compile",

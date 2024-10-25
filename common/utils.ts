@@ -18,7 +18,7 @@ export const hash160 = (data: Buffer) => {
 };
 
 export const sha256 = (data: Buffer) => {
-  return createHash("sha256").update(data).digest("hex")
+  return createHash("sha256").update(data).digest("hex");
 };
 
 export function trim0xPrefix(address: string) {
@@ -41,5 +41,5 @@ export function print(data: any) {
 
 export async function readJson<T>(path: string): Promise<T> {
   const paramFile = await fs.readFile(path, "utf-8");
-  return JSON.parse(paramFile.toString())
+  return JSON.parse(paramFile.toString());
 }
