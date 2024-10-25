@@ -123,10 +123,10 @@ export const deploy = async (
                 uncompressed.subarray(32),
             ];
             const sig = hre.ethers.Signature.from(config.signature);
-            const validator = hre.ethers.getAddress(
+            const validatorPubkey = trimPubKeyPrefix(
                 hre.ethers.SigningKey.computePublicKey(config.pubkey, true),
             );
-            await locking.approve(validator);
+            await locking.approve(hre.ethers.getAddress(hash160(validatorPubkey)));
             await locking
                 .connect(owner)
                 .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });
