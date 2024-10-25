@@ -135,6 +135,14 @@ export const deploy = async (
     }
   }
 
+  for (const validator of param.allowList) {
+    console.log("Add address", validator, "to allow list");
+    if (!hre.ethers.isAddress(validator)) {
+      throw new Error(`${validator} is not valid address`);
+    }
+    await locking.approve(validator);
+  }
+
   console.log("Transfer back owner", param.owner);
   await locking.transferOwnership(param.owner);
   return locking.getAddress();

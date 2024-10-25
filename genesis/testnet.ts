@@ -131,6 +131,7 @@ const param: Param = {
           "0xc5706d76c873bff9e64d898023d3e0952644127a736fc76dac742a6299f8aa5a0e2a7d753f165cb61233b398f4767b7c88a12bfcb2dbedf50e60c5bf051d489d1c",
       },
     ],
+    allowList: [],
   },
   Consensus: {
     Relayer: {
