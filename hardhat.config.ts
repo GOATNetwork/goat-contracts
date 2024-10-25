@@ -21,12 +21,12 @@ const config: HardhatUserConfig = {
   networks: {
     genesis: {
       url: "http://localhost:8545",
-      accounts: "remote"
+      accounts: "remote",
     },
   },
   gasReporter: {
     enabled: process.env.GAS_REPORT === "true",
-  }
+  },
 };
 
 export default config;
