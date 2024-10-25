@@ -53,12 +53,18 @@ task("create:genesis")
       if (!args["force"]) {
         return console.log("genesis has created");
       }
-    } catch { }
+      console.warn("force to recreate genesis for " + networkName);
+    } catch {
+      console.log("generating genesis");
+    }
 
     const params = await readJson<GenesisParam>(args["param"]);
     const goatToken = await DeployGoatToken(hre, params.GoatToken);
     const goatDao = await DeployGoatDAO(hre, params.GoatDAO);
-    const goatFoundation = await DeployGoatFoundation(hre, params.GoatFoundation);
+    const goatFoundation = await DeployGoatFoundation(
+      hre,
+      params.GoatFoundation,
+    );
     const btcBlock = await DeployBitcoin(hre, params.Bitcoin);
     const wgbtc = await DeployWrappedBitcoin(hre, params.WrappedBitcoin);
     const bridge = await DeployBridge(hre, params.Bridge);
@@ -78,13 +84,13 @@ task("create:genesis")
         throw new Error("invalid address: " + facuet);
       }
       const amount = hre.ethers.parseEther(String(args["amount"]));
-      console.log("!!!!!!!!!!!")
+      console.log("!!!!!!!!!!!");
       console.warn(
         "Adding faucet address",
         facuet,
         hre.ethers.formatEther(amount),
       );
-      console.log("!!!!!!!!!!!")
+      console.log("!!!!!!!!!!!");
       genesis.alloc[trim0xPrefix(facuet)] = {
         balance: "0x" + amount.toString(16),
         nonce: "0x0",
@@ -142,10 +148,15 @@ task("create:genesis")
         case locking.toLowerCase():
           console.log("Add genesis state for locking from", address);
           if (params.Locking.gas) {
-            console.log("!!!!!!!!!!!")
-            console.warn("Sending gas revenue to regtest Locking contract", params.Locking.gas)
-            console.log("!!!!!!!!!!!")
-            stv.balance = "0x" + (BigInt(stv.balance) + BigInt(params.Locking.gas)).toString(16)
+            console.log("!!!!!!!!!!!");
+            console.warn(
+              "Sending gas revenue to regtest Locking contract",
+              params.Locking.gas,
+            );
+            console.log("!!!!!!!!!!!");
+            stv.balance =
+              "0x" +
+              (BigInt(stv.balance) + BigInt(params.Locking.gas)).toString(16);
           }
           genesis.alloc[trim0xPrefix(PredployedAddress.locking)] = stv;
           count++;
