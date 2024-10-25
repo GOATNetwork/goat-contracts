@@ -49,8 +49,11 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     mapping(address validator => mapping(address token => uint256 amount))
         public locking;
 
-    // unclaimed goat balances before goat token is enabled
+    // the unclaimed goat balances before goat token is enabled
     mapping(address owner => uint256 amount) public unclaimed;
+
+    // the validator address to allowed to start a locking
+    mapping(address validator => bool approved) public approvals;
 
     uint64 public constant MAX_WEIGHT = 1e6;
 
@@ -63,17 +66,6 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     ) Ownable(owner) RateLimiter(32, true) {
         goatToken = goat;
         remainReward = totalReward;
-    }
-
-    /**
-     * grant sends goat token to the reward pool
-     * @param amount the amount
-     */
-    function grant(uint256 amount) external override onlyOwner {
-        require(amount > 0, "invalid amount");
-        IERC20(goatToken).safeTransferFrom(msg.sender, address(this), amount);
-        remainReward += amount;
-        emit Grant(amount);
     }
 
     modifier OnlyValidatorOwner(address validator) {
@@ -119,6 +111,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
             "signer mismatched"
         );
         require(owners[validator] == address(0), "duplicated");
+        require(approvals[validator] || approvals[address(0)], "unapproved");
         _checkLimiting(validator, threshold.length + 1);
 
         owners[validator] = msg.sender;
@@ -308,6 +301,27 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
             res[i] = Locking(addr, tokens[addr].threshold);
         }
         return res;
+    }
+
+    /**
+     * grant sends goat token to the reward pool
+     * @param amount the amount
+     */
+    function grant(uint256 amount) external override onlyOwner {
+        require(amount > 0, "invalid amount");
+        IERC20(goatToken).safeTransferFrom(msg.sender, address(this), amount);
+        remainReward += amount;
+        emit Grant(amount);
+    }
+
+    /**
+     * approve add a validator address to whitelist to allow they to lock
+     * @param validator the validator address, if it's zero address, that will allow anyone to lock
+     */
+    function approve(address validator) external override onlyOwner {
+        require(!approvals[validator], "approved");
+        approvals[validator] = true;
+        emit Approval(validator);
     }
 
     /**

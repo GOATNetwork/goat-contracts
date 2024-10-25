@@ -246,6 +246,19 @@ describe("Locking", async () => {
     await locking.addToken(testToken, 1, 0, 1000);
     await testToken.approve(locking, ethers.MaxUint256);
 
+    await expect(
+      locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }),
+    ).revertedWith("unapproved");
+
+    await expect(
+      locking.connect(others[0]).approve(validator),
+    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
+
+    await expect(await locking.approve(validator))
+      .emit(locking, "Approval")
+      .withArgs(validator);
+    await expect(await locking.approvals(validator)).to.be.true;
+
     await expect(locking.create(pubkey, sig.r, sig.s, sig.v)).revertedWith(
       "invalid msg.value",
     );
@@ -319,6 +332,11 @@ describe("Locking", async () => {
     await locking.setThreshold(ethers.ZeroAddress, 1000);
     await locking.addToken(testToken, 1, 0, 100);
     await testToken.approve(locking, ethers.MaxUint256);
+
+    await expect(await locking.approve(ethers.ZeroAddress))
+      .emit(locking, "Approval")
+      .withArgs(ethers.ZeroAddress);
+    await expect(await locking.approvals(ethers.ZeroAddress)).to.be.true;
 
     await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
     await expect(await ethers.provider.getBalance(locking)).eq(1000);
@@ -417,6 +435,7 @@ describe("Locking", async () => {
     await locking.setThreshold(ethers.ZeroAddress, 1000);
     await locking.addToken(testToken, 1, 0, 100);
     await testToken.approve(locking, ethers.MaxUint256);
+    await locking.approve(ethers.ZeroAddress);
 
     await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
     await testToken.approve(locking, ethers.MaxUint256);
@@ -502,6 +521,7 @@ describe("Locking", async () => {
     await locking.setThreshold(ethers.ZeroAddress, 1000);
     await locking.addToken(testToken, 1, 0, 100);
     await testToken.approve(locking, ethers.MaxUint256);
+    await locking.approve(ethers.ZeroAddress);
 
     await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
     await testToken.approve(locking, ethers.MaxUint256);
