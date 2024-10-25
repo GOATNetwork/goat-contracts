@@ -316,7 +316,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
 
     /**
      * approve add a validator address to whitelist to allow they to lock
-     * @param validator the validator address
+     * @param validator the validator address, if it's zero address, that will allow anyone to lock
      */
     function approve(address validator) external override onlyOwner {
         require(!approvals[validator], "approved");
