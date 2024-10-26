@@ -38,10 +38,7 @@ export interface LockingParam {
     limit: number | string;
     threshold: number | string;
   }>;
-  validators: Array<
-    | { owner: string; prvkey: string }
-    | { owner: string; pubkey: string; signature: string }
-  >; // the validator list in the genesis
+  validators: Array<{ owner: string; pubkey: string; signature: string }>; // the validator list in the genesis
   strict?: boolean; // check if the deposit value is consistent with creation threshold
   gas?: string | number; // unit test only
   allowList: string[]; // the address list is allowed to create validator later

@@ -94,45 +94,21 @@ export const deploy = async (
       await goatToken.connect(owner).approve(locking, hre.ethers.MaxUint256);
     }
 
-    if ("prvkey" in config && config.prvkey) {
-      const key = new hre.ethers.SigningKey(config.prvkey);
-      const validator = hre.ethers.getAddress(
-        hash160(trimPubKeyPrefix(key.compressedPublicKey)),
-      );
-      const sig = key.sign(
-        hre.ethers.solidityPackedKeccak256(
-          ["uint256", "address", "address"],
-          [network.chainId, validator, config.owner],
-        ),
-      );
-      const uncompressed = trimPubKeyPrefix(key.publicKey);
-      const pubkey: any = [
-        uncompressed.subarray(0, 32),
-        uncompressed.subarray(32),
-      ];
-      await locking.approve(validator);
-      await locking
-        .connect(owner)
-        .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });
-    } else if ("pubkey" in config && config.pubkey && config.signature) {
-      const uncompressed = trimPubKeyPrefix(
-        hre.ethers.SigningKey.computePublicKey(config.pubkey, false),
-      );
-      const pubkey: any = [
-        uncompressed.subarray(0, 32),
-        uncompressed.subarray(32),
-      ];
-      const sig = hre.ethers.Signature.from(config.signature);
-      const validatorPubkey = trimPubKeyPrefix(
-        hre.ethers.SigningKey.computePublicKey(config.pubkey, true),
-      );
-      await locking.approve(hre.ethers.getAddress(hash160(validatorPubkey)));
-      await locking
-        .connect(owner)
-        .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });
-    } else {
-      throw new Error("No valid signature found");
-    }
+    const uncompressed = trimPubKeyPrefix(
+      hre.ethers.SigningKey.computePublicKey(config.pubkey, false),
+    );
+    const pubkey: any = [
+      uncompressed.subarray(0, 32),
+      uncompressed.subarray(32),
+    ];
+    const sig = hre.ethers.Signature.from(config.signature);
+    const validatorPubkey = trimPubKeyPrefix(
+      hre.ethers.SigningKey.computePublicKey(config.pubkey, true),
+    );
+    await locking.approve(hre.ethers.getAddress(hash160(validatorPubkey)));
+    await locking
+      .connect(owner)
+      .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });
   }
 
   for (const validator of param.allowList) {
