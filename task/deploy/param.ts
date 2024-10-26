@@ -27,10 +27,7 @@ export interface BitcoinParam {
 
 export interface RelayerParam {
   owner: string;
-  voters: Array<
-    | { txKey: string; voteKey: string }
-    | { address: string; voteKeyHash: string }
-  >;
+  voters: Array<{ txKey: string; voteKey: string }>; // the pubkey of secp256k1 and bls12-381 in G2 group
 }
 
 export interface LockingParam {
