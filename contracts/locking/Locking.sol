@@ -9,8 +9,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ILocking} from "../interfaces/Locking.sol";
 import {Pubkey} from "../library/codec/pubkey.sol";
-import {BaseAccess} from "../library/utils/BaseAccess.sol";
 import {RateLimiter} from "../library/utils/RateLimiter.sol";
+import {Executor} from "../library/constants/Executor.sol";
 
 /**
  * Note
@@ -22,7 +22,7 @@ import {RateLimiter} from "../library/utils/RateLimiter.sol";
  * the restriction is to prevent DoS attack, you have to obey the rule
  */
 
-contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
+contract Locking is Ownable, RateLimiter, ILocking {
     using SafeERC20 for IERC20;
     using Pubkey for bytes32[2];
 
@@ -55,6 +55,9 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
     // the validator address to allowed to start a locking
     mapping(address validator => bool approved) public approvals;
 
+    // check if the request is complete
+    mapping(uint64 id => bool done) internal requests;
+
     uint64 public constant MAX_WEIGHT = 1e6;
 
     uint256 public constant MAX_TOKEN_SIZE = 8;
@@ -72,6 +75,14 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address owner = owners[validator];
         require(owner != address(0), "validator not found");
         require(owner == msg.sender, "not validator owner");
+        _;
+    }
+
+    // safety check for consensus layer responses
+    modifier ConsensusGuard(uint64 id) {
+        require(msg.sender == Executor.Locking, NotConsensusLayer());
+        require(!requests[id], ConsensusReentrantCall(id));
+        requests[id] = true;
         _;
     }
 
@@ -206,7 +217,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address recipient,
         address token,
         uint256 amount
-    ) external override OnlyLockingExecutor {
+    ) external override ConsensusGuard(id) {
         if (token != address(0) && amount > 0) {
             IERC20(token).safeTransfer(recipient, amount);
         }
@@ -258,7 +269,7 @@ contract Locking is Ownable, RateLimiter, BaseAccess, ILocking {
         address recipient,
         uint256 goat,
         uint256 gasReward
-    ) external override OnlyLockingExecutor {
+    ) external override ConsensusGuard(id) {
         if (remainReward < goat) {
             goat = remainReward;
         }

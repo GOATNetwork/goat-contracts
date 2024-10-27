@@ -2,6 +2,9 @@
 pragma solidity ^0.8.24;
 
 interface ILocking {
+    error ConsensusReentrantCall(uint64);
+    error NotConsensusLayer();
+
     struct Locking {
         address token;
         uint256 amount;
