@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Business Source License 1.1
 pragma solidity ^0.8.24;
 
-import {BaseAccess} from "../library/utils/BaseAccess.sol";
+import {RelayerGuard} from "../relayer/RelayerGuard.sol";
+
 import {IBitcoin} from "../interfaces/Bitcoin.sol";
 
-contract Bitcoin is BaseAccess, IBitcoin {
+contract Bitcoin is RelayerGuard, IBitcoin {
     string public networkName;
     uint256 public startHeight;
     uint256 public latestHeight;
@@ -19,8 +20,13 @@ contract Bitcoin is BaseAccess, IBitcoin {
         networkName = _network;
     }
 
-    // newBlockHash adds next finalized block hash
-    // Note: the block hash uses little endian
+    /**
+     * newBlockHash adds a new finalized block hash
+     * @param _hash block hash with little endian
+     *
+     * goat provides an L1 state oracle for third dapps on system level
+     * they can use the block hash to do such as SPV(Simplified Payment Verification)
+     */
     function newBlockHash(bytes32 _hash) external override OnlyRelayer {
         uint256 height = ++latestHeight;
         blocks[height] = _hash;

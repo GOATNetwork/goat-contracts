@@ -2,20 +2,20 @@
 pragma solidity ^0.8.24;
 
 import {Burner} from "../library/utils/Burner.sol";
-import {BaseAccess} from "../library/utils/BaseAccess.sol";
+import {RelayerGuard} from "../relayer/RelayerGuard.sol";
 import {RateLimiter} from "../library/utils/RateLimiter.sol";
 import {PreDeployedAddresses} from "../library/constants/Predeployed.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IBridge} from "../interfaces/bridge/Bridge.sol";
 import {IBridgeParam} from "../interfaces/bridge/BridgeParam.sol";
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract Bridge is
     Ownable,
-    BaseAccess,
+    RelayerGuard,
     RateLimiter,
     IBridge,
     IBridgeParam,
