@@ -1,6 +1,6 @@
 {
   "name": "goat-contracts",
-  "license": "Business Source License 1.1",
+  "license": "Apache License 2.0",
   "author": "Goat Foundation",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
