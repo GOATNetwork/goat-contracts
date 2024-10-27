@@ -105,6 +105,7 @@ task("bridge:status")
       PredployedAddress.bridge,
     );
     const wd = await bridge.withdrawals(args["id"]);
+    console.log("sender", wd.sender);
     console.log("amount", hre.ethers.formatEther(wd.amount));
     console.log("tax", hre.ethers.formatEther(wd.tax));
     console.log("tx price", wd.maxTxPrice);
@@ -120,4 +121,8 @@ task("bridge:status")
       case 5n:
         return console.log("status", "Paid");
     }
+    console.log(
+      "updatedAt",
+      new Date(Number(wd.updatedAt) * 1e3).toLocaleString(),
+    );
   });
