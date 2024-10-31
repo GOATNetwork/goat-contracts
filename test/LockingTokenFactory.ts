@@ -32,16 +32,13 @@ describe("LockingWrapper", async () => {
     );
 
     const testToken2Address = await testToken2.getAddress();
-    const salt = testToken2Address.slice(2).padStart(64, "00");
-
     const wpFactory = await ethers.getContractFactory("LockingTokenWrapper");
-    const initHash = ethers.keccak256(wpFactory.bytecode + salt); // append the token param
-    const factoryAddress = await factory.getAddress();
-
     const wrappedAddress = ethers.getCreate2Address(
-      factoryAddress,
-      "0x" + salt,
-      initHash,
+      await factory.getAddress(),
+      ethers.ZeroHash,
+      ethers.keccak256(
+        wpFactory.bytecode + testToken2Address.slice(2).padStart(64, "00"),
+      ),
     );
 
     await expect(await factory.wrap(testToken2))

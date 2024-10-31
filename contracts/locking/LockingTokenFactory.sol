@@ -8,8 +8,8 @@ contract LockingTokenFactory {
     event Created(address indexed token, address wrapped);
 
     function wrap(address token) external {
-        bytes32 salt = bytes32(uint256(uint160(token)));
-        LockingTokenWrapper wrapped = new LockingTokenWrapper{salt: salt}(
+        // we have token parameter here, so there is no conflict with the initHash
+        LockingTokenWrapper wrapped = new LockingTokenWrapper{salt: bytes32(0)}(
             IERC20Metadata(token)
         );
         emit Created(token, address(wrapped));
