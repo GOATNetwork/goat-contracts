@@ -25,4 +25,7 @@ library PreDeployedAddresses {
 
     address internal constant Relayer =
         0xBC10000000000000000000000000000000000006;
+
+    address internal constant LockingTokenFactory =
+        0xBc10000000000000000000000000000000000007;
 }

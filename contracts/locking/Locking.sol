@@ -341,6 +341,9 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param weight the weight for the validator power
      * @param limit the lock limit, 0 represents no limit
      * @param thrs the creation threshold, add it to the list if it's not 0
+     *
+     * a token which has 18 decimals can be used in the Locking contracts
+     * if not so, you should create a wrapped token for it
      */
     function addToken(
         address token,

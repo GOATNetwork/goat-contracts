@@ -1,13 +1,14 @@
 import fs from "fs/promises";
 import { task, types } from "hardhat/config";
 
-import { PredployedAddress } from "../common/constants";
+import { PredployedAddress, sortTokenAddress } from "../common/constants";
 import { print, readJson, trim0xPrefix } from "../common/utils";
 import { loadAnvilState } from "../common/anvil";
 
 import { deploy as DeployGoatToken } from "./deploy/GoatToken";
 import { deploy as DeployGoatDAO } from "./deploy/GoatDAO";
 import { deploy as DeployLocking } from "./deploy/Locking";
+import { deploy as DeployLockingTokenFactory } from "./deploy/LockingTokenFactory";
 import { deploy as DeployGoatFoundation } from "./deploy/GoatFoundation";
 import { deploy as DeployBitcoin } from "./deploy/Bitcoin";
 import { deploy as DeployWrappedBitcoin } from "./deploy/WrappedBitcoin";
@@ -19,12 +20,16 @@ import GenesisTemplate from "./template.json";
 
 interface IGenesis {
   config: IChainConfig;
-  alloc: { [account: string]: IAccountState };
+  alloc: IAccount;
   timestamp: string;
 }
 
 interface IChainConfig {
   chainId: number;
+}
+
+interface IAccount {
+  [account: string]: IAccountState;
 }
 
 interface IAccountState {
@@ -70,6 +75,7 @@ task("create:genesis")
     const bridge = await DeployBridge(hre, params.Bridge);
     const relayer = await DeployRelayer(hre, params.Relayer);
     const locking = await DeployLocking(hre, params.Locking);
+    const lockingTokenFactory = await DeployLockingTokenFactory(hre, {});
 
     const genesis: IGenesis = GenesisTemplate;
     genesis.timestamp = "0x" + Math.floor(Date.now() / 1000).toString(16);
@@ -97,10 +103,11 @@ task("create:genesis")
       };
     }
 
-    let count = 0;
     const dump = loadAnvilState(
       await hre.ethers.provider.send("anvil_dumpState"),
     );
+
+    const gcStates: IAccount = {};
     for (const [address, state] of Object.entries(dump.accounts)) {
       const stv = {
         balance: state.balance,
@@ -117,33 +124,27 @@ task("create:genesis")
       switch (address.toLowerCase()) {
         case goatToken.toLowerCase():
           console.log("Add genesis state for goat token from", address);
-          genesis.alloc[trim0xPrefix(PredployedAddress.goatToken)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.goatToken)] = stv;
           break;
         case goatFoundation.toLowerCase():
           console.log("Add genesis state for goat foundation from", address);
-          genesis.alloc[trim0xPrefix(PredployedAddress.goatFoundation)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.goatFoundation)] = stv;
           break;
         case btcBlock.toLowerCase():
           console.log("Add genesis state for bitcoin from", address);
-          genesis.alloc[trim0xPrefix(PredployedAddress.btcBlock)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.btcBlock)] = stv;
           break;
         case wgbtc.toLowerCase():
           console.log("Add genesis state for wgbtc from", address);
-          genesis.alloc[trim0xPrefix(PredployedAddress.wgbtc)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.wgbtc)] = stv;
           break;
         case bridge.toLowerCase():
           console.log("Add genesis state for bridge from", address);
-          genesis.alloc[trim0xPrefix(PredployedAddress.bridge)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.bridge)] = stv;
           break;
         case relayer.toLowerCase():
           console.log("Add genesis state for relayer from", address);
-          genesis.alloc[trim0xPrefix(PredployedAddress.relayer)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.relayer)] = stv;
           break;
         case locking.toLowerCase():
           console.log("Add genesis state for locking from", address);
@@ -158,21 +159,30 @@ task("create:genesis")
               "0x" +
               (BigInt(stv.balance) + BigInt(params.Locking.gas)).toString(16);
           }
-          genesis.alloc[trim0xPrefix(PredployedAddress.locking)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.locking)] = stv;
           break;
         case goatDao.toLowerCase():
           console.log("Add genesis state for goat dao from", address);
-          genesis.alloc[trim0xPrefix(PredployedAddress.goatDao)] = stv;
-          count++;
+          gcStates[trim0xPrefix(PredployedAddress.goatDao)] = stv;
+          break;
+        case lockingTokenFactory.toLowerCase():
+          console.log("Add genesis state for locking token factory", address);
+          gcStates[trim0xPrefix(PredployedAddress.lockingTokenFactory)] = stv;
           break;
       }
     }
 
-    if (count != 8) {
+    const gcKeys = Object.keys(gcStates);
+    if (gcKeys.length != 9) {
       throw new Error("Inconsistent deployment count");
     }
 
+    const ordered = gcKeys.sort(sortTokenAddress).reduce((obj, key) => {
+      obj[key] = gcStates[key];
+      return obj;
+    }, {} as IAccount);
+
+    genesis.alloc = Object.assign({}, genesis.alloc, ordered);
     console.log("Writing genesis");
     await fs.writeFile(outputFile, JSON.stringify(genesis, null, 2));
   });

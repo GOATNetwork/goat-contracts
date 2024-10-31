@@ -7,9 +7,17 @@ export const PredployedAddress = {
   locking: "0xbC10000000000000000000000000000000000004",
   btcBlock: "0xbc10000000000000000000000000000000000005",
   relayer: "0xBC10000000000000000000000000000000000006",
+  lockingTokenFactory: "0xBc10000000000000000000000000000000000007",
 };
 
 export const Executors = {
   relayer: "0xBc10000000000000000000000000000000001000",
   locking: "0xBC10000000000000000000000000000000001001",
 };
+
+export function sortTokenAddress(a: string, b: string): number {
+  if (a.toLowerCase() < b.toLowerCase()) {
+    return -1;
+  }
+  return 1;
+}
