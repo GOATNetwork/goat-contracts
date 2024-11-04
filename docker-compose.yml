@@ -9,5 +9,6 @@ services:
       - --host=0.0.0.0
       - --auto-impersonate
       - --no-request-size-limit
+      - --chain-id=48815
     ports:
       - 8545:8545

@@ -59,7 +59,6 @@ export const deploy = async (
   }
 
   const goat = await locking.tokens(PredployedAddress.goatToken);
-  const network = await hre.ethers.provider.getNetwork();
 
   for (const config of param.validators) {
     console.log("Add validator", config);
@@ -105,7 +104,13 @@ export const deploy = async (
     const validatorPubkey = trimPubKeyPrefix(
       hre.ethers.SigningKey.computePublicKey(config.pubkey, true),
     );
-    await locking.approve(hre.ethers.getAddress(hash160(validatorPubkey)));
+    const validatorAddress = hre.ethers.getAddress(hash160(validatorPubkey));
+    if (validatorAddress.toLowerCase() !== config.validator.toLowerCase()) {
+      throw new Error(
+        `Validator address mismatched: want ${config.validator} bug got ${validatorAddress}`,
+      );
+    }
+    await locking.approve(validatorAddress);
     await locking
       .connect(owner)
       .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });

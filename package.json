@@ -19,8 +19,8 @@
     "compile": "hardhat compile",
     "build": "hardhat compile",
     "test": "hardhat test",
-    "pregenesis": "hardhat compile && docker compose up -d --wait",
-    "genesis": "hardhat create:genesis --network genesis --force true",
+    "pregenesis": "docker compose down && docker compose up -d --wait",
+    "genesis": "hardhat compile && hardhat create:genesis --network genesis --force true",
     "postgenesis": "docker compose down"
   },
   "prettier": {

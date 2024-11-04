@@ -42,8 +42,7 @@ interface IAccountState {
 task("create:genesis")
   .addParam("rpc", "rpc endpoint", "http://localhost:8545")
   .addParam("name", "network name", "regtest")
-  .addParam("param", "param file path", "./genesis/config.json")
-  .addParam("chainId", "chain id", 48815, types.int)
+  .addParam("param", "param file path", "./genesis/regtest-config.json")
   .addParam("force", "force to rewrite", false, types.boolean)
   .addParam("debug", "debug log", false, types.boolean)
   .addOptionalParam("faucet", "faucet address", undefined, types.string)
@@ -80,9 +79,9 @@ task("create:genesis")
     const genesis: IGenesis = GenesisTemplate;
     genesis.timestamp = "0x" + Math.floor(Date.now() / 1000).toString(16);
 
-    if (args["chainId"]) {
-      genesis.config.chainId = args["chainId"];
-    }
+    const { chainId } = await hre.ethers.provider.getNetwork();
+    console.log("Use chainId", chainId);
+    genesis.config.chainId = Number(chainId);
 
     if (args["faucet"] && args["amount"]) {
       const facuet = args["faucet"];

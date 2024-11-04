@@ -27,7 +27,7 @@ export interface BitcoinParam {
 
 export interface RelayerParam {
   owner: string;
-  voters: Array<{ txKey: string; voteKey: string }>; // the pubkey of secp256k1 and bls12-381 in G2 group
+  voters: Array<{ address: string; txKey: string; voteKey: string }>; // the pubkey of secp256k1 and bls12-381 in G2 group
 }
 
 export interface LockingParam {
@@ -38,10 +38,15 @@ export interface LockingParam {
     limit: number | string;
     threshold: number | string;
   }>;
-  validators: Array<{ owner: string; pubkey: string; signature: string }>; // the validator list in the genesis
+  validators: Array<{
+    owner: string;
+    pubkey: string;
+    signature: string;
+    validator: string;
+  }>; // the validator list in the genesis
   strict?: boolean; // check if the deposit value is consistent with creation threshold
   gas?: string | number; // unit test only
-  allowList: string[]; // the address list is allowed to create validator later
+  allowList: string[]; // the validator address list is allowed to create validator when network is running
 }
 
 export interface BridgeParam {

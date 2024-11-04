@@ -22,6 +22,11 @@ export const deploy = async (
       throw new Error("invalid voter tx key prefix");
     }
     const address = hre.ethers.getAddress(hash160(txKey));
+    if (address.toLowerCase() != voter.address.toLowerCase()) {
+      throw new Error(
+        `Voter address mismatched: want ${voter.address} bug got ${address}`,
+      );
+    }
     const blsKey = Buffer.from(trim0xPrefix(voter.voteKey), "hex");
     if (blsKey.length != 96) {
       throw new Error("invalid bls key length");
