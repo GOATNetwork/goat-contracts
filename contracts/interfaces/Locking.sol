@@ -5,6 +5,29 @@ interface ILocking {
     error ConsensusReentrantCall(uint64);
     error NotConsensusLayer();
 
+    error NotValidatorOwner(address expected);
+    error UnapprovedValidator(address validator);
+    error DuplicateValidator(address validator);
+
+    error InvalidZeroAddress();
+    error InvalidZeroAmount();
+    error NotStandardLockingToken();
+
+    error TokenNotFound(address token);
+    error InvalidTokenWeight();
+    error InvalidTokenLimit(uint256 limit, uint256 threshold);
+    error InvalidTokenListSize();
+    error InvalidMsgValue(uint256 expect);
+
+    error BelowThreshold(address token, uint256 min);
+    error LockAmountExceed(address token, uint256 limit);
+
+    error NoUncliamed();
+    error ClaimNotOpen();
+    error ClaimOpened();
+    error Approved();
+    error NoChanges();
+
     struct Locking {
         address token;
         uint256 amount;

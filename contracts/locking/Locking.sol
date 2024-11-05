@@ -73,8 +73,9 @@ contract Locking is Ownable, RateLimiter, ILocking {
 
     modifier OnlyValidatorOwner(address validator) {
         address owner = owners[validator];
-        require(owner != address(0), "validator not found");
-        require(owner == msg.sender, "not validator owner");
+        // Note for debug here:
+        // if the validator is not found, the expect owner will be zero
+        require(owner == msg.sender, NotValidatorOwner(owner));
         _;
     }
 
@@ -121,8 +122,11 @@ contract Locking is Ownable, RateLimiter, ILocking {
             pubkey.EthAddress() == ECDSA.recover(hash, sigV, sigR, sigS),
             "signer mismatched"
         );
-        require(owners[validator] == address(0), "duplicated");
-        require(approvals[validator] || approvals[address(0)], "unapproved");
+        require(owners[validator] == address(0), DuplicateValidator(validator));
+        require(
+            approvals[validator] || approvals[address(0)],
+            UnapprovedValidator(validator)
+        );
         _checkLimiting(validator, threshold.length + 1);
 
         owners[validator] = msg.sender;
@@ -149,7 +153,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
     {
         require(
             values.length > 0 && values.length <= MAX_TOKEN_SIZE,
-            "invalid tokens size"
+            InvalidTokenListSize()
         );
         _lock(validator, values);
     }
@@ -163,7 +167,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         address validator,
         address newOwner
     ) external OnlyValidatorOwner(validator) {
-        require(newOwner != address(0), "invalid address");
+        require(newOwner != address(0), InvalidZeroAddress());
         owners[validator] = newOwner;
         emit ChangeValidatorOwner(validator, newOwner);
     }
@@ -193,12 +197,12 @@ contract Locking is Ownable, RateLimiter, ILocking {
     {
         require(
             values.length > 0 && values.length <= MAX_TOKEN_SIZE,
-            "invalid tokens size"
+            InvalidTokenListSize()
         );
-        require(recipient != address(0), "invalid recipient");
+        require(recipient != address(0), InvalidZeroAddress());
         for (uint256 i = 0; i < values.length; i++) {
             Locking memory d = values[i];
-            require(d.amount > 0, "invalid amount");
+            require(d.amount > 0, InvalidZeroAmount());
             locking[validator][d.token] -= d.amount;
             totalLocking[d.token] -= d.amount;
             emit Unlock(reqId++, validator, recipient, d.token, d.amount);
@@ -229,7 +233,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * openClaim opens claim
      */
     function openClaim() external onlyOwner {
-        require(!claimable, "claim is open");
+        require(!claimable, ClaimOpened());
         claimable = true;
         emit OpenClaim();
     }
@@ -253,7 +257,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         OnlyValidatorOwner(validator)
         RateLimiting2(validator, 1)
     {
-        require(recipient != address(0), "invalid recipient");
+        require(recipient != address(0), InvalidZeroAddress());
         emit Claim(reqId++, validator, recipient);
     }
 
@@ -290,9 +294,9 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * reclaim withdraws accumulated goat tokens when claim is available
      */
     function reclaim() external {
-        require(claimable, "claim is not open");
+        require(claimable, ClaimNotOpen());
         uint256 amount = unclaimed[msg.sender];
-        require(amount > 0, "no unclaimed");
+        require(amount > 0, NoUncliamed());
         unclaimed[msg.sender] = 0;
         IERC20(goatToken).safeTransfer(msg.sender, amount);
     }
@@ -319,7 +323,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param amount the amount
      */
     function grant(uint256 amount) external override onlyOwner {
-        require(amount > 0, "invalid amount");
+        require(amount > 0, InvalidZeroAmount());
         IERC20(goatToken).safeTransferFrom(msg.sender, address(this), amount);
         remainReward += amount;
         emit Grant(amount);
@@ -330,7 +334,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param validator the validator address, if it's zero address, that will allow anyone to lock
      */
     function approve(address validator) external override onlyOwner {
-        require(!approvals[validator], "approved");
+        require(!approvals[validator], Approved());
         approvals[validator] = true;
         emit Approval(validator);
     }
@@ -353,20 +357,23 @@ contract Locking is Ownable, RateLimiter, ILocking {
     ) external override onlyOwner {
         require(!tokens[token].exist, "token exists");
         if (token != address(0)) {
-            require(IERC20Metadata(token).decimals() == 18, "invalid decimals");
+            require(
+                IERC20Metadata(token).decimals() == 18,
+                NotStandardLockingToken()
+            );
         }
 
-        require(weight > 0 && weight < MAX_WEIGHT, "invalid weight");
+        require(weight > 0 && weight < MAX_WEIGHT, InvalidTokenWeight());
         tokens[token] = Token(true, weight, limit, thrs);
         emit UpdateTokenWeight(token, weight);
         emit UpdateTokenLimit(token, limit);
 
         if (thrs > 0) {
-            require(limit == 0 || limit >= thrs, "limit < threshold");
             require(
-                threshold.length < MAX_TOKEN_SIZE,
-                "threshold length too large"
+                limit == 0 || limit >= thrs,
+                InvalidTokenLimit(limit, thrs)
             );
+            require(threshold.length < MAX_TOKEN_SIZE, InvalidTokenListSize());
             threshold.push(token);
             emit UpdateTokenThreshold(token, thrs);
         }
@@ -382,8 +389,8 @@ contract Locking is Ownable, RateLimiter, ILocking {
         address token,
         uint64 weight
     ) external override onlyOwner {
-        require(tokens[token].exist, "token not found");
-        require(weight < MAX_WEIGHT, "invalid weight");
+        require(tokens[token].exist, TokenNotFound(token));
+        require(weight < MAX_WEIGHT, InvalidTokenWeight());
 
         emit UpdateTokenWeight(token, weight);
 
@@ -422,7 +429,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         address token,
         uint256 limit
     ) external override onlyOwner {
-        require(tokens[token].exist, "token not found");
+        require(tokens[token].exist, TokenNotFound(token));
         tokens[token].limit = limit;
         emit UpdateTokenLimit(token, limit);
     }
@@ -436,19 +443,16 @@ contract Locking is Ownable, RateLimiter, ILocking {
         address token,
         uint256 amount
     ) external override onlyOwner {
-        require(tokens[token].exist, "token not found");
+        require(tokens[token].exist, TokenNotFound(token));
 
         uint256 thres = tokens[token].threshold;
-        require(thres != amount, "no changes");
+        require(thres != amount, NoChanges());
 
         tokens[token].threshold = amount;
         emit UpdateTokenThreshold(token, amount);
 
         if (thres == 0 && amount > 0) {
-            require(
-                threshold.length < MAX_TOKEN_SIZE,
-                "threshold length too large"
-            );
+            require(threshold.length < MAX_TOKEN_SIZE, InvalidTokenListSize());
             threshold.push(token);
             return;
         }
@@ -483,17 +487,18 @@ contract Locking is Ownable, RateLimiter, ILocking {
             Locking memory d = values[i];
             Token memory t = tokens[d.token];
 
-            require(d.amount > 0, "invalid amount");
-            require(t.weight > 0, "not lockable token");
+            require(d.amount > 0, InvalidZeroAmount());
+            require(t.weight > 0, TokenNotFound(d.token));
 
             // the threshold changed
             uint256 locked = locking[validator][d.token];
             if (locked < t.threshold) {
-                require(d.amount >= t.threshold - locked, "below threshold");
+                uint256 min = t.threshold - locked;
+                require(d.amount >= min, BelowThreshold(d.token, min));
             }
 
             if (d.token == address(0)) {
-                require(msgValue == d.amount, "invalid msg.value");
+                require(msgValue == d.amount, InvalidMsgValue(d.amount));
                 msgValue -= d.amount;
             } else {
                 IERC20(d.token).safeTransferFrom(
@@ -503,12 +508,16 @@ contract Locking is Ownable, RateLimiter, ILocking {
                 );
             }
             uint256 limit = totalLocking[d.token] + d.amount;
-            require(t.limit == 0 || t.limit >= limit, "lock amount exceed");
+            require(
+                t.limit == 0 || t.limit >= limit,
+                LockAmountExceed(d.token, t.limit)
+            );
             totalLocking[d.token] = limit;
 
             locking[validator][d.token] += d.amount;
             emit Lock(validator, d.token, d.amount);
         }
-        require(msgValue == 0, "msg.value more than locked");
+        // users don't give the native token to the list, but the msg.value is not zero
+        require(msgValue == 0, InvalidMsgValue(0));
     }
 }

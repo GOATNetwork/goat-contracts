@@ -54,12 +54,13 @@ describe("Locking", async () => {
     await expect(
       locking.connect(others[0]).addToken(testToken, 1, 1, 0),
     ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.addToken(testToken2, 1, 1, 0)).revertedWith(
-      "invalid decimals",
+    await expect(locking.addToken(testToken2, 1, 1, 0)).revertedWithCustomError(
+      locking,
+      "NotStandardLockingToken",
     );
-    await expect(locking.addToken(testToken, 0, 0, 1000)).revertedWith(
-      "invalid weight",
-    );
+    await expect(
+      locking.addToken(testToken, 0, 0, 1000),
+    ).revertedWithCustomError(locking, "InvalidTokenWeight");
 
     await expect(await locking.addToken(testToken, 1, 0, 1000))
       .emit(locking, "UpdateTokenWeight")
@@ -83,12 +84,12 @@ describe("Locking", async () => {
     await expect(
       locking.connect(others[0]).setTokenWeight(testToken, 1),
     ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.setTokenWeight(others[0], 1)).revertedWith(
-      "token not found",
-    );
-    await expect(locking.setTokenWeight(ethers.ZeroAddress, 1e6)).revertedWith(
-      "invalid weight",
-    );
+    await expect(locking.setTokenWeight(others[0], 1))
+      .revertedWithCustomError(locking, "TokenNotFound")
+      .withArgs(others[0]);
+    await expect(
+      locking.setTokenWeight(ethers.ZeroAddress, 1e6),
+    ).revertedWithCustomError(locking, "InvalidTokenWeight");
 
     // set weight to 10
     await expect(await locking.setTokenWeight(testToken, 10))
@@ -131,9 +132,9 @@ describe("Locking", async () => {
     await expect(
       locking.connect(others[0]).setTokenLimit(testToken, 0),
     ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.setTokenLimit(others[0], 1)).revertedWith(
-      "token not found",
-    );
+    await expect(locking.setTokenLimit(others[0], 1))
+      .revertedWithCustomError(locking, "TokenNotFound")
+      .withArgs(others[0]);
     await expect(await locking.setTokenLimit(testToken, 0))
       .emit(locking, "UpdateTokenLimit")
       .withArgs(testToken, 0);
@@ -150,10 +151,13 @@ describe("Locking", async () => {
     await expect(
       locking.connect(others[0]).setThreshold(testToken, 0),
     ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.setThreshold(others[0], 1)).revertedWith(
-      "token not found",
+    await expect(locking.setThreshold(others[0], 1))
+      .revertedWithCustomError(locking, "TokenNotFound")
+      .withArgs(others[0]);
+    await expect(locking.setThreshold(testToken, 0)).revertedWithCustomError(
+      locking,
+      "NoChanges",
     );
-    await expect(locking.setThreshold(testToken, 0)).revertedWith("no changes");
     await expect(await locking.setThreshold(testToken, 100))
       .emit(locking, "UpdateTokenThreshold")
       .withArgs(testToken, 100);
@@ -246,9 +250,9 @@ describe("Locking", async () => {
     await locking.addToken(testToken, 1, 0, 1000);
     await testToken.approve(locking, ethers.MaxUint256);
 
-    await expect(
-      locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }),
-    ).revertedWith("unapproved");
+    await expect(locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }))
+      .revertedWithCustomError(locking, "UnapprovedValidator")
+      .withArgs(validator);
 
     await expect(
       locking.connect(others[0]).approve(validator),
@@ -259,9 +263,9 @@ describe("Locking", async () => {
       .withArgs(validator);
     await expect(await locking.approvals(validator)).to.be.true;
 
-    await expect(locking.create(pubkey, sig.r, sig.s, sig.v)).revertedWith(
-      "invalid msg.value",
-    );
+    await expect(locking.create(pubkey, sig.r, sig.s, sig.v))
+      .revertedWithCustomError(locking, "InvalidMsgValue")
+      .withArgs(1000n);
 
     await expect(
       await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }),
@@ -280,16 +284,18 @@ describe("Locking", async () => {
       1000n,
     );
 
-    await expect(locking.create(pubkey, sig.r, sig.s, sig.v)).revertedWith(
-      "duplicated",
-    );
+    await expect(locking.create(pubkey, sig.r, sig.s, sig.v))
+      .revertedWithCustomError(locking, "DuplicateValidator")
+      .withArgs(validator);
 
     await expect(
       locking.connect(others[0]).changeValidatorOwner(validator, others[0]),
-    ).revertedWith("not validator owner");
+    )
+      .revertedWithCustomError(locking, "NotValidatorOwner")
+      .withArgs(owner);
     await expect(
       locking.changeValidatorOwner(validator, ethers.ZeroAddress),
-    ).revertedWith("invalid address");
+    ).revertedWithCustomError(locking, "InvalidZeroAddress");
     await expect(await locking.changeValidatorOwner(validator, others[0]))
       .emit(locking, "ChangeValidatorOwner")
       .withArgs(validator, others[0]);
@@ -300,7 +306,10 @@ describe("Locking", async () => {
       locking,
       "OwnableUnauthorizedAccount",
     );
-    await expect(locking.grant(0n)).revertedWith("invalid amount");
+    await expect(locking.grant(0n)).revertedWithCustomError(
+      locking,
+      "InvalidZeroAmount",
+    );
     await expect(await locking.grant(100n))
       .emit(locking, "Grant")
       .withArgs(100n)
@@ -342,18 +351,19 @@ describe("Locking", async () => {
     await expect(await ethers.provider.getBalance(locking)).eq(1000);
     await expect(await testToken.balanceOf(locking)).eq(100);
 
-    await expect(locking.lock(others[1], [])).revertedWith(
-      "validator not found",
+    await expect(locking.lock(others[1], []))
+      .revertedWithCustomError(locking, "NotValidatorOwner")
+      .withArgs(ethers.ZeroAddress);
+    await expect(locking.connect(others[0]).lock(validator, []))
+      .revertedWithCustomError(locking, "NotValidatorOwner")
+      .withArgs(owner);
+    await expect(locking.lock(validator, [])).revertedWithCustomError(
+      locking,
+      "InvalidTokenListSize",
     );
-    await expect(locking.connect(others[0]).lock(validator, [])).revertedWith(
-      "not validator owner",
-    );
-    await expect(locking.lock(validator, [])).revertedWith(
-      "invalid tokens size",
-    );
-    await expect(
-      locking.lock(validator, [{ token: others[1], amount: 1n }]),
-    ).revertedWith("not lockable token");
+    await expect(locking.lock(validator, [{ token: others[1], amount: 1n }]))
+      .revertedWithCustomError(locking, "TokenNotFound")
+      .withArgs(others[1]);
     await expect(
       locking.lock(
         validator,
@@ -363,7 +373,9 @@ describe("Locking", async () => {
         ],
         { value: 1n },
       ),
-    ).revertedWith("invalid msg.value");
+    )
+      .revertedWithCustomError(locking, "InvalidMsgValue")
+      .withArgs(1n);
     await testToken.approve(locking, 0n);
     await expect(
       locking.lock(validator, [{ token: testToken, amount: 1n }], {
@@ -378,13 +390,17 @@ describe("Locking", async () => {
       locking.lock(validator, [{ token: testToken, amount: 1n }], {
         value: 1n,
       }),
-    ).revertedWith("lock amount exceed");
+    )
+      .revertedWithCustomError(locking, "LockAmountExceed")
+      .withArgs(testToken, 100n);
     await locking.setTokenLimit(testToken, 0);
     await expect(
       locking.lock(validator, [{ token: testToken, amount: 1n }], {
         value: 1n,
       }),
-    ).revertedWith("msg.value more than locked");
+    )
+      .revertedWithCustomError(locking, "InvalidMsgValue")
+      .withArgs(0n);
 
     await expect(
       await locking.lock(
@@ -409,7 +425,9 @@ describe("Locking", async () => {
       locking.lock(validator, [{ token: ethers.ZeroAddress, amount: 100n }], {
         value: 100n,
       }),
-    ).revertedWith("below threshold");
+    )
+      .revertedWithCustomError(locking, "BelowThreshold")
+      .withArgs(ethers.ZeroAddress, 999n);
   });
 
   it("unlock", async () => {
@@ -448,26 +466,27 @@ describe("Locking", async () => {
       { value: 1n },
     );
 
-    await expect(locking.unlock(others[1], owner, [])).revertedWith(
-      "validator not found",
-    );
-    await expect(
-      locking.connect(others[0]).unlock(validator, owner, []),
-    ).revertedWith("not validator owner");
-    await expect(locking.unlock(validator, owner, [])).revertedWith(
-      "invalid tokens size",
+    await expect(locking.unlock(others[1], owner, []))
+      .revertedWithCustomError(locking, "NotValidatorOwner")
+      .withArgs(ethers.ZeroAddress);
+    await expect(locking.connect(others[0]).unlock(validator, owner, []))
+      .revertedWithCustomError(locking, "NotValidatorOwner")
+      .withArgs(owner);
+    await expect(locking.unlock(validator, owner, [])).revertedWithCustomError(
+      locking,
+      "InvalidTokenListSize",
     );
     await expect(
       locking.unlock(validator, ethers.ZeroAddress, [
         { token: ethers.ZeroAddress, amount: 1n },
       ]),
-    ).revertedWith("invalid recipient");
+    ).revertedWithCustomError(locking, "InvalidZeroAddress");
 
     await expect(
       locking.unlock(validator, owner, [
         { token: ethers.ZeroAddress, amount: 0n },
       ]),
-    ).revertedWith("invalid amount");
+    ).revertedWithCustomError(locking, "InvalidZeroAmount");
     await expect(
       await locking.unlock(validator, owner, [
         { token: ethers.ZeroAddress, amount: 1n },
@@ -540,15 +559,15 @@ describe("Locking", async () => {
       { value: 1n },
     );
 
-    await expect(locking.claim(others[1], owner)).revertedWith(
-      "validator not found",
-    );
+    await expect(locking.claim(others[1], owner))
+      .revertedWithCustomError(locking, "NotValidatorOwner")
+      .withArgs(ethers.ZeroAddress);
+    await expect(locking.connect(others[0]).claim(validator, owner))
+      .revertedWithCustomError(locking, "NotValidatorOwner")
+      .withArgs(owner);
     await expect(
-      locking.connect(others[0]).claim(validator, owner),
-    ).revertedWith("not validator owner");
-    await expect(locking.claim(validator, ethers.ZeroAddress)).revertedWith(
-      "invalid recipient",
-    );
+      locking.claim(validator, ethers.ZeroAddress),
+    ).revertedWithCustomError(locking, "InvalidZeroAddress");
 
     await expect(
       locking.connect(others[0]).openClaim(),
@@ -580,16 +599,25 @@ describe("Locking", async () => {
     await expect(await goat.balanceOf(locking)).eq(1000);
     expect(await locking.remainReward()).eq(900);
 
-    await expect(locking.reclaim()).revertedWith("claim is not open");
+    await expect(locking.reclaim()).revertedWithCustomError(
+      locking,
+      "ClaimNotOpen",
+    );
 
     await expect(await locking.openClaim()).emit(locking, "OpenClaim");
-    await expect(locking.openClaim()).revertedWith("claim is open");
+    await expect(locking.openClaim()).revertedWithCustomError(
+      locking,
+      "ClaimOpened",
+    );
     expect(await locking.claimable()).to.be.true;
 
     await expect(await locking.reclaim())
       .emit(goat, "Transfer")
       .withArgs(locking, owner, 100);
-    await expect(locking.reclaim()).revertedWith("no unclaimed");
+    await expect(locking.reclaim()).revertedWithCustomError(
+      locking,
+      "NoUncliamed",
+    );
 
     await expect(await locking.claim(validator, owner))
       .emit(locking, "Claim")
