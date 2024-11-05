@@ -48,7 +48,6 @@ interface ILocking {
     event OpenClaim();
 
     event Create(address validator, address owner, bytes32[2] pubkey);
-
     event Lock(address validator, address token, uint256 amount);
     event Unlock(
         uint64 id,
@@ -120,4 +119,10 @@ interface ILocking {
     function getAddressByPubkey(
         bytes32[2] calldata pubkey
     ) external pure returns (address, address);
+
+    function reclaim() external;
+
+    function openClaim() external;
+
+    function changeValidatorOwner(address validator, address newOwner) external;
 }

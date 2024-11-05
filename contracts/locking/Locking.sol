@@ -166,7 +166,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
     function changeValidatorOwner(
         address validator,
         address newOwner
-    ) external OnlyValidatorOwner(validator) {
+    ) external override OnlyValidatorOwner(validator) {
         require(newOwner != address(0), InvalidZeroAddress());
         owners[validator] = newOwner;
         emit ChangeValidatorOwner(validator, newOwner);
@@ -232,7 +232,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
     /**
      * openClaim opens claim
      */
-    function openClaim() external onlyOwner {
+    function openClaim() external override onlyOwner {
         require(!claimable, ClaimOpened());
         claimable = true;
         emit OpenClaim();
@@ -293,7 +293,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
     /**
      * reclaim withdraws accumulated goat tokens when claim is available
      */
-    function reclaim() external {
+    function reclaim() external override {
         require(claimable, ClaimNotOpen());
         uint256 amount = unclaimed[msg.sender];
         require(amount > 0, NoUncliamed());
