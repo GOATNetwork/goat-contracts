@@ -109,6 +109,11 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * Note for operators:
      * Before creating a validator
      * You should check if you have enough tokens and approve this contract to transfer the tokens
+     *
+     * You can get your validator state like reward and status from consensus rpc
+     * curl "https://$CONSENSUS_REST_URL/goatnetwork/goat/locking/v1/validator?address=$YOUR_VALIDATOR_ADDRESS"
+     * The $CONSENSUS_REST_URL param is the consensus rest rpc
+     * The $YOUR_VALIDATOR_ADDRESS param is your validator address
      */
     function create(
         bytes32[2] calldata pubkey,
@@ -192,7 +197,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      *
      * If your validator is slashed, the actual amount will be less than the request amount
      *
-     * You should check if the amount to unlock is less the threshould if you don't want to exit
+     * You should check if the amount to unlock is less the threshold if you don't want to exit
      *
      * There are periods for the unlock operation, you can get the periods from consensus layer rpc
      *
