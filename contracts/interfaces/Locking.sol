@@ -13,7 +13,10 @@ interface ILocking {
     error InvalidZeroAmount();
     error NotStandardLockingToken();
 
+    error LockingNotStarted();
+    error SignatureMismatch();
     error TokenNotFound(address token);
+    error TokenExists();
     error InvalidTokenWeight();
     error InvalidTokenLimit(uint256 limit, uint256 threshold);
     error InvalidTokenListSize();

@@ -48,9 +48,9 @@ describe("Locking", async () => {
     const { locking, others, testToken, testToken2 } =
       await loadFixture(fixture);
 
-    await expect(locking.addToken(ethers.ZeroAddress, 1, 1, 0)).revertedWith(
-      "token exists",
-    );
+    await expect(
+      locking.addToken(ethers.ZeroAddress, 1, 1, 0),
+    ).revertedWithCustomError(locking, "TokenExists");
     await expect(
       locking.connect(others[0]).addToken(testToken, 1, 1, 0),
     ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
@@ -244,7 +244,7 @@ describe("Locking", async () => {
 
     await expect(
       locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }),
-    ).revertedWith("not started");
+    ).revertedWithCustomError(locking, "LockingNotStarted");
 
     await locking.setThreshold(ethers.ZeroAddress, 1000);
     await locking.addToken(testToken, 1, 0, 1000);

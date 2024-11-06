@@ -105,6 +105,10 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * it includes the validator address to prevent usage error
      *
      * the msg.sender will be the owner of the validator, and an owner can have multiple validators
+     *
+     * Note for operators:
+     * Before creating a validator
+     * You should check if you have enough tokens and approve this contract to transfer the tokens
      */
     function create(
         bytes32[2] calldata pubkey,
@@ -112,7 +116,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         bytes32 sigS,
         uint8 sigV
     ) external payable override {
-        require(threshold.length > 0, "not started");
+        require(threshold.length > 0, LockingNotStarted());
 
         address validator = pubkey.ConsAddress();
         bytes32 hash = keccak256(
@@ -120,7 +124,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         );
         require(
             pubkey.EthAddress() == ECDSA.recover(hash, sigV, sigR, sigS),
-            "signer mismatched"
+            SignatureMismatch()
         );
         require(owners[validator] == address(0), DuplicateValidator(validator));
         require(
@@ -140,6 +144,9 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param values the Locking values
      *
      * only the validator owner can lock new tokens to prevent mistakes
+     *
+     * the lock uses transferFrom for ERC20s, you should approve Locking contract to transfer the tokens first
+     * the native token address is address(0), you should add the amount to your tx.
      */
     function lock(
         address validator,
@@ -178,12 +185,22 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param recipient the recipient address
      * @param values the token to unlock
      *
-     * we don't have a storage slot and a function to keep the recipient for the validator
-     * you can have a contract to control the recipient
+     * Note for operators:
      *
-     * if the validator is slashed, the actual amount will be less than the request amount
+     * We don't have a storage slot and a function to keep the recipient for the validator
+     * you can have a overlayer contract to control the recipient
      *
-     * the consensus layer will send back a `completeUnlock` tx for the unlock
+     * If your validator is slashed, the actual amount will be less than the request amount
+     *
+     * You should check if the amount to unlock is less the threshould if you don't want to exit
+     *
+     * There are periods for the unlock operation, you can get the periods from consensus layer rpc
+     *
+     * for example
+     * curl 'https://$CONSENSUS_REST_URL/goatnetwork/goat/locking/v1/params'
+     * the `params.unlock_duration` is for the partial unlock and `params.exiting_duration` is for the exit unlock
+     *
+     * After the waiting period has passed, the consensus layer will send back a `completeUnlock` tx
      */
     function unlock(
         address validator,
@@ -243,10 +260,15 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param validator the validator address
      * @param recipient the reward recipient address
      *
-     * we don't have a storage slot and a function to keep the recipient for the validator
-     * you can have a contract to control the recipient
+     * Note for operators:
      *
-     * the consensus layer will send back a `distributeReward` tx for the claiming
+     * We don't have a storage slot and a function to keep the recipient for the validator
+     * you can have a overlayer contract to control the recipient
+     *
+     * If the goat claim is not open, you will not get the goat reward.
+     * When the claim is open, you can use the recipient address to call `reclaim()` to get the reward
+     *
+     * the consensus layer will send back a `distributeReward` tx for it
      */
     function claim(
         address validator,
@@ -330,8 +352,8 @@ contract Locking is Ownable, RateLimiter, ILocking {
     }
 
     /**
-     * approve add a validator address to whitelist to allow they to lock
-     * @param validator the validator address, if it's zero address, that will allow anyone to lock
+     * approve adds a validator address to whitelist to allow they to lock
+     * @param validator the validator address, if it's a zero address, that will allow everyone to lock
      */
     function approve(address validator) external override onlyOwner {
         require(!approvals[validator], Approved());
@@ -355,13 +377,11 @@ contract Locking is Ownable, RateLimiter, ILocking {
         uint256 limit,
         uint256 thrs
     ) external override onlyOwner {
-        require(!tokens[token].exist, "token exists");
-        if (token != address(0)) {
-            require(
-                IERC20Metadata(token).decimals() == 18,
-                NotStandardLockingToken()
-            );
-        }
+        require(!tokens[token].exist, TokenExists());
+        require(
+            token == address(0) || IERC20Metadata(token).decimals() == 18,
+            NotStandardLockingToken()
+        );
 
         require(weight > 0 && weight < MAX_WEIGHT, InvalidTokenWeight());
         tokens[token] = Token(true, weight, limit, thrs);
@@ -405,7 +425,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
             return;
         }
 
-        // we can delete all from the threshold list, then we don't allow to create a new validator
+        // It wouldn't be allowed to create a new validator if we delete all tokens from the threshold list
         for (uint256 i = 0; i < threshold.length; i++) {
             if (threshold[i] != token) {
                 continue;
@@ -435,7 +455,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
     }
 
     /**
-     * setThreshold upserts current validator creation threshold for the token
+     * setThreshold updates current validator creation threshold for the token
      * @param token the locking token to update
      * @param amount the new amount, if the amount is 0, then removes it from the list
      */
@@ -499,7 +519,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
 
             if (d.token == address(0)) {
                 require(msgValue == d.amount, InvalidMsgValue(d.amount));
-                msgValue -= d.amount;
+                msgValue = 0;
             } else {
                 IERC20(d.token).safeTransferFrom(
                     msg.sender,
