@@ -323,7 +323,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
     function reclaim() external override {
         require(claimable, ClaimNotOpen());
         uint256 amount = unclaimed[msg.sender];
-        require(amount > 0, NoUncliamed());
+        require(amount > 0, NoUnclaimed());
         unclaimed[msg.sender] = 0;
         IERC20(goatToken).safeTransfer(msg.sender, amount);
     }

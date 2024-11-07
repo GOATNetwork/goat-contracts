@@ -616,7 +616,7 @@ describe("Locking", async () => {
       .withArgs(locking, owner, 100);
     await expect(locking.reclaim()).revertedWithCustomError(
       locking,
-      "NoUncliamed",
+      "NoUnclaimed",
     );
 
     await expect(await locking.claim(validator, owner))

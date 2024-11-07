@@ -25,7 +25,7 @@ interface ILocking {
     error BelowThreshold(address token, uint256 min);
     error LockAmountExceed(address token, uint256 limit);
 
-    error NoUncliamed();
+    error NoUnclaimed();
     error ClaimNotOpen();
     error ClaimOpened();
     error Approved();
