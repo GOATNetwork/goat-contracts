@@ -23,79 +23,81 @@ contract Bridge is
 {
     using Address for address payable;
 
-    Param public param;
+    DepositParam public depositParam;
+    WithdrawParam public withdrawParam;
 
     mapping(bytes32 txh => bool yes) internal deposits;
 
     Withdrawal[] public withdrawals;
 
     // 1 satoshi = 10 gwei
-    uint256 internal constant SATOSHI = 10 gwei;
+    uint256 public constant SATOSHI = 10 gwei;
 
-    // 2 p2wsh input + 1 p2tr/p2wsh output + 1 change output
-    uint256 internal constant BASE_TX_SIZE = 300;
+    // the current dust value is 546, we use a slightly larger value here
+    uint256 public constant DUST = 1e3 * SATOSHI;
+
+    // 4 p2wsh/p2pkh input + 1 p2tr/p2wsh output + 1 change output
+    uint256 public constant BASE_TX_SIZE = 300 * SATOSHI;
+
+    uint256 public constant WITHDRAWAL_UPDATED_DURATION = 5 minutes;
 
     // the max tax base points
     uint256 internal constant MAX_BASE_POINT = 1e4;
 
-    uint256 internal constant WITHDRAWAL_UPDATED_DURATION = 5 minutes;
-
     // It is only for testing
-    constructor(address owner) Ownable(owner) RateLimiter(32, false) {
-        param = Param({
-            depositTaxBP: 0,
-            maxDepositTax: 0,
-            withdrawalTaxBP: 20,
-            maxWithdrawalTax: 2_000_000 gwei, // 0.002 btc
-            minWithdrawal: 1_000_000 gwei // 0.001 btc
+    constructor(
+        address owner,
+        bytes4 prefix
+    ) Ownable(owner) RateLimiter(32, false) {
+        depositParam = DepositParam({
+            prefix: prefix,
+            min: 100_000 gwei, // 0.0001 btc
+            taxRate: 0,
+            maxTax: 0,
+            confirmations: 6
+        });
+
+        withdrawParam = WithdrawParam({
+            maxTax: 2_000_000 gwei, // 0.002 btc
+            taxRate: 20,
+            min: 1_000_000 gwei // 0.001 btc
         });
     }
 
     /**
      * deposit adds balance to the target address
      * goat performs the adding outside EVM to prevent any errors
-     * @param txid the txid(LE)
+     * @param txHash the txHash(LE)
      * @param txout the txout
      * @param target the depoist address
-     * @param amount the deposit amount
+     * @param amount the deposit amount without the tax
+     * @param tax the deposit tax
      */
     function deposit(
-        bytes32 txid,
+        bytes32 txHash,
         uint32 txout,
         address target,
-        uint256 amount
-    ) external override OnlyRelayer returns (uint256 tax) {
-        bytes32 depositHash = keccak256(abi.encodePacked(txid, txout));
+        uint256 amount,
+        uint256 tax
+    ) external override OnlyRelayer {
+        bytes32 depositHash = keccak256(abi.encodePacked(txHash, txout));
         require(!deposits[depositHash], "duplicated");
-
-        require(amount > 0 && amount % SATOSHI == 0, "invalid amount");
-
-        Param memory p = param;
-        if (p.depositTaxBP > 0) {
-            tax = (amount * p.depositTaxBP) / MAX_BASE_POINT;
-            if (tax > p.maxDepositTax) {
-                tax = p.maxDepositTax;
-            }
-            amount -= tax;
-        }
-
         deposits[depositHash] = true;
-        emit Deposit(target, amount, txid, txout, tax);
 
+        emit Deposit(target, txHash, txout, amount, tax);
         // Add balance to the target and pay the tax to GF in the runtime
-        return tax;
     }
 
     /**
      * isDeposited checks if the deposit is succeed
-     * @param txid the txid(LE)
+     * @param txHash the txHash(LE)
      * @param txout the txout index
      */
     function isDeposited(
-        bytes32 txid,
+        bytes32 txHash,
         uint32 txout
     ) external view override returns (bool) {
-        bytes32 depositHash = keccak256(abi.encodePacked(txid, txout));
+        bytes32 depositHash = keccak256(abi.encodePacked(txHash, txout));
         return deposits[depositHash];
     }
 
@@ -111,21 +113,19 @@ contract Bridge is
         string calldata receiver,
         uint16 maxTxPrice
     ) external payable override RateLimiting {
-        bytes memory addrBytes = bytes(receiver);
-        if (addrBytes.length < 34 || addrBytes.length > 90) {
-            revert InvalidAddress();
-        }
+        uint256 addrLength = bytes(receiver).length;
+        require(addrLength > 33 && addrLength < 91, "invalid address");
 
         uint256 amount = msg.value;
         uint256 tax = 0;
 
-        Param memory p = param;
-        require(amount >= p.minWithdrawal, "amount too low");
+        WithdrawParam memory p = withdrawParam;
+        require(amount >= p.min, "amount too low");
 
-        if (p.withdrawalTaxBP > 0) {
-            tax = (amount * p.withdrawalTaxBP) / MAX_BASE_POINT;
-            if (tax > p.maxWithdrawalTax) {
-                tax = p.maxWithdrawalTax;
+        if (p.taxRate > 0) {
+            tax = (amount * p.taxRate) / MAX_BASE_POINT;
+            if (tax > p.maxTax) {
+                tax = p.maxTax;
             }
             amount -= tax;
         }
@@ -138,7 +138,7 @@ contract Bridge is
         }
 
         require(maxTxPrice > 0, "invalid tx price");
-        require(amount > maxTxPrice * BASE_TX_SIZE * SATOSHI, "unaffordable");
+        require(amount > DUST + maxTxPrice * BASE_TX_SIZE, "unaffordable");
 
         uint256 id = withdrawals.length;
         withdrawals.push(
@@ -180,13 +180,9 @@ contract Bridge is
             revert RequestTooFrequent();
         }
 
+        require(maxTxPrice > withdrawal.maxTxPrice, "invalid tx price");
         require(
-            maxTxPrice > withdrawal.maxTxPrice,
-            "the new tx price should be larger than before"
-        );
-
-        require(
-            withdrawal.amount > maxTxPrice * BASE_TX_SIZE * SATOSHI,
+            withdrawal.amount > DUST + maxTxPrice * BASE_TX_SIZE,
             "unaffordable"
         );
 
@@ -267,13 +263,13 @@ contract Bridge is
      * paid finalizes the withdrawal request and burns the withdrawal amount from network
      * It aslo transfers the tax to GF address if the tax is enabled
      * @param wid withdrawal id
-     * @param txid the withdrawal txid(little endian)
+     * @param txHash the withdrawal txHash(LE)
      * @param txout the tx output index
      * @param received the actual paid amount
      */
     function paid(
         uint256 wid,
-        bytes32 txid,
+        bytes32 txHash,
         uint32 txout,
         uint256 received
     ) external OnlyRelayer {
@@ -297,30 +293,17 @@ contract Bridge is
         // Burn the withdrawal amount from network
         new Burner{value: withdrawal.amount, salt: bytes32(0x0)}();
 
-        emit Paid(wid, txid, txout, received);
+        emit Paid(wid, txHash, txout, received);
     }
 
-    /**
-     * setDepositTax updates current deposit tax config
-     * @param bp the basic point for the deposit tax rate
-     * @param max the max tax in wei
-     */
-    function setDepositTax(uint16 bp, uint64 max) external override onlyOwner {
-        if (bp > MAX_BASE_POINT) {
-            revert TaxTooHigh();
+    modifier checkTax(uint16 bp, uint64 max) {
+        if (bp > 0) {
+            require(max < 1e18 && max > 0 && max % SATOSHI == 0, InvalidTax());
+            require(bp < MAX_BASE_POINT, InvalidTax());
+        } else {
+            require(max == 0, InvalidTax());
         }
-
-        if (max > 1 ether) {
-            revert TaxTooHigh();
-        }
-
-        if (bp > 0 && max == 0) {
-            revert MalformedTax();
-        }
-
-        param.depositTaxBP = bp;
-        param.maxDepositTax = max;
-        emit DepositTaxUpdated(bp, max);
+        _;
     }
 
     /**
@@ -331,32 +314,64 @@ contract Bridge is
     function setWithdrawalTax(
         uint16 bp,
         uint64 max
-    ) external override onlyOwner {
-        if (bp > MAX_BASE_POINT) {
-            revert TaxTooHigh();
-        }
-
-        if (max > 1 ether) {
-            revert TaxTooHigh();
-        }
-
-        if (bp > 0 && max == 0) {
-            revert MalformedTax();
-        }
-
-        param.withdrawalTaxBP = bp;
-        param.maxWithdrawalTax = max;
+    ) external override onlyOwner checkTax(bp, max) {
+        withdrawParam.taxRate = bp;
+        withdrawParam.maxTax = max;
         emit WithdrawalTaxUpdated(bp, max);
     }
 
     /**
-     * setMinWithdrawal updates current min withdrawal amount
-     * @param amount the amount in wei, the amount should be in range [0.001 btc, 1btc]
+     * setDepositTax updates current deposit tax config
+     * @param bp the basic point for the deposit tax rate
+     * @param max the max tax in wei
      */
-    function setMinWithdrawal(uint64 amount) external override onlyOwner {
-        require(amount >= 1e14 && amount <= 1 ether, "invalid amount");
-        param.minWithdrawal = amount;
+    function setDepositTax(
+        uint16 bp,
+        uint64 max
+    ) external override onlyOwner checkTax(bp, max) {
+        depositParam.taxRate = bp;
+        depositParam.maxTax = max;
+        emit DepositTaxUpdated(bp, max);
+    }
+
+    modifier checkThreshold(uint64 amount) {
+        require(
+            amount < 1e18 && amount >= 1e14 && amount % SATOSHI == 0,
+            InvalidThreshold()
+        );
+        _;
+    }
+
+    /**
+     * setMinWithdrawal updates current min withdrawal amount
+     * @param amount the amount in wei, the amount should be in range [0.0001 btc, 1btc)
+     */
+    function setMinWithdrawal(
+        uint64 amount
+    ) external override onlyOwner checkThreshold(amount) {
+        withdrawParam.min = amount;
         emit MinWithdrawalUpdated(amount);
+    }
+
+    /**
+     * setMinDeposit updates the min deposit
+     * @param amount the amount in wei, the amount should be in range [0.0001 btc, 1btc)
+     */
+    function setMinDeposit(
+        uint64 amount
+    ) external override onlyOwner checkThreshold(amount) {
+        depositParam.min = amount;
+        emit MinDepositUpdated(amount);
+    }
+
+    /**
+     * setConfirmationNumber updates current confirmation number
+     * @param number the confirmation number, using 6 for mainnet and 20 for testnet
+     */
+    function setConfirmationNumber(uint16 number) external override onlyOwner {
+        require(number > 0, "number too low");
+        depositParam.confirmations = number;
+        emit ConfirmationNumberUpdated(number);
     }
 
     function supportsInterface(

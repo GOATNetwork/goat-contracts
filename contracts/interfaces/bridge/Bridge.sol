@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 interface IBridge {
     event Deposit(
         address indexed target,
-        uint256 indexed amount,
-        bytes32 txid,
+        bytes32 txHash,
         uint32 txout,
+        uint256 amount,
         uint256 tax
     );
 
@@ -27,7 +27,7 @@ interface IBridge {
 
     event RBF(uint256 indexed id, uint16 maxTxPrice);
 
-    event Paid(uint256 indexed id, bytes32 txid, uint32 txout, uint256 value);
+    event Paid(uint256 indexed id, bytes32 txHash, uint32 txout, uint256 value);
 
     enum WithdrawalStatus {
         Invalid,
@@ -50,16 +50,17 @@ interface IBridge {
     }
 
     function isDeposited(
-        bytes32 txid,
+        bytes32 txHash,
         uint32 txout
     ) external view returns (bool);
 
     function deposit(
-        bytes32 txid,
+        bytes32 txHash,
         uint32 txout,
         address target,
-        uint256 amount
-    ) external returns (uint256);
+        uint256 amount,
+        uint256 tax
+    ) external;
 
     function withdraw(
         string calldata receiver,
@@ -76,8 +77,8 @@ interface IBridge {
 
     function paid(
         uint256 id,
-        bytes32 txid,
+        bytes32 txHash,
         uint32 txout,
-        uint256 paid
+        uint256 received
     ) external;
 }

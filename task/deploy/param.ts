@@ -49,13 +49,18 @@ export interface LockingParam {
   allowList: string[]; // the validator address list is allowed to create validator when network is running
 }
 
+// NB: the InSat suffix means that you should satoshi instead of wei
+
 export interface BridgeParam {
   owner: string;
+  depositPrefixMagic: string;
   depositTaxBP?: number | string;
-  maxDepositTaxInWei?: number | string;
+  maxDepositTaxInSat?: number | string;
   withdrawalTaxBP?: number | string;
-  maxWithdrawalTax?: number | string;
-  minWithdrawalInWei?: number | string;
+  maxWithdrawalTaxInSat?: number | string;
+  minWithdrawalInSat?: number | string;
+  minDepositInSat?: number | string;
+  confirmationNumber?: number;
   deposits: Array<{
     txid: string;
     txout: number;
@@ -65,7 +70,6 @@ export interface BridgeParam {
 }
 
 export interface ConsensusParam {
-  Bridge: { minDepositInSat: number; confirmationNumber: number };
   Relayer: {
     tssPubkey: string;
     acceptProposerTimeout: string; // go duration
