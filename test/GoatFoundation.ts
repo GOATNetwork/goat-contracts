@@ -3,7 +3,9 @@ import { expect } from "chai";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 describe("GoatFoundation", async () => {
-  const receiver = "0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf";
+  const receiver = ethers.getAddress(
+    "0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf",
+  );
 
   async function fixture() {
     const [owner, ...others] = await ethers.getSigners();
@@ -24,7 +26,7 @@ describe("GoatFoundation", async () => {
   it("transfer", async () => {
     const { owner, goatfdn, others } = await loadFixture(fixture);
     const grant = ethers.parseEther("10");
-    expect(await owner.sendTransaction({ to: goatfdn, value: grant }))
+    await expect(await owner.sendTransaction({ to: goatfdn, value: grant }))
       .emit(goatfdn, "Donate")
       .withArgs(owner, grant);
 
@@ -32,7 +34,7 @@ describe("GoatFoundation", async () => {
     await expect(
       goatfdn.connect(others[0]).transfer(others[0], amount),
     ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
-    expect(await goatfdn.transfer(receiver, amount))
+    await expect(await goatfdn.transfer(receiver, amount))
       .emit(goatfdn, "Transfer")
       .withArgs(receiver, amount);
     expect(await ethers.provider.getBalance(receiver)).eq(amount);
@@ -48,7 +50,7 @@ describe("GoatFoundation", async () => {
       goatfdn.connect(others[0]).transferERC20(testToken, receiver, amount),
     ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
 
-    expect(await goatfdn.transferERC20(testToken, receiver, amount))
+    await expect(await goatfdn.transferERC20(testToken, receiver, amount))
       .emit(testToken, "Transfer")
       .withArgs(goatfdn, receiver, amount);
     expect(await testToken.balanceOf(receiver)).eq(amount);

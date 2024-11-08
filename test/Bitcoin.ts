@@ -64,9 +64,9 @@ describe("Bitcoin", async () => {
       "AccessDenied",
     );
 
-    expect(await bitcoin.connect(relayer).newBlockHash(blockHash101))
+    await expect(await bitcoin.connect(relayer).newBlockHash(blockHash101))
       .emit(bitcoin, "NewBlockHash")
-      .withArgs(blockHash101);
+      .withArgs(101n);
 
     expect(await bitcoin.startHeight()).eq(100);
     expect(await bitcoin.latestHeight()).eq(101);
