@@ -1,7 +1,7 @@
-import { GoatToken } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { loadAnvilState } from "../../common/anvil";
 import { PredployedAddress } from "../../common/constants";
+import { GoatToken } from "../../typechain-types";
 import { GoatTokenParam } from "./param";
 
 export const deploy = async (

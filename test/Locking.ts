@@ -1,11 +1,11 @@
-import { ethers } from "hardhat";
+import {
+  impersonateAccount,
+  loadFixture,
+} from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { expect } from "chai";
+import { ethers } from "hardhat";
 import { Executors } from "../common/constants";
 import { hash160, trimPubKeyPrefix } from "../common/utils";
-import {
-  loadFixture,
-  impersonateAccount,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { Locking } from "../typechain-types";
 
 describe("Locking", async () => {

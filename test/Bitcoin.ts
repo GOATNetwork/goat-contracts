@@ -1,10 +1,10 @@
-import { ethers } from "hardhat";
-import { expect } from "chai";
-import { Executors } from "../common/constants";
 import {
-  loadFixture,
   impersonateAccount,
+  loadFixture,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { Executors } from "../common/constants";
 import { Bitcoin } from "../typechain-types";
 
 describe("Bitcoin", async () => {

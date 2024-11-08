@@ -1,8 +1,8 @@
-import { Locking } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { LockingParam } from "./param";
 import { PredployedAddress } from "../../common/constants";
 import { hash160, trimPubKeyPrefix } from "../../common/utils";
+import { Locking } from "../../typechain-types";
+import { LockingParam } from "./param";
 
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,

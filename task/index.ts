@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
-import "./genesis";
-import "./btcrpc";
 import "./bridge";
+import "./btcrpc";
+import "./genesis";
 import "./relayer";
 
 task("decode-error", "decode error message")

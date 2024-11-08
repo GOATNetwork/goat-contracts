@@ -1,7 +1,7 @@
-import { Relayer } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { RelayerParam } from "./param";
 import { hash160, sha256, trim0xPrefix } from "../../common/utils";
+import { Relayer } from "../../typechain-types";
+import { RelayerParam } from "./param";
 
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,

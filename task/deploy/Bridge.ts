@@ -1,7 +1,7 @@
-import { Bridge } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { BridgeParam } from "./param";
 import { Executors } from "../../common/constants";
+import { Bridge } from "../../typechain-types";
+import { BridgeParam } from "./param";
 
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,

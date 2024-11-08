@@ -1,6 +1,6 @@
-import { WrappedGoatBitcoin } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { inspect } from "node:util";
+import { WrappedGoatBitcoin } from "../../typechain-types";
 
 export const deploy = async (hre: HardhatRuntimeEnvironment, param: any) => {
   console.log("Deploy WrappedBitcoin with", inspect(param));

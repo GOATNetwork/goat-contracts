@@ -1,6 +1,6 @@
-import { GoatDAO } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { PredployedAddress } from "../../common/constants";
+import { GoatDAO } from "../../typechain-types";
 
 export const deploy = async (hre: HardhatRuntimeEnvironment, param: any) => {
   console.log("Deploy goat DAO");

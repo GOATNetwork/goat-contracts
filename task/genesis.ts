@@ -3,23 +3,22 @@ import { task, types } from "hardhat/config";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 
+import { loadAnvilState } from "../common/anvil";
 import { PredployedAddress, sortTokenAddress } from "../common/constants";
 import { print, readJson, trim0xPrefix } from "../common/utils";
-import { loadAnvilState } from "../common/anvil";
 
-import { deploy as DeployGoatToken } from "./deploy/GoatToken";
+import { deploy as DeployBitcoin } from "./deploy/Bitcoin";
+import { deploy as DeployBridge } from "./deploy/Bridge";
 import { deploy as DeployGoatDAO } from "./deploy/GoatDAO";
+import { deploy as DeployGoatFoundation } from "./deploy/GoatFoundation";
+import { deploy as DeployGoatToken } from "./deploy/GoatToken";
 import { deploy as DeployLocking } from "./deploy/Locking";
 import { deploy as DeployLockingTokenFactory } from "./deploy/LockingTokenFactory";
-import { deploy as DeployGoatFoundation } from "./deploy/GoatFoundation";
-import { deploy as DeployBitcoin } from "./deploy/Bitcoin";
-import { deploy as DeployWrappedBitcoin } from "./deploy/WrappedBitcoin";
-import { deploy as DeployBridge } from "./deploy/Bridge";
 import { deploy as DeployRelayer } from "./deploy/Relayer";
+import { deploy as DeployWrappedBitcoin } from "./deploy/WrappedBitcoin";
 import { Param as GenesisParam } from "./deploy/param";
 
 import GenesisTemplate from "./template.json";
-import { format } from "prettier";
 
 interface IGenesis {
   config: IChainConfig;

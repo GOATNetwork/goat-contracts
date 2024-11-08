@@ -1,5 +1,5 @@
-import { GoatFoundation } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { GoatFoundation } from "../../typechain-types";
 import { GoatFoundationParam } from "./param";
 
 export const deploy = async (

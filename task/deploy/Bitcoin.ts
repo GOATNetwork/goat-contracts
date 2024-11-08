@@ -1,5 +1,5 @@
-import { Bitcoin } from "../../typechain-types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { Bitcoin } from "../../typechain-types";
 import { BitcoinParam } from "./param";
 
 export const deploy = async (

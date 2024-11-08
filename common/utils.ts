@@ -1,6 +1,6 @@
+import fs from "fs/promises";
 import { createHash } from "node:crypto";
 import { inspect } from "node:util";
-import fs from "fs/promises";
 
 export const trimPubKeyPrefix = (key: string) => {
   if (key.startsWith("0x")) {
