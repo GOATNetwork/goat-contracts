@@ -78,4 +78,5 @@ export interface ConsensusParam {
     exitDuration: string; // go duration
     unlockDuration: string; // go duration
   };
+  Goat?: {}; // the genesis block header, don't update it manually
 }

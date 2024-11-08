@@ -1,5 +1,7 @@
 import fs from "fs/promises";
 import { task, types } from "hardhat/config";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 
 import { PredployedAddress, sortTokenAddress } from "../common/constants";
 import { print, readJson, trim0xPrefix } from "../common/utils";
@@ -17,6 +19,7 @@ import { deploy as DeployRelayer } from "./deploy/Relayer";
 import { Param as GenesisParam } from "./deploy/param";
 
 import GenesisTemplate from "./template.json";
+import { format } from "prettier";
 
 interface IGenesis {
   config: IChainConfig;
@@ -39,10 +42,12 @@ interface IAccountState {
   storage?: { [slot: string]: string };
 }
 
+const $ = promisify(exec);
+
 task("create:genesis")
   .addParam("rpc", "rpc endpoint", "http://localhost:8545")
   .addParam("name", "network name", "regtest")
-  .addParam("param", "param file path", "./genesis/regtest-config.json")
+  .addParam("param", "param file path", "")
   .addParam("force", "force to rewrite", false, types.boolean)
   .addParam("debug", "debug log", false, types.boolean)
   .addOptionalParam("faucet", "faucet address", undefined, types.string)
@@ -51,6 +56,8 @@ task("create:genesis")
     const debugMode = args["debug"];
     const networkName = args["name"];
     const outputFile = `./genesis/${networkName}.json`;
+    const paramFilePath =
+      args["param"] || `./genesis/${networkName}-config.json`;
 
     try {
       await fs.access(outputFile, fs.constants.R_OK);
@@ -62,7 +69,18 @@ task("create:genesis")
       console.log("generating genesis");
     }
 
-    const params = await readJson<GenesisParam>(args["param"]);
+    console.log(process.cwd());
+    try {
+      const tsFilePath = `./genesis/${networkName}.ts`;
+      console.log("try to compile ts config", tsFilePath);
+      await fs.access(`${tsFilePath}`);
+      await $(`npx ts-node ${tsFilePath}`);
+      console.log("compile config successed");
+    } catch (err) {
+      console.log("skip to compile ts config due to", err);
+    }
+
+    const params = await readJson<GenesisParam>(paramFilePath);
     const goatToken = await DeployGoatToken(hre, params.GoatToken);
     const goatDao = await DeployGoatDAO(hre, params.GoatDAO);
     const goatFoundation = await DeployGoatFoundation(
@@ -184,4 +202,8 @@ task("create:genesis")
     genesis.alloc = Object.assign({}, genesis.alloc, ordered);
     console.log("Writing genesis");
     await fs.writeFile(outputFile, JSON.stringify(genesis, null, 2));
+    const { stdout } = await $(
+      `go run ./genesis/main.go -config ${paramFilePath} -genesis ${outputFile}`,
+    );
+    console.log(stdout);
   });
