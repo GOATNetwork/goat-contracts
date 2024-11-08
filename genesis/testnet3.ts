@@ -1,5 +1,5 @@
-import { Param } from "../task/deploy/param";
 import { writeFileSync } from "fs";
+import { Param } from "../task/deploy/param";
 
 const param: Param = {
   GoatToken: {
@@ -17,15 +17,20 @@ const param: Param = {
   GoatDAO: {},
   Bridge: {
     owner: "TODO",
+    depositPrefixMagic: "TODO",
     withdrawalTaxBP: 2,
-    maxWithdrawalTax: "2000000000000000",
-    minWithdrawalInWei: "100000000000000",
+    maxWithdrawalTaxInSat: "200000",
+    minWithdrawalInSat: "10000",
+    maxDepositTaxInSat: "0",
+    minDepositInSat: "100000",
+    depositTaxBP: 0,
+    confirmationNumber: 1,
     deposits: [],
   },
   Bitcoin: {
     height: 3191651,
     network: "testnet3",
-    hash: "000000000ebcb157e154584adb14244f4b9d6f7ab6ad6236caa7690b4f485e0a",
+    hash: "TODO",
   },
   WrappedBitcoin: {},
   Relayer: {
@@ -50,10 +55,6 @@ const param: Param = {
     Relayer: {
       tssPubkey: "TODO",
       acceptProposerTimeout: "1m",
-    },
-    Bridge: {
-      minDepositInSat: 1e4,
-      confirmationNumber: 32,
     },
     Locking: {
       exitDuration: "504h",
