@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 
 import { loadAnvilState } from "../common/anvil";
 import { PredployedAddress, sortTokenAddress } from "../common/constants";
-import { print, readJson, trim0xPrefix } from "../common/utils";
+import { readJson, trim0xPrefix } from "../common/utils";
 
 import { deploy as DeployBitcoin } from "./deploy/Bitcoin";
 import { deploy as DeployBridge } from "./deploy/Bridge";
@@ -44,20 +44,18 @@ interface IAccountState {
 const $ = promisify(exec);
 
 task("create:genesis")
-  .addParam("rpc", "rpc endpoint", "http://localhost:8545")
   .addParam("name", "network name", "regtest")
-  .addParam("param", "param file path", "")
   .addParam("force", "force to rewrite", false, types.boolean)
-  .addParam("debug", "debug log", false, types.boolean)
+  .addOptionalParam("param", "optional parameter file path")
   .addOptionalParam("faucet", "faucet address", undefined, types.string)
-  .addOptionalParam("amount", "faucet amount in Ether", undefined, types.float)
+  .addOptionalParam("amount", "faucet amount in Ether", 1000, types.float)
   .setAction(async (args, hre) => {
-    const debugMode = args["debug"];
     const networkName = args["name"];
-    const outputFile = `./genesis/${networkName}.json`;
-    const paramFilePath =
-      args["param"] || `./genesis/${networkName}-config.json`;
+    if (!networkName) {
+      throw new Error("empty network name");
+    }
 
+    const outputFile = `./genesis/${networkName}.json`;
     try {
       await fs.access(outputFile, fs.constants.R_OK);
       if (!args["force"]) {
@@ -68,16 +66,18 @@ task("create:genesis")
       console.log("generating genesis");
     }
 
-    console.log(process.cwd());
-    try {
+    if (!args["param"]) {
       const tsFilePath = `./genesis/${networkName}.ts`;
       console.log("try to compile ts config", tsFilePath);
-      await fs.access(`${tsFilePath}`);
-      await $(`npx ts-node ${tsFilePath}`);
-      console.log("compile config successed");
-    } catch (err) {
-      console.log("skip to compile ts config due to", err);
+      await fs
+        .access(tsFilePath, fs.constants.R_OK)
+        .then(() => $(`npx ts-node ${tsFilePath}`))
+        .then(() => console.log("compile config successed"))
+        .catch((err) => console.log("skip to compile ts config due to", err));
     }
+
+    const paramFilePath =
+      args["param"] || `./genesis/${networkName}-config.json`;
 
     const params = await readJson<GenesisParam>(paramFilePath);
     const goatToken = await DeployGoatToken(hre, params.GoatToken);
@@ -132,11 +132,6 @@ task("create:genesis")
         storage: state.storage,
       };
 
-      if (debugMode) {
-        console.log("state of", address);
-        print(state);
-      }
-
       switch (address.toLowerCase()) {
         case goatToken.toLowerCase():
           console.log("Add genesis state for goat token from", address);
@@ -163,11 +158,11 @@ task("create:genesis")
           gcStates[trim0xPrefix(PredployedAddress.relayer)] = stv;
           break;
         case locking.toLowerCase():
-          console.log("Add genesis state for locking from", address);
+          console.log("Add genesis state for Locking from", address);
           if (params.Locking.gas) {
             console.log("!!!!!!!!!!!");
             console.warn(
-              "Sending gas revenue to regtest Locking contract",
+              "Sending gas revenue to Locking contract",
               params.Locking.gas,
             );
             console.log("!!!!!!!!!!!");
