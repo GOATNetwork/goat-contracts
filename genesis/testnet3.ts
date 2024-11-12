@@ -36,7 +36,7 @@ const param: Param = {
   },
   WrappedBitcoin: {},
   Relayer: {
-    owner: "TODO",
+    owner: "0xF0c9583e7004BdA697666B45b225D59f9cc636B9",
     voters: [
       // ZKM
       {
