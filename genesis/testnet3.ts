@@ -37,7 +37,32 @@ const param: Param = {
   WrappedBitcoin: {},
   Relayer: {
     owner: "TODO",
-    voters: [],
+    voters: [
+      // ZKM
+      {
+        address: "0x3ae5b74dddd0c58afaa2cefa8b3ef3f35c2d6bb7",
+        txKey:
+          "0273f4f0b6f5937e049c7e2127e889552bd73f3162a023badc2e9f1eb9be34d072",
+        voteKey:
+          "ae7cdeb2d8e7c92f16f57f307cd6785f5bc87456a6d7166e67ce5d6a4910d5dc2af93a7c156f011df20afbbb4e71f9b90c4efeb704d4d7abc75a21daf8b298bf182a0fca536cf41f0e8a8ce1a0e572d6d130ef413157ebad7b1e3f80e5cbe993",
+      },
+      // Goat
+      {
+        address: "0xffe89dfe907a8dfdafdb48dffbae86445b02a93e",
+        txKey:
+          "028e457f6633f1bedb9f0675a97593a1dec5828e03c27e4c3e9465501fb5a63aa9",
+        voteKey:
+          "9792038c43e00d6c057c9aa82c0b1942849ea9bb68da2ec30bdb6effcec1c631d530a92dcfc3dcf50c8cd7f9bfb020e80c82bf732ca8d55e739df1337db8b499d3c544630139ad5663f0e55750823eb32288ebc2d32a890b6769f7979d2148c5",
+      },
+      // Metis
+      {
+        address: "0xac838ac0bea4f04f208c2f5331c7180be38630bf",
+        txKey:
+          "029b83b66f6003a704bc745de799640ed36feeae15712a4f6f53c2609694dd7edd",
+        voteKey:
+          "829630516367486cfb9b97b9614caab53e9e526a549dc5bf079867dffe19883ee610a5012f59bb7306daf37cf094e8360b910d24cbd1347cd7d0d4375a335bdb24b77522102873d51838ff7aaeb0eb19a15d30773c114312c61a40d94e2a4515",
+      },
+    ],
   },
   Locking: {
     strict: true,
@@ -69,7 +94,7 @@ const param: Param = {
           "0x7c230140285c2e7f1f4496287c95998232094fbae7ab07acb578cbea9f5da22d5a0df5f243e042c76ac05fcc89cbab48567a0e757eee26c557b3189f6aee36de01",
         validator: "0x70cce9b7fb446d4ccf793c8cbc12dbef99a10f83",
       },
-      // GoatNetwork
+      // Goat
       {
         owner: "0x7d9fb1017422e8a31fe0010c31650c9932fac1a1",
         pubkey:
