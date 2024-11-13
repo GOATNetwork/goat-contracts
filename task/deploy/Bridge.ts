@@ -25,9 +25,6 @@ export const deploy = async (
     if (deposit.txid.startsWith("0x")) {
       throw new Error(`txid has 0x prefix`);
     }
-    if (!Number.isInteger(deposit.satoshi)) {
-      throw new Error(`amount is not integer`);
-    }
     const txid = Buffer.from(deposit.txid, "hex").reverse();
     const amount = SATOSHI * BigInt(deposit.satoshi);
     await contract
