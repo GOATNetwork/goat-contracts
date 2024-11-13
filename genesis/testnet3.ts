@@ -92,7 +92,7 @@ const param: Param = {
     tokens: [
       {
         address: BitcoinToken,
-        weight: 12000,
+        weight: 120000,
         limit: toWei(800),
         threshold: toWei(2),
       },
