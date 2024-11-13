@@ -33,21 +33,21 @@ const param: Param = {
         txid: "f59b33b7f62e7b32ec9a79923ad6e958f8a494f1a7f544ffb07f41880fa9c974",
         txout: 0,
         address: "0x25877253d48d0386fe5655522a1b04425220ebf7",
-        satoshi: Number(toSatoshi(2)),
+        satoshi: toSatoshi(2),
       },
       // ZKM
       {
         txid: "d7c68a9919442e9d054f145cf4da42a7e75edb78b53bd5b0df790d79265cc20a",
         txout: 0,
         address: "0x4f42539e37f7ec121007d2f0e43866985f8534b0",
-        satoshi: Number(toSatoshi(2)),
+        satoshi: toSatoshi(2),
       },
       // Goat
       {
         txid: "aeb857f055229861f6694db02fb55f4de907594292ced474a2f86e00f237adda",
         txout: 0,
         address: "0x7d9fb1017422e8a31fe0010c31650c9932fac1a1",
-        satoshi: Number(toSatoshi(2)),
+        satoshi: toSatoshi(2),
       },
     ],
   },

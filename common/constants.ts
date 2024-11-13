@@ -21,3 +21,6 @@ export function sortTokenAddress(a: string, b: string): number {
   }
   return 1;
 }
+
+// 1 Satoshi = 10 gwei
+export const SATOSHI = BigInt(1e10);

@@ -65,7 +65,7 @@ export interface BridgeParam {
     txid: string;
     txout: number;
     address: string;
-    satoshi: number;
+    satoshi: number | string;
   }>; // It's used for initial deposit for validators
 }
 

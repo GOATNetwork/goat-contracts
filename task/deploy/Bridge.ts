@@ -1,5 +1,5 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { Executors } from "../../common/constants";
+import { Executors, SATOSHI } from "../../common/constants";
 import { Bridge } from "../../typechain-types";
 import { BridgeParam } from "./param";
 
@@ -29,7 +29,7 @@ export const deploy = async (
       throw new Error(`amount is not integer`);
     }
     const txid = Buffer.from(deposit.txid, "hex").reverse();
-    const amount = BigInt(1e10) * BigInt(deposit.satoshi);
+    const amount = SATOSHI * BigInt(deposit.satoshi);
     await contract
       .connect(relayer)
       .deposit(txid, deposit.txout, deposit.address, amount, 0);
@@ -46,7 +46,7 @@ export const deploy = async (
     );
     await contract.setDepositTax(
       BigInt(param.depositTaxBP),
-      BigInt(param.maxDepositTaxInSat) * BigInt(1e10),
+      BigInt(param.maxDepositTaxInSat) * SATOSHI,
     );
   }
 
@@ -60,7 +60,7 @@ export const deploy = async (
     );
     await contract.setWithdrawalTax(
       BigInt(param.withdrawalTaxBP),
-      BigInt(param.maxWithdrawalTaxInSat) * BigInt(1e10),
+      BigInt(param.maxWithdrawalTaxInSat) * SATOSHI,
     );
   }
 
@@ -70,13 +70,13 @@ export const deploy = async (
       "value",
       param.minWithdrawalInSat,
     );
-    const value = BigInt(param.minWithdrawalInSat) * BigInt(1e10);
+    const value = BigInt(param.minWithdrawalInSat) * SATOSHI;
     await contract.setMinWithdrawal(value);
   }
 
   if (param.minDepositInSat) {
     console.log("Set bridge min deposit value", "value", param.minDepositInSat);
-    const value = BigInt(param.minDepositInSat) * BigInt(1e10);
+    const value = BigInt(param.minDepositInSat) * SATOSHI;
     await contract.setMinDeposit(value);
   }
 
