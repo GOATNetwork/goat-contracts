@@ -49,7 +49,7 @@ export interface LockingParam {
   allowList: string[]; // the validator address list is allowed to create validator when network is running
 }
 
-// NB: the InSat suffix means that you should satoshi instead of wei
+// NB: the InSat suffix means that you should use satoshi instead of wei
 
 export interface BridgeParam {
   owner: string;
@@ -65,8 +65,8 @@ export interface BridgeParam {
     txid: string;
     txout: number;
     address: string;
-    satoshi: number;
-  }>;
+    satoshi: number | string;
+  }>; // It's used for initial deposit for validators
 }
 
 export interface ConsensusParam {

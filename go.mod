@@ -4,7 +4,7 @@ go 1.23.3
 
 require github.com/ethereum/go-ethereum v1.14.11
 
-replace github.com/ethereum/go-ethereum => github.com/GOATNetwork/goat-geth v0.0.0-20241108001249-f8970d7aea77
+replace github.com/ethereum/go-ethereum => github.com/GOATNetwork/goat-geth v0.1.0
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
