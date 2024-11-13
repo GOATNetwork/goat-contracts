@@ -66,7 +66,7 @@ export interface BridgeParam {
     txout: number;
     address: string;
     satoshi: number;
-  }>;
+  }>; // It's used for initial deposit for validators
 }
 
 export interface ConsensusParam {
