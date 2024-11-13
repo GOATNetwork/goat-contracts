@@ -1,7 +1,7 @@
 github.com/DataDog/zstd v1.4.5 h1:EndNeuB0l9syBZhut0wns3gV1hL8zX8LIu6ZiVHWLIQ=
 github.com/DataDog/zstd v1.4.5/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
-github.com/GOATNetwork/goat-geth v0.0.0-20241108001249-f8970d7aea77 h1:qY0I+9vBLvgEF+ruIiwzOvhcgv0Hk7t9JhxuGxJQFJA=
-github.com/GOATNetwork/goat-geth v0.0.0-20241108001249-f8970d7aea77/go.mod h1:3hFfXPoLxRMg3VKcGQCDF+wxU3Oo+LrmkFbcTZe53cI=
+github.com/GOATNetwork/goat-geth v0.1.0 h1:JbJnphXNNmEE5YoQpJEoDC8A6x+nnLyUgn7pLjlJRr0=
+github.com/GOATNetwork/goat-geth v0.1.0/go.mod h1:3hFfXPoLxRMg3VKcGQCDF+wxU3Oo+LrmkFbcTZe53cI=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDOSA=
