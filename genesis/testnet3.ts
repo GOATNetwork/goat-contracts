@@ -120,10 +120,10 @@ const param: Param = {
       {
         owner: "0x7d9fb1017422e8a31fe0010c31650c9932fac1a1",
         pubkey:
-          "0xeb92b2c84aface2581908a18d7276d6858201a8c98e8eb483634d0cb7d5dcbb40227639aa37dd7b90ccad4320ef32e4beac7fc045307a856aac1ad3437351de5",
+          "0xa4d546d0c3e4a10e88408de3556f396a866c99cc1ce149156fb4e136fe68ac6eb49aa812818de92aa5c2c8998e6fc1be3ac1786f174813edd0ef01cb53ff3712",
         signature:
-          "0x63cb88f727147ebdf87b19891022970a30819e90493f6e5b4780552e0f1a60343bb1ce2fe54a1596faac4a310edad588b0613f141bcbeb4bbad952d268b5a10801",
-        validator: "0xfa398080fafddd6c770de7fce4e0dc7effbb6bce",
+          "0xc0486f2f529ada675467eefb9530a61535a6f17d90d59f5c9c53bec704d7ee1c1084514b37fcae613aad8dc6e33fba32290a8435001bc4efbb828b19aacbd90401",
+        validator: "0x9104a28cdf6a00a546a1c365007ebf017b0645af",
       },
     ],
     allowList: [],
