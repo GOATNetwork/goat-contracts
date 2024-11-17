@@ -3,6 +3,26 @@ import { PredployedAddress } from "../common/constants";
 import { Param } from "../task/deploy/param";
 import { BitcoinToken, dayToHours, toSatoshi, toWei } from "./utils";
 
+/**
+npx hardhat verify --network testnet3 --contract contracts/bitcoin/WrappedBitcoin.sol:WrappedGoatBitcoin 0xbC10000000000000000000000000000000000000 
+
+npx hardhat verify --network testnet3 --contract contracts/goat/GoatDAO.sol:GoatDAO 0xBC10000000000000000000000000000000000Da0 0xbC10000000000000000000000000000000000004
+
+npx hardhat verify --network testnet3 --contract contracts/bridge/Bridge.sol:Bridge 0xBC10000000000000000000000000000000000003 0x1d13bb7a0Ed6a050e72dfE021fd639E0aeaB27c3 0x47543356
+
+npx hardhat verify --network testnet3 --contract contracts/bitcoin/Bitcoin.sol:Bitcoin 0xbc10000000000000000000000000000000000005 3433647 0xefb879bdda4c62a568ef5354d9ebf705d748d257d93cacc9a289440100000000 testnet3
+
+npx hardhat verify --network testnet3 --contract contracts/goat/GoatFoundation.sol:GoatFoundation 0xBc10000000000000000000000000000000000002 0x360268e8C47b01Ea615bBD8b682Ee69608304603
+
+npx hardhat verify --network testnet3 --contract contracts/locking/Locking.sol:Locking 0xbC10000000000000000000000000000000000004 0x5E87b3D603818159C71dBB840d68662e9cE19321 0xbC10000000000000000000000000000000000001 0xa56fa5b99019a5c8000000
+
+npx hardhat verify --network testnet3 --contract contracts/goat/GoatToken.sol:GoatToken 0xbC10000000000000000000000000000000000001 0x15Bc198AAEA57Cf23BfE9c076F574895C9cd8091
+
+npx hardhat verify --network testnet3 --contract contracts/locking/LockingTokenFactory.sol:LockingTokenFactory 0xBc10000000000000000000000000000000000007
+
+npx hardhat verify --network testnet3 --contract contracts/relayer/Relayer.sol:Relayer 0xBC10000000000000000000000000000000000006 0xF0c9583e7004BdA697666B45b225D59f9cc636B9
+ */
+
 const param: Param = {
   GoatToken: {
     owner: "0x15Bc198AAEA57Cf23BfE9c076F574895C9cd8091",

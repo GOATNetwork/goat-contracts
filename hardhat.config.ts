@@ -23,6 +23,26 @@ const config: HardhatUserConfig = {
       url: "http://localhost:8545",
       accounts: "remote",
     },
+    testnet3: {
+      url: "https://rpc.testnet3.goat.network",
+      accounts: [],
+    },
+  },
+  etherscan: {
+    apiKey: "placeholder",
+    customChains: [
+      {
+        network: "testnet3",
+        chainId: 48816,
+        urls: {
+          apiURL: "https://explorer.testnet3.goat.network/api",
+          browserURL: "https://explorer.testnet3.goat.network",
+        },
+      },
+    ],
+  },
+  sourcify: {
+    enabled: false,
   },
   gasReporter: {
     enabled: process.env.GAS_REPORT === "true",
