@@ -1,10 +1,11 @@
 import { HardhatUserConfig, task } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-solhint";
+import "./task";
 
 import { mockEvent } from "./scripts/mock_event";
 import * as path from "path";
-import * as fs from 'fs';
+import * as fs from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { parseDataEmbedScript } from "btc-script-factory/lib/covenantV1/bridge.script";
@@ -12,37 +13,37 @@ import { parseDataEmbedScript } from "btc-script-factory/lib/covenantV1/bridge.s
 const execAsync = promisify(exec);
 
 task("mock-event", "A sample task with params")
-  .addPositionalParam("action")
-  .setAction(async (taskArgs, hre) => {
-    console.log(taskArgs);
-    await mockEvent(taskArgs.action, hre);
-  });
+.addPositionalParam("action")
+.setAction(async (taskArgs, hre) => {
+  console.log(taskArgs);
+  await mockEvent(taskArgs.action, hre);
+});
 
 // npx hardhat init-params --network localhost
 task("init-params", "Initialize contract parameters using GoatFoundation account")
-  .setAction(async (taskArgs, hre) => {
-    const { ethers } = hre;
-    const [_, goatFoundation] = await ethers.getSigners();
+.setAction(async (taskArgs, hre) => {
+  const { ethers } = hre;
+  const [_, goatFoundation] = await ethers.getSigners();
 
-    const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
-    const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
-    const contractAddress = testnetConfig.Bridge;
+  const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
+  const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, "utf8"));
+  const contractAddress = testnetConfig.Bridge;
 
-    const bridge = await ethers.getContractAt("Bridge", contractAddress, goatFoundation);
+  const bridge = await ethers.getContractAt("Bridge", contractAddress, goatFoundation);
 
-    console.log("Setting rate limit...");
-    await (await bridge.setRateLimit(1)).wait();
-    console.log("Setting withdrawal tax...");
-    await (await bridge.setWithdrawalTax(20, 1000000)).wait();
-    console.log("Setting deposit tax...");
-    await (await bridge.setDepositTax(50, 2000000)).wait();
+  console.log("Setting rate limit...");
+  await (await bridge.setRateLimit(1)).wait();
+  console.log("Setting withdrawal tax...");
+  await (await bridge.setWithdrawalTax(20, 1000000)).wait();
+  console.log("Setting deposit tax...");
+  await (await bridge.setDepositTax(50, 2000000)).wait();
 
-    console.log("All parameters have been set successfully!");
-  });
+  console.log("All parameters have been set successfully!");
+});
 
 
 // Helper function to fetch transaction details from a Bitcoin node
-async function fetchBtcTransaction(txid: string) {
+async function fetchBtcTransaction(txid : string) {
   const command = `curl --user 111111:111111 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getrawtransaction", "params": ["${txid}", true]}' -H 'content-type: text/plain;' http://ec2-3-15-141-150.us-east-2.compute.amazonaws.com:18443`;
   console.log(command);
   try {
@@ -68,14 +69,14 @@ task("deposit", "Deposits funds to a specified address")
   const amount = BigInt(depositVout.value * 1e18); // Convert BTC to ETH gwei
   const scriptHex = embedVout.scriptPubKey.hex;
 
-  const { evmAddress } = parseDataEmbedScript(Buffer.from(scriptHex, 'hex'));
+  const { evmAddress } = parseDataEmbedScript(Buffer.from(scriptHex, "hex"));
   const target = `0x${evmAddress.toString("hex")}`;
 
   const ethers = hre.ethers;
-  const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
-  const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+  const abiPath = path.join(__dirname, "./artifacts/contracts/bridge/Bridge.sol/Bridge.json");
+  const { abi } = JSON.parse(fs.readFileSync(abiPath, "utf8"));
   const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
-  const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
+  const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, "utf8"));
   const contractAddress = testnetConfig.Bridge;
 
   const [relayer] = await ethers.getSigners();
@@ -83,7 +84,7 @@ task("deposit", "Deposits funds to a specified address")
   const bridge = new ethers.Contract(
     contractAddress,
     abi,
-    relayer
+    relayer,
   );
 
   console.log(`Depositing to address: ${target}`);
@@ -92,7 +93,7 @@ task("deposit", "Deposits funds to a specified address")
       `0x${txid}`, // Ensure the txid is a string formatted as bytes32
       txout,
       target,
-      amount
+      amount,
     );
     await txResponse.wait();
     console.log("Deposit successful");
@@ -116,10 +117,10 @@ task("paid", "Mark a transaction as paid")
   const amount = BigInt(paidVout.value * 1e18);
 
   const ethers = hre.ethers;
-  const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
-  const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+  const abiPath = path.join(__dirname, "./artifacts/contracts/bridge/Bridge.sol/Bridge.json");
+  const { abi } = JSON.parse(fs.readFileSync(abiPath, "utf8"));
   const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
-  const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
+  const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, "utf8"));
   const contractAddress = testnetConfig.Bridge;
 
   const [relayer] = await ethers.getSigners();
@@ -127,7 +128,7 @@ task("paid", "Mark a transaction as paid")
   const bridge = new ethers.Contract(
     contractAddress,
     abi,
-    relayer
+    relayer,
   );
 
   const { withdrawalTaxBP, maxWithdrawalTax } = await bridge.param();
@@ -150,7 +151,7 @@ task("paid", "Mark a transaction as paid")
       wid,
       `0x${txid}`,
       txout,
-      received
+      received,
     );
     await txResponse.wait();
     console.log("Paid successful");
@@ -161,66 +162,66 @@ task("paid", "Mark a transaction as paid")
 
 // npx hardhat cancel --network localhost --wid <wid>
 task("cancel", "Cancel a transaction")
-  .addParam("wid", "The withdraw ID of the withdraw transaction")
-  .setAction(async ({ wid }, hre) => {
-    const ethers = hre.ethers;
-    const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
-    const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
-    const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
-    const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
-    const contractAddress = testnetConfig.Bridge;
+.addParam("wid", "The withdraw ID of the withdraw transaction")
+.setAction(async ({ wid }, hre) => {
+  const ethers = hre.ethers;
+  const abiPath = path.join(__dirname, "./artifacts/contracts/bridge/Bridge.sol/Bridge.json");
+  const { abi } = JSON.parse(fs.readFileSync(abiPath, "utf8"));
+  const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
+  const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, "utf8"));
+  const contractAddress = testnetConfig.Bridge;
 
-    const [relayer] = await ethers.getSigners();
+  const [relayer] = await ethers.getSigners();
 
-    const bridge = new ethers.Contract(
-      contractAddress,
-      abi,
-      relayer
-    );
+  const bridge = new ethers.Contract(
+    contractAddress,
+    abi,
+    relayer,
+  );
 
-    console.log(`Cancel transaction with wid: ${wid}`);
-    try {
-      const txResponse = await bridge.cancel2(wid);
-      await txResponse.wait();
-      console.log("Cancel successful");
-    } catch (error) {
-      console.error("Cancel failed:", error);
-    }
-  });
+  console.log(`Cancel transaction with wid: ${wid}`);
+  try {
+    const txResponse = await bridge.cancel2(wid);
+    await txResponse.wait();
+    console.log("Cancel successful");
+  } catch (error) {
+    console.error("Cancel failed:", error);
+  }
+});
 
 // npx hardhat refund --network localhost --wid <wid>
 task("refund", "Refund a transaction")
-  .addParam("wid", "The withdraw ID of the withdraw transaction")
-  .setAction(async ({ wid }, hre) => {
-    const ethers = hre.ethers;
-    const abiPath = path.join(__dirname, './artifacts/contracts/bridge/Bridge.sol/Bridge.json');
-    const { abi } = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
-    const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
-    const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, 'utf8'));
-    const contractAddress = testnetConfig.Bridge;
+.addParam("wid", "The withdraw ID of the withdraw transaction")
+.setAction(async ({ wid }, hre) => {
+  const ethers = hre.ethers;
+  const abiPath = path.join(__dirname, "./artifacts/contracts/bridge/Bridge.sol/Bridge.json");
+  const { abi } = JSON.parse(fs.readFileSync(abiPath, "utf8"));
+  const testnetConfigPath = path.join(__dirname, `./subgraph/${hre.network.name}.json`);
+  const testnetConfig = JSON.parse(fs.readFileSync(testnetConfigPath, "utf8"));
+  const contractAddress = testnetConfig.Bridge;
 
-    const [owner] = await ethers.getSigners();
+  const [owner] = await ethers.getSigners();
 
-    const bridge = new ethers.Contract(
-      contractAddress,
-      abi,
-      owner
-    );
+  const bridge = new ethers.Contract(
+    contractAddress,
+    abi,
+    owner,
+  );
 
-    console.log(`Refund transaction with wid: ${wid}`);
-    try {
-      const txResponse = await bridge.refund(wid);
-      await txResponse.wait();
-      console.log("Refund successful");
-    } catch (error) {
-      console.error("Refund failed:", error);
-    }
-  });
+  console.log(`Refund transaction with wid: ${wid}`);
+  try {
+    const txResponse = await bridge.refund(wid);
+    await txResponse.wait();
+    console.log("Refund successful");
+  } catch (error) {
+    console.error("Refund failed:", error);
+  }
+});
 
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.26",
+    version: "0.8.27",
     settings: {
       optimizer: {
         enabled: true,
@@ -233,8 +234,15 @@ const config: HardhatUserConfig = {
       },
     },
   },
-
   networks: {
+    genesis: {
+      url: "http://localhost:8545",
+      accounts: "remote",
+    },
+    testnet3: {
+      url: "https://rpc.testnet3.goat.network",
+      accounts: [],
+    },
     localhost: {
       url: "http://127.0.0.1:8545",
       chainId: 3456,
@@ -248,13 +256,29 @@ const config: HardhatUserConfig = {
       url: "http://3.15.141.150:8545",
       chainId: 2345,
       accounts: [
-        '0x0fdce9a033c223590e32ffb24e48d8c66bef942464f7e593925c5317fff0d71e',  // replayer and owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'   // GoatFoundation 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-      ]
-    }
+        "0x0fdce9a033c223590e32ffb24e48d8c66bef942464f7e593925c5317fff0d71e", // replayer and owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // GoatFoundation 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+      ],
+    },
+  },
+  etherscan: {
+    apiKey: "placeholder",
+    customChains: [
+      {
+        network: "testnet3",
+        chainId: 48816,
+        urls: {
+          apiURL: "https://explorer.testnet3.goat.network/api",
+          browserURL: "https://explorer.testnet3.goat.network",
+        },
+      },
+    ],
+  },
+  sourcify: {
+    enabled: false,
   },
   gasReporter: {
-    enabled: true,
+    enabled: process.env.GAS_REPORT === "true",
   },
 };
 

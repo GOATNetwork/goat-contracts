@@ -2,9 +2,12 @@ name: test
 
 on:
   push:
-    branches: [main]
+    branches:
+      - "*"
   pull_request:
-    branches: [main]
+    branches:
+      - "main"
+  workflow_dispatch:
 
 jobs:
   test:
@@ -18,4 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run lint
+      - run: npm run fmt:check
       - run: npm test
+        env:
+          GAS_REPORT: "true"

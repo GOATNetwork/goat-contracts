@@ -1,0 +1,14 @@
+name: genesis
+
+services:
+  foundry:
+    image: ghcr.io/foundry-rs/foundry:latest
+    platform: linux/amd64
+    entrypoint:
+      - anvil
+      - --host=0.0.0.0
+      - --auto-impersonate
+      - --no-request-size-limit
+      - --chain-id=48815
+    ports:
+      - 8545:8545

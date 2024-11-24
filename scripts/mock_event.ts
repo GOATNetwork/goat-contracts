@@ -2,8 +2,6 @@ import { Executors } from "../test/constant";
 
 const ethers = require("ethers");
 //import { HardhatUserConfig } from "hardhat/config";
-import { task } from "hardhat/config";
-import yargs from "yargs/yargs";
 
 const initBridge = async (hre: any): Promise<{ bridge : ethers.Contract, signer : ethers.Wallet }> => {
 	console.log(hre.network);

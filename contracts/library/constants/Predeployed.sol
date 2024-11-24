@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache 2.0
 pragma solidity ^0.8.24;
 
 library PreDeployedAddresses {
-    address internal constant WrappedBitcoin =
+    address internal constant WrappedGoatBitcoin =
         0xbC10000000000000000000000000000000000000;
 
     address internal constant GoatDAO =
@@ -22,4 +22,10 @@ library PreDeployedAddresses {
 
     address internal constant BitcoinBlocks =
         0xbc10000000000000000000000000000000000005;
+
+    address internal constant Relayer =
+        0xBC10000000000000000000000000000000000006;
+
+    address internal constant LockingTokenFactory =
+        0xBc10000000000000000000000000000000000007;
 }
