@@ -9,6 +9,8 @@ import { ethers } from "hardhat";
 import { Executors, PredployedAddress } from "../common/constants";
 import { Bridge } from "../typechain-types";
 
+const MaxBp = BigInt(1e4);
+
 describe("Bridge", async () => {
   const addr1 =
     "bc1qen5kv3c0epd9yfqvu2q059qsjpwu9hdjywx2v9p5p9l8msxn88fs9y5kx6";
@@ -101,10 +103,6 @@ describe("Bridge", async () => {
         bridge,
         "InvalidTax",
       );
-      await expect(bridge.setDepositTax(1, 0)).revertedWithCustomError(
-        bridge,
-        "InvalidTax",
-      );
       await expect(bridge.setDepositTax(1, 1e10 + 1)).revertedWithCustomError(
         bridge,
         "InvalidTax",
@@ -152,8 +150,7 @@ describe("Bridge", async () => {
     it("invalid", async () => {
       const { bridge } = await loadFixture(fixture);
 
-      await setNextBlockBaseFeePerGas(0);
-      await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
+      await bridge.setWithdrawalTax(0, 0);
 
       const amount = BigInt(1e10 * 1e5);
       const txPrice = 1n;
@@ -175,18 +172,34 @@ describe("Bridge", async () => {
       );
     });
 
+    it("tax without limit", async () => {
+      const { owner, bridge } = await loadFixture(fixture);
+      const txPrice = 1n;
+      const amount = BigInt(1e18);
+      const taxRate = 20n;
+
+      await bridge.setWithdrawalTax(taxRate, 0);
+      const tax = (amount * taxRate) / MaxBp;
+      await expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
+        .emit(bridge, "Withdraw")
+        .withArgs(0, owner.address, amount - tax, tax, txPrice, addr1);
+    });
+
     it("default tax", async () => {
       const { bridge, owner, relayer } = await loadFixture(fixture);
 
       const param = await bridge.withdrawParam();
       expect(param.taxRate).eq(20n);
-      expect(param.maxTax).eq((BigInt(1e18) * 20n) / BigInt(1e4));
+      expect(param.maxTax).eq(BigInt(1e9) * 2_000_000n);
 
       const wid = 0n;
-      const amount = BigInt(1e18);
+      const amount = BigInt(5e19);
       const txPrice = 1n;
 
-      const tax = (amount * param.taxRate) / BigInt(1e4);
+      let tax = (amount * param.taxRate) / MaxBp;
+      if (tax > param.maxTax) {
+        tax = param.maxTax;
+      }
 
       await expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
         .emit(bridge, "Withdraw")
@@ -257,8 +270,7 @@ describe("Bridge", async () => {
     it("no tax", async () => {
       const { bridge, owner } = await loadFixture(fixture);
 
-      await setNextBlockBaseFeePerGas(0);
-      await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
+      await bridge.setWithdrawalTax(0, 0);
 
       const amount = BigInt(1e18);
       const txPrice = 1n;
@@ -278,8 +290,7 @@ describe("Bridge", async () => {
     it("no tax but dust", async () => {
       const { bridge, owner } = await loadFixture(fixture);
 
-      await setNextBlockBaseFeePerGas(0);
-      await bridge.setWithdrawalTax(0, 0, { gasPrice: 0 });
+      await bridge.setWithdrawalTax(0, 0);
 
       const dust = 100n;
       const amount = BigInt(1e18) + dust;
@@ -424,10 +435,6 @@ describe("Bridge", async () => {
         .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
         .withArgs(others[0]);
       await expect(bridge.setWithdrawalTax(0, 1)).revertedWithCustomError(
-        bridge,
-        "InvalidTax",
-      );
-      await expect(bridge.setWithdrawalTax(1, 0)).revertedWithCustomError(
         bridge,
         "InvalidTax",
       );
