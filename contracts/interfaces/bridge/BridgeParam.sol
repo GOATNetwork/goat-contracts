@@ -12,14 +12,14 @@ interface IBridgeParam {
         bytes4 prefix; // the OP_RETURN prefix
         uint64 min; // NB: unit is WEI
         uint16 taxRate;
-        uint64 maxTax; // NB: unit is WEI
+        uint64 maxTax; // NB: unit is WEI, zero represents no limit
         uint16 confirmations;
     }
 
     struct WithdrawParam {
         uint64 min; // NB: unit is WEI
         uint16 taxRate;
-        uint64 maxTax; // NB: unit is WEI
+        uint64 maxTax; // NB: unit is WEI, zero represents no limit
     }
 
     error InvalidThreshold();

@@ -51,7 +51,7 @@ contract Bridge is
     ) Ownable(owner) RateLimiter(32, false) {
         depositParam = DepositParam({
             prefix: prefix,
-            min: 100_000 gwei, // 0.0001 btc
+            min: 1_000_000 gwei, // 0.001 btc
             taxRate: 0,
             maxTax: 0,
             confirmations: 6
@@ -124,7 +124,7 @@ contract Bridge is
 
         if (p.taxRate > 0) {
             tax = (amount * p.taxRate) / MAX_BASE_POINT;
-            if (tax > p.maxTax) {
+            if (p.maxTax > 0 && tax > p.maxTax) {
                 tax = p.maxTax;
             }
             amount -= tax;
@@ -298,8 +298,7 @@ contract Bridge is
 
     modifier checkTax(uint16 bp, uint64 max) {
         if (bp > 0) {
-            require(max < 1e18 && max > 0 && max % SATOSHI == 0, InvalidTax());
-            require(bp < MAX_BASE_POINT, InvalidTax());
+            require(max % SATOSHI == 0 && bp < MAX_BASE_POINT, InvalidTax());
         } else {
             require(max == 0, InvalidTax());
         }
