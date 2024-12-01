@@ -99,7 +99,7 @@ describe("Bridge", async () => {
       await expect(bridge.connect(others[0]).setDepositTax(1, 1))
         .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
         .withArgs(others[0]);
-      await expect(bridge.setDepositTax(0, 1)).revertedWithCustomError(
+      await expect(bridge.setDepositTax(101, 1)).revertedWithCustomError(
         bridge,
         "InvalidTax",
       );
@@ -434,7 +434,7 @@ describe("Bridge", async () => {
       await expect(bridge.connect(others[0]).setWithdrawalTax(1, 1))
         .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
         .withArgs(others[0]);
-      await expect(bridge.setWithdrawalTax(0, 1)).revertedWithCustomError(
+      await expect(bridge.setWithdrawalTax(101, 1)).revertedWithCustomError(
         bridge,
         "InvalidTax",
       );
