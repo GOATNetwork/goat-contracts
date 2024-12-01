@@ -297,11 +297,7 @@ contract Bridge is
     }
 
     modifier checkTax(uint16 bp, uint64 max) {
-        if (bp > 0) {
-            require(max % SATOSHI == 0 && bp < MAX_BASE_POINT, InvalidTax());
-        } else {
-            require(max == 0, InvalidTax());
-        }
+        require(max % SATOSHI == 0 && bp < 101, InvalidTax());
         _;
     }
 
