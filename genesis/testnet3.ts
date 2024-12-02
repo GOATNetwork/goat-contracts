@@ -157,6 +157,14 @@ const param: Param = {
     Locking: {
       exitDuration: dayToHours(21),
       unlockDuration: dayToHours(3),
+      downtimeJailDuration: "10800s",
+      maxValidators: 20,
+      signedBlocksWindow: 1200,
+      maxMissedPerWindow: 200,
+      slashFractionDoubleSign: 0.05,
+      slashFractionDowntime: 0.02,
+      halvingInterval: 42048000,
+      initialBlockReward: "2378234400000000000",
     },
   },
 };

@@ -75,8 +75,16 @@ export interface ConsensusParam {
     acceptProposerTimeout: string; // go duration
   };
   Locking: {
-    exitDuration: string; // go duration
     unlockDuration: string; // go duration
+    exitDuration: string; // go duration
+    downtimeJailDuration: string;
+    maxValidators: number;
+    signedBlocksWindow: number;
+    maxMissedPerWindow: number;
+    slashFractionDoubleSign: number;
+    slashFractionDowntime: number;
+    halvingInterval: number;
+    initialBlockReward: string;
   };
   Goat?: {}; // the genesis block header, don't update it manually
 }
