@@ -33,7 +33,10 @@ export const deploy = async (
     await signer.sendTransaction({ to: deposit.address, value: amount });
   }
 
-  if (param.depositTaxBP && param.maxDepositTaxInSat) {
+  if (
+    param.depositTaxBP !== undefined &&
+    param.maxDepositTaxInSat !== undefined
+  ) {
     console.log(
       "Set bridge deposit tax",
       "bp",
@@ -47,7 +50,10 @@ export const deploy = async (
     );
   }
 
-  if (param.withdrawalTaxBP && param.maxWithdrawalTaxInSat) {
+  if (
+    param.withdrawalTaxBP !== undefined &&
+    param.maxWithdrawalTaxInSat !== undefined
+  ) {
     console.log(
       "Set bridge withdrawal tax",
       "bp",
