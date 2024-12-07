@@ -27,6 +27,10 @@ const config: HardhatUserConfig = {
       url: "https://rpc.testnet3.goat.network",
       accounts: [],
     },
+    goat: {
+      url: "https://rpc.goat.network",
+      accounts: [],
+    },
   },
   etherscan: {
     apiKey: "placeholder",
@@ -37,6 +41,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://explorer.testnet3.goat.network/api",
           browserURL: "https://explorer.testnet3.goat.network",
+        },
+      },
+      {
+        network: "goat",
+        chainId: 2345,
+        urls: {
+          apiURL: "https://explorer.goat.network/api",
+          browserURL: "https://explorer.goat.network",
         },
       },
     ],
