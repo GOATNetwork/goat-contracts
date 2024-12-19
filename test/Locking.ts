@@ -510,12 +510,6 @@ describe("Locking", async () => {
       .withArgs(0, 1);
 
     await expect(
-      locking.connect(executor).completeUnlock(0, owner, ethers.ZeroAddress, 1),
-    )
-      .revertedWithCustomError(locking, "ConsensusReentrantCall")
-      .withArgs(0);
-
-    await expect(
       await locking.connect(executor).completeUnlock(1, owner, testToken, 1),
     )
       .emit(locking, "CompleteUnlock")
@@ -588,12 +582,6 @@ describe("Locking", async () => {
     )
       .emit(locking, "DistributeReward")
       .withArgs(0, 100, 1000);
-
-    await expect(
-      locking.connect(executor).distributeReward(0, owner, 100, 1000),
-    )
-      .revertedWithCustomError(locking, "ConsensusReentrantCall")
-      .withArgs(0);
 
     await expect(await locking.unclaimed(owner)).eq(100);
     await expect(await goat.balanceOf(locking)).eq(1000);

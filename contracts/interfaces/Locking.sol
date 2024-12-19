@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 interface ILocking {
-    error ConsensusReentrantCall(uint64);
     error NotConsensusLayer();
 
     error NotValidatorOwner(address expected);

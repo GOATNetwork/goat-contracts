@@ -55,9 +55,6 @@ contract Locking is Ownable, RateLimiter, ILocking {
     // the validator address to allowed to start a locking
     mapping(address validator => bool approved) public approvals;
 
-    // check if the request is complete
-    mapping(uint64 id => bool done) internal requests;
-
     uint64 public constant MAX_WEIGHT = 1e6;
 
     uint256 public constant MAX_TOKEN_SIZE = 8;
@@ -80,10 +77,8 @@ contract Locking is Ownable, RateLimiter, ILocking {
     }
 
     // safety check for consensus layer responses
-    modifier ConsensusGuard(uint64 id) {
+    modifier ConsensusGuard() {
         require(msg.sender == Executor.Locking, NotConsensusLayer());
-        require(!requests[id], ConsensusReentrantCall(id));
-        requests[id] = true;
         _;
     }
 
@@ -243,7 +238,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         address recipient,
         address token,
         uint256 amount
-    ) external override ConsensusGuard(id) {
+    ) external override ConsensusGuard {
         if (token != address(0) && amount > 0) {
             IERC20(token).safeTransfer(recipient, amount);
         }
@@ -300,7 +295,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         address recipient,
         uint256 goat,
         uint256 gasReward
-    ) external override ConsensusGuard(id) {
+    ) external override ConsensusGuard {
         if (remainReward < goat) {
             goat = remainReward;
         }
