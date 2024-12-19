@@ -8,6 +8,10 @@ export interface Param {
   Relayer: RelayerParam;
   Locking: LockingParam;
   Consensus: ConsensusParam;
+  // genesis balances
+  Balances?: {
+    [address: string]: { balance: string | number; nonce?: number };
+  };
 }
 
 export interface GoatFoundationParam {

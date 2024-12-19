@@ -3,6 +3,9 @@ import { PredployedAddress } from "../common/constants";
 import { Param } from "../task/deploy/param";
 import { BitcoinToken, dayToHours, toSatoshi, toWei } from "./utils";
 
+// anvil --auto-impersonate --chain-id=2345
+// npx hardhat create:genesis --force true --network genesis --name mainnet
+
 const param: Param = {
   GoatToken: {
     owner: "0x0d3483F7dE0C401b930A046BA69F6ed75fACaAFc",
@@ -52,9 +55,9 @@ const param: Param = {
     ],
   },
   Bitcoin: {
-    height: 872861,
+    height: 875430,
     network: "mainnet",
-    hash: "00000000000000000000c1958e360f2338fe9ab1fc4a4a25f1cb08e132b9c92e",
+    hash: "0000000000000000000152889d426c654c617e5dc40f0951aa8fcd9e2d68364b",
   },
   WrappedBitcoin: {},
   Relayer: {
@@ -102,28 +105,28 @@ const param: Param = {
       {
         owner: "0x09ccd1cb6be49c131c0dd636c95b4e4f5bc549ad",
         pubkey:
-          "0xeb0881378a4a61f4d27c99460fe4fdf57f9f12423913f037b97f154f481079ada6edaba9d9f219969f5eefdf7af598322f841ad6bb4a1fd85924f32701facb45",
+          "0x9030dc50e99989026ac762131fc9efb03c4ac3ab65cd8201ab025a4f3b6c82b02cb8001723228cf944a7416553b710c9748f48650a717603758799de8dac3a88",
         signature:
-          "0x350d5782a5df5af8371b5157c4230fcb16afe2edbf775f2634700216eaa72f0e51d458706feb0639519d6556a9ba2e741bc6a03dbb1a50aa71f024ebcff3ea5201",
-        validator: "0x3686e1f6afde4a50eecccc05668d5e413eafa7c8",
+          "0xe1404f0612e7ef13e27ff9161648137333e72e7088ab5015383dd2b9a8dcfc281ad5bf7fc2c17a94ed4b03f3e09c66598f30dd41597e0bc2c3dcb262c1291e6a00",
+        validator: "0x762e41e7dd3e0708b6a39f1dec870cd89932ecdc",
       },
       // ZKM
       {
         owner: "0xa3ae64125631f56b1b96b113a79545f4684e67bb",
         pubkey:
-          "0x4c68f191b6b377c3bf55c41e4360a553fae4d74c29bf06a09a130f6db9b2b11dc7084d223289e1653e72170b3f1852bfccff26644576f09b36cb9f2309afcf3b",
+          "0x7884e3b1702ab2c6eaa014d19df08a0fa290d6eefa14534c3c52a17a5f04040e5ac72a39fdc932f284aab0a21677df3820d9af904e608f191d6fd745994c27d1",
         signature:
-          "0x51b6961fde45241b2eb3cab442d1fe6cd42abbe41304ddad4260a1c60d1ab3530b35c64489bd0059ea6cb5b13062c13bfe26b261c54dc1894683ace6fcd313cb00",
-        validator: "0xceec55cccc965b96fba30d7d30efd358956fdaa5",
+          "0x8926a8980165f476df319c0495edeae7e5a425e6b9d21a10245f5e68a588abe8673e8fdf0282612c2c0b204ca84710076ac37616e4e01875e821639cb4d4be7000",
+        validator: "0x57e4aa9111e3899547d51d8f1510878f4a1fe2d6",
       },
       // GOAT Network
       {
         owner: "0x32444c83c841146a92ad936cdd93b93b9898f6b9",
         pubkey:
-          "0x2ecca59df3cb9762d5536809371c2ab3f0ad33242596daf372b6435dd3bc86eb47d2045c6283328f91d282d9d6e8ea78b01032b8aa7651808157164041fa3c31",
+          "0xd8ef2fcd6eb3c9c1afdbaadd387417f945047139410b5ebef2c69d2f9acfddbb4215e9f5323e221c4cb45728ae3623c0d8ca51af33c1550d4511ca5dfba0d8e9",
         signature:
-          "0x956208d7cb07231596e1b27e83e5f945ce1fae11ea200189dd9835478de4d23c5365529a27eb955a79bd21dc3cea0b8e650efd2ded179aa7503a09e2869f703c00",
-        validator: "0x9f0a148b157accfe2b2093aa4a71ee44970b6df7",
+          "0x6c03b38137361f09e3cecc3981ef47eafd8e63d83159924a989a9c3087fb05d144b5179a56897d1dd6a23ea5b06b9a6664212befc3639ab4f392106d8027f81b01",
+        validator: "0xa075e25ad183e70abd35639d8a9df57889a9d733",
       },
     ],
     allowList: [],
@@ -147,9 +150,28 @@ const param: Param = {
       initialBlockReward: "2378234400000000000",
     },
   },
+  // re-genesis (deposit - withdrawal)
+  Balances: {
+    "0x738fe7d89c172239bf456d387ad2c60a79087917": {
+      balance: "2000000000000000",
+    },
+    "0x71a376962aa4a1245325857499324da8ede63c2d": {
+      balance: "46828780000000000",
+      nonce: 2,
+    },
+    "0x2a1087740badcff415faa0b6379f12fa7628d397": {
+      balance: "6000000000000000",
+    },
+    "0x5bb093d8870727b51e1746af83984291f41e8a4b": {
+      balance: "42000000000000000",
+    },
+    "0xbb3da31029cd22bcec9615322c43663741b510fd": {
+      balance: "5000000000000000",
+    },
+  },
 };
 
 writeFileSync(
   `./genesis/${param.Bitcoin.network}-config.json`,
-  JSON.stringify(param, null, "  "),
+  JSON.stringify(param, null, 2),
 );

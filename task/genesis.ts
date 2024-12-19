@@ -47,8 +47,6 @@ task("create:genesis")
   .addParam("name", "network name", "regtest")
   .addParam("force", "force to rewrite", false, types.boolean)
   .addOptionalParam("param", "optional parameter file path")
-  .addOptionalParam("faucet", "faucet address", undefined, types.string)
-  .addOptionalParam("amount", "faucet amount in Ether", 1000, types.float)
   .setAction(async (args, hre) => {
     const networkName = args["name"];
     if (!networkName) {
@@ -99,25 +97,6 @@ task("create:genesis")
     const { chainId } = await hre.ethers.provider.getNetwork();
     console.log("Use chainId", chainId);
     genesis.config.chainId = Number(chainId);
-
-    if (args["faucet"] && args["amount"]) {
-      const facuet = args["faucet"];
-      if (!hre.ethers.isAddress(facuet)) {
-        throw new Error("invalid address: " + facuet);
-      }
-      const amount = hre.ethers.parseEther(String(args["amount"]));
-      console.log("!!!!!!!!!!!");
-      console.warn(
-        "Adding faucet address",
-        facuet,
-        hre.ethers.formatEther(amount),
-      );
-      console.log("!!!!!!!!!!!");
-      genesis.alloc[trim0xPrefix(facuet)] = {
-        balance: "0x" + amount.toString(16),
-        nonce: "0x0",
-      };
-    }
 
     const dump = loadAnvilState(
       await hre.ethers.provider.send("anvil_dumpState"),
@@ -193,7 +172,33 @@ task("create:genesis")
       return obj;
     }, {} as IAccount);
 
-    genesis.alloc = Object.assign({}, genesis.alloc, ordered);
+    const balances = Object.entries(params.Balances || {}).reduce(
+      (prev, [address, { balance, nonce }]) => {
+        console.log(
+          "Add genesis balance to",
+          address,
+          "balance",
+          balance,
+          "nonce",
+          nonce,
+        );
+        let amount = 0n;
+        if (typeof balance === "string" && balance.endsWith("ether")) {
+          amount = hre.ethers.parseEther(balance.slice(0, -5));
+        } else {
+          amount = BigInt(balance);
+        }
+
+        prev[trim0xPrefix(address.toLowerCase())] = {
+          balance: "0x" + amount.toString(16),
+          nonce: "0x" + (nonce || 0).toString(16),
+        };
+        return prev;
+      },
+      {} as IAccount,
+    );
+
+    genesis.alloc = Object.assign(balances, genesis.alloc, ordered);
     console.log("Writing genesis");
     await fs.writeFile(outputFile, JSON.stringify(genesis, null, 2));
     const { stdout } = await $(
