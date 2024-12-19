@@ -52,9 +52,9 @@ const param: Param = {
     ],
   },
   Bitcoin: {
-    height: 872861,
+    height: 875430,
     network: "mainnet",
-    hash: "00000000000000000000c1958e360f2338fe9ab1fc4a4a25f1cb08e132b9c92e",
+    hash: "0000000000000000000152889d426c654c617e5dc40f0951aa8fcd9e2d68364b",
   },
   WrappedBitcoin: {},
   Relayer: {
@@ -147,9 +147,17 @@ const param: Param = {
       initialBlockReward: "2378234400000000000",
     },
   },
+  // balances from bridge's state(deposit - withdrawal)
+  Balances: {
+    "0x738fe7d89c172239bf456d387ad2c60a79087917": "2000000000000000",
+    "0x71a376962aa4a1245325857499324da8ede63c2d": "46828780000000000",
+    "0x2a1087740badcff415faa0b6379f12fa7628d397": "6000000000000000",
+    "0x5bb093d8870727b51e1746af83984291f41e8a4b": "42000000000000000",
+    "0xbb3da31029cd22bcec9615322c43663741b510fd": "5000000000000000",
+  },
 };
 
 writeFileSync(
   `./genesis/${param.Bitcoin.network}-config.json`,
-  JSON.stringify(param, null, "  "),
+  JSON.stringify(param, null, 2),
 );

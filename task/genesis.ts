@@ -193,7 +193,18 @@ task("create:genesis")
       return obj;
     }, {} as IAccount);
 
-    genesis.alloc = Object.assign({}, genesis.alloc, ordered);
+    const balances = Object.entries(params.Balances || {}).reduce(
+      (prev, cur) => {
+        console.log("Add genesis balance", cur[0], "balance", cur[1]);
+        prev[trim0xPrefix(cur[0].toLowerCase())] = {
+          balance: "0x" + BigInt(cur[1]).toString(16),
+        };
+        return prev;
+      },
+      {} as IAccount,
+    );
+
+    genesis.alloc = Object.assign(balances, genesis.alloc, ordered);
     console.log("Writing genesis");
     await fs.writeFile(outputFile, JSON.stringify(genesis, null, 2));
     const { stdout } = await $(
