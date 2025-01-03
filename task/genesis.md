@@ -6,6 +6,7 @@
 - 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02 [EIP-4788](https://eips.ethereum.org/EIPS/eip-4788) Beacon Roots contract
 - 0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed [CreateX](https://github.com/pcaversaccio/createx)
 - 0xcA11bde05977b3631167028862bE2a173976CA11 [Multicall3](https://www.multicall3.com/)
+- 0x000000000022D473030F116dDEE9F6B43aC78BA3 [Permit2](https://github.com/Uniswap/permit2)
 
 # How to create a genesis file
 
@@ -23,7 +24,7 @@ In short, you will have a file named `mynet.ts` in the `genesis` directory if yo
 
 3. Generate
 
-if your chain id is `48815`, you will have the following commands
+if your chain id is `48815`, you can use following commands
 
 ```sh
 anvil --auto-impersonate --chain-id=48815
@@ -33,4 +34,4 @@ anvil --auto-impersonate --chain-id=48815
 npx hardhat create:genesis --network genesis --name mynet
 ```
 
-You will have `mynet.json` in the genesis directory.
+You will see a file `mynet.json` in the genesis directory.
