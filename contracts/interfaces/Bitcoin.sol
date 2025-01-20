@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache 2.0
 
-pragma solidity ^0.8.24;
+pragma solidity =0.8.28;
 
 interface IBitcoin {
     event NewBlockHash(uint256 height);

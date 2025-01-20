@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache 2.0
-pragma solidity ^0.8.24;
+pragma solidity =0.8.28;
 
 interface IRelayer {
     event AddedVoter(address indexed voter, bytes32 keyHash);
