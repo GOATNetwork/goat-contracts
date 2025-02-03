@@ -2,11 +2,11 @@ module github.com/goatnetwork/goat-contract
 
 go 1.23.3
 
-require github.com/ethereum/go-ethereum v1.14.12
+require github.com/ethereum/go-ethereum v1.14.13
 
 // replace github.com/ethereum/go-ethereum => ../goat-geth
 
-replace github.com/ethereum/go-ethereum => github.com/GOATNetwork/goat-geth v0.1.4
+replace github.com/ethereum/go-ethereum => github.com/GOATNetwork/goat-geth v0.2.1
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
