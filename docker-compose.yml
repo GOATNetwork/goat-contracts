@@ -1,7 +1,7 @@
 name: genesis
 
 services:
-  foundry:
+  anvil:
     image: ghcr.io/foundry-rs/foundry:stable
     entrypoint:
       - anvil
@@ -11,3 +11,10 @@ services:
       - --chain-id=48815
     ports:
       - 8545:8545
+
+  gensrv:
+    image: ghcr.io/goatnetwork/geth-gensrv:main
+    build:
+      context: gensrv
+    ports:
+      - 8080:8080

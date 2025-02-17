@@ -20,7 +20,7 @@
     "compile": "hardhat compile",
     "build": "hardhat compile",
     "test": "hardhat test",
-    "pregenesis": "go version && docker compose down && docker compose up -d --wait",
+    "pregenesis": "docker compose down && docker compose up -d --wait",
     "genesis": "hardhat compile && hardhat create:genesis --network genesis --force true",
     "postgenesis": "docker compose down"
   },

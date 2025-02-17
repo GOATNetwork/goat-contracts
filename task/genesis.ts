@@ -47,6 +47,12 @@ task("create:genesis")
   .addParam("name", "network name", "regtest")
   .addParam("force", "force to rewrite", false, types.boolean)
   .addOptionalParam("param", "optional parameter file path")
+  .addOptionalParam(
+    "gensrv",
+    "optional genesis server",
+    "http://localhost:8080",
+    types.string,
+  )
   .setAction(async (args, hre) => {
     const networkName = args["name"];
     if (!networkName) {
@@ -72,6 +78,12 @@ task("create:genesis")
         .then(() => $(`npx ts-node ${tsFilePath}`))
         .then(() => console.log("compile config successed"))
         .catch((err) => console.log("skip to compile ts config due to", err));
+    }
+
+    try {
+      await fetch(`${args["gensrv"]}`).then((res) => res.text());
+    } catch (err) {
+      throw new Error("genesis server is not available: " + err);
     }
 
     const paramFilePath =
@@ -199,10 +211,23 @@ task("create:genesis")
     );
 
     genesis.alloc = Object.assign(balances, genesis.alloc, ordered);
-    console.log("Writing genesis");
+
+    const genResp = await fetch(`${args["gensrv"]}/genesis`, {
+      method: "POST",
+      body: JSON.stringify(genesis),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (genResp.status !== 200) {
+      const err = await genResp.text();
+      throw new Error("genesis server error: " + err);
+    }
+    params.Consensus.Goat = await genResp.json();
+
+    console.log("Writing genesis", outputFile);
     await fs.writeFile(outputFile, JSON.stringify(genesis, null, 2));
-    const { stdout } = await $(
-      `go run ./genesis/main.go -config ${paramFilePath} -genesis ${outputFile}`,
-    );
-    console.log(stdout);
+
+    console.log("Updating parameter file", paramFilePath);
+    await fs.writeFile(paramFilePath, JSON.stringify(params, null, 2));
   });

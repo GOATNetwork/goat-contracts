@@ -1,6 +1,6 @@
-module github.com/goatnetwork/goat-contract
+module github.com/goatnetwork/goat-contract/gensrv
 
-go 1.23.3
+go 1.23
 
 require github.com/ethereum/go-ethereum v1.15.1
 

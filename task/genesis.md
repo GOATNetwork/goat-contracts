@@ -22,13 +22,21 @@ There is an example, please check out [genesis/testnet3.ts](../genesis/testnet3.
 
 In short, you will have a file named `mynet.ts` in the `genesis` directory if your network name is `mynet`
 
-3. Generate
+3. Start anvil server
 
 if your chain id is `48815`, you can use following commands
 
 ```sh
 anvil --auto-impersonate --chain-id=48815
 ```
+
+4. Start genesis server
+
+```sh
+cd gensrv && go run .
+```
+
+5. Generate
 
 ```sh
 npx hardhat create:genesis --network genesis --name mynet
