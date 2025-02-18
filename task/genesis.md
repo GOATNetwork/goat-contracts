@@ -7,6 +7,7 @@
 - 0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed [CreateX](https://github.com/pcaversaccio/createx)
 - 0xcA11bde05977b3631167028862bE2a173976CA11 [Multicall3](https://www.multicall3.com/)
 - 0x000000000022D473030F116dDEE9F6B43aC78BA3 [Permit2](https://github.com/Uniswap/permit2)
+- 0x0000F90827F1C53a10cb7A02335B175320002935 [EIP-2935](https://eips.ethereum.org/EIPS/eip-2935) Serve historical block hashes from state
 
 # How to create a genesis file
 
