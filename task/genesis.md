@@ -11,33 +11,27 @@
 
 # How to create a genesis file
 
-1. Install foundry
+1. Prepare your configuration
 
-https://book.getfoundry.sh/getting-started/installation
-
-by the way, you need to have node lts and the latest go installed as well
-
-2. Prepare your configuration
-
-There is an example, please check out [genesis/testnet3.ts](../genesis/testnet3.ts) for the details
+There is an example, please check out [genesis/mainnet.ts](../genesis/mainnet.ts) for the details
 
 In short, you will have a file named `mynet.ts` in the `genesis` directory if your network name is `mynet`
 
-3. Start anvil server
+2. Start anvil server
 
 if your chain id is `48815`, you can use following commands
 
 ```sh
-anvil --auto-impersonate --chain-id=48815
+docker run --name anvil --rm -p 8545:8545 --entrypoint anvil ghcr.io/foundry-rs/foundry:stable --host=0.0.0.0 --auto-impersonate --chain-id=48815 --no-request-size-limit
 ```
 
-4. Start genesis server
+3. Start genesis server
 
 ```sh
-cd gensrv && go run .
+docker run --name gensrv --rm -p 8080:8080 ghcr.io/goatnetwork/geth-gensrv:main
 ```
 
-5. Generate
+4. Generate
 
 ```sh
 npx hardhat create:genesis --network genesis --name mynet
