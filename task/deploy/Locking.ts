@@ -124,6 +124,11 @@ export const deploy = async (
     await locking.approve(validator);
   }
 
+  if (param.claimable) {
+    console.log("Set claimable");
+    await locking.claimable();
+  }
+
   console.log("Transfer back owner", param.owner);
   await locking.transferOwnership(param.owner);
   return locking.getAddress();

@@ -51,6 +51,7 @@ export interface LockingParam {
   strict?: boolean; // check if the deposit value is consistent with creation threshold
   gas?: string | number; // unit test only
   allowList: string[]; // the validator address list is allowed to create validator when network is running
+  claimable?: boolean; // if true, the validator can claim the reward
 }
 
 // NB: the InSat suffix means that you should use satoshi instead of wei
