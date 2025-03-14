@@ -2,6 +2,7 @@ import { task } from "hardhat/config";
 import "./bridge";
 import "./btcrpc";
 import "./genesis";
+import "./lock";
 import "./relayer";
 
 task("decode-error", "decode error message")
