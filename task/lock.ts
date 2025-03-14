@@ -46,7 +46,7 @@ task("locking:create")
 
     const contract = await hre.ethers.getContractAt(
       "Locking",
-      PredployedAddress.relayer,
+      PredployedAddress.locking,
     );
 
     // check if the validator is approved
