@@ -8,7 +8,7 @@
     "hardhat": "^2.23.0",
     "prettier": "^3.5.3",
     "prettier-plugin-organize-imports": "^4.1.0",
-    "prettier-plugin-solidity": "^1.4.2"
+    "prettier-plugin-solidity": "^2.0.0"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.2.0"
