@@ -2,7 +2,9 @@
 pragma solidity =0.8.28;
 
 import {LockingTokenWrapper} from "./LockingTokenWrapper.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {
+    IERC20Metadata
+} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract LockingTokenFactory {
     event Created(address indexed token, address wrapped);

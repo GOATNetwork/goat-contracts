@@ -3,10 +3,18 @@ pragma solidity =0.8.28;
 
 import {Governor} from "@openzeppelin/contracts/governance/Governor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import {GovernorSettings} from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
-import {GovernorCountingSimple} from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
-import {GovernorVotes} from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
-import {GovernorVotesQuorumFraction} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
+import {
+    GovernorSettings
+} from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
+import {
+    GovernorCountingSimple
+} from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
+import {
+    GovernorVotes
+} from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
+import {
+    GovernorVotesQuorumFraction
+} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 
 contract GoatDAO is
     Governor,
