@@ -9,3 +9,13 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+
+  - package-ecosystem: "gomod"
+    directory: "/gensrv"
+    schedule:
+      interval: "monthly"
+
+  - package-ecosystem: "docker"
+    directory: "/gensrv"
+    schedule:
+      interval: "monthly"
