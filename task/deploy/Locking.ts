@@ -74,12 +74,16 @@ export const deploy = async (
         throw new Error(
           `Deposit value for genesis validator owner ${config.owner} is not equal to threshold ${native.threshold}, got ${balance}`,
         );
-      } else {
-        await signer.sendTransaction({
-          to: config.owner,
-          value: native.threshold,
-        });
       }
+    } else {
+      console.log(
+        "WARN: Add deposit value for genesis validator owner",
+        config.owner,
+      );
+      await signer.sendTransaction({
+        to: config.owner,
+        value: native.threshold,
+      });
     }
 
     // send gas
