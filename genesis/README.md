@@ -38,3 +38,4 @@ You will see a file `mynet.json` in the genesis directory.
 - 0xcA11bde05977b3631167028862bE2a173976CA11 [Multicall3](https://www.multicall3.com/)
 - 0x000000000022D473030F116dDEE9F6B43aC78BA3 [Permit2](https://github.com/Uniswap/permit2)
 - 0xBA11eE51ecC770fC9aCdC6F2ad91528549a071De [EIP-2935](https://eips.ethereum.org/EIPS/eip-2935) Serve historical block hashes from state (**Note: GOAT uses a different address**)
+- 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 [Safe Singleton Factory](https://github.com/safe-global/safe-singleton-factory)
