@@ -2,7 +2,7 @@ module github.com/goatnetwork/goat-contract/gensrv
 
 go 1.24.0
 
-require github.com/ethereum/go-ethereum v1.16.1
+require github.com/ethereum/go-ethereum v1.16.3
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
@@ -14,9 +14,10 @@ require (
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
+	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
-	github.com/ferranbt/fastssz v0.1.2 // indirect
+	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
