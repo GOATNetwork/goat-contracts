@@ -21,6 +21,7 @@ export class JsonrpcClient {
     Accept: "application/json",
     "Content-Type": "application/json",
   };
+  private id = 0;
 
   constructor(url: string, username?: string, password?: string) {
     this.url = new URL(url);
@@ -36,7 +37,7 @@ export class JsonrpcClient {
       headers: this.headers,
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: Math.floor(Math.random() * 1e4),
+        id: this.id++,
         method,
         params: params.filter((v) => v !== undefined),
       } as IJsonRpcRequst),
