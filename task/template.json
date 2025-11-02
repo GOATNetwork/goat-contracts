@@ -17,6 +17,7 @@
     "shanghaiTime": 0,
     "cancunTime": 0,
     "pragueTime": 0,
+    "osakaTime": 0,
     "terminalTotalDifficulty": 0,
     "depositContractAddress": "0xbC10000000000000000000000000000000000004",
     "blobSchedule": {
@@ -29,10 +30,16 @@
         "target": 6,
         "max": 9,
         "baseFeeUpdateFraction": 5007716
+      },
+      "osaka": {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
       }
     },
     "goat": {}
   },
+  "number": "0x0",
   "nonce": "0x0",
   "timestamp": "0x0",
   "extraData": "0x0056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
@@ -40,6 +47,9 @@
   "difficulty": "0x0",
   "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "coinbase": "0x0000000000000000000000000000000000000000",
+  "gasUsed": "0x0",
+  "baseFeePerGas": "0x1",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "alloc": {
     "4e59b44847b379578588920ca78fbf26c0b4956c": {
       "code": "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
@@ -86,9 +96,5 @@
       "balance": "0x0",
       "nonce": "0x1"
     }
-  },
-  "number": "0x0",
-  "gasUsed": "0x0",
-  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "baseFeePerGas": 1
+  }
 }
