@@ -2,9 +2,10 @@ module github.com/goatnetwork/goat-contract/gensrv
 
 go 1.25.0
 
-require github.com/ethereum/go-ethereum v1.16.5
+require github.com/ethereum/go-ethereum v1.16.6
 
 require (
+	github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.13.0 // indirect
 	github.com/bits-and-blooms/bitset v1.24.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
