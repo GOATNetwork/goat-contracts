@@ -121,8 +121,8 @@ export const deploy = async (
   }
 
   if (param.claimable) {
-    console.log("Set claimable");
-    await locking.claimable();
+    console.log("Open claim");
+    await locking.openClaim();
   }
 
   console.log("Transfer back owner", param.owner);
