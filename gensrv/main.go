@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,9 +18,27 @@ import (
 	"github.com/ethereum/go-ethereum/triedb/hashdb"
 )
 
-func gen(r *http.Request) (*types.Header, error) {
+const defaultPort = 8080
+
+func parseListenAddr(args []string) (string, error) {
+	flagSet := flag.NewFlagSet("gensrv", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	port := flagSet.Int("port", defaultPort, "HTTP listen port")
+	if err := flagSet.Parse(args); err != nil {
+		return "", err
+	}
+
+	if *port < 1 || *port > 65535 {
+		return "", fmt.Errorf("invalid port %d: must be in range [1, 65535]", *port)
+	}
+
+	return fmt.Sprintf(":%d", *port), nil
+}
+
+func genFromReader(body io.Reader) (*types.Header, error) {
 	genesis := new(core.Genesis)
-	if err := json.NewDecoder(r.Body).Decode(genesis); err != nil {
+	if err := json.NewDecoder(body).Decode(genesis); err != nil {
 		return nil, fmt.Errorf("invalid genesis request: %w", err)
 	}
 
@@ -35,25 +55,46 @@ func gen(r *http.Request) (*types.Header, error) {
 	return block.Header(), nil
 }
 
+func gen(r *http.Request) (*types.Header, error) {
+	return genFromReader(r.Body)
+}
+
+func genesisHandler(w http.ResponseWriter, r *http.Request) {
+	header, err := gen(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(header)
+}
+
+func pingHandler(w http.ResponseWriter, _ *http.Request) {
+	_, _ = fmt.Fprintf(w, "pong")
+}
+
+func newMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/genesis", genesisHandler)
+	mux.HandleFunc("/", pingHandler)
+	return mux
+}
+
+func newServer(addr string) *http.Server {
+	return &http.Server{Addr: addr, Handler: newMux()}
+}
+
 func main() {
-	server := &http.Server{Addr: ":8080"}
+	addr, err := parseListenAddr(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid CLI args: %v\n", err)
+		os.Exit(2)
+	}
 
-	http.HandleFunc("/genesis", func(w http.ResponseWriter, r *http.Request) {
-		header, err := gen(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(header)
-	})
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintf(w, "pong")
-	})
+	server := newServer(addr)
 
 	go func() {
-		fmt.Println("Starting gensrv on :8080")
+		fmt.Printf("Starting gensrv on %s\n", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("ListenAndServe(): %s\n", err)
 		}
