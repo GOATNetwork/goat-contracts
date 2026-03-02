@@ -24,11 +24,13 @@ func gen(r *http.Request) (*types.Header, error) {
 
 	db := rawdb.NewMemoryDatabase()
 	triedb := triedb.NewDatabase(db, &triedb.Config{Preimages: true, HashDB: hashdb.Defaults})
-	defer triedb.Close()
 
-	block, err := genesis.Commit(db, triedb)
+	block, err := genesis.Commit(db, triedb, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to commit genesis block: %w", err)
+	}
+	if err := triedb.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close trie database: %w", err)
 	}
 	return block.Header(), nil
 }
