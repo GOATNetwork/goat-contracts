@@ -1,10 +1,14 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import { inspect } from "node:util";
-import { WrappedGoatBitcoin } from "../../typechain-types";
 
-export const deploy = async (hre: HardhatRuntimeEnvironment, param: any) => {
+import type { EmptyParam } from "./param.js";
+
+export const deploy = async (
+  hre: HardhatRuntimeEnvironment,
+  param: EmptyParam,
+) => {
   console.log("Deploy WrappedBitcoin with", inspect(param));
-  const factory = await hre.ethers.getContractFactory("WrappedGoatBitcoin");
-  const contract: WrappedGoatBitcoin = await factory.deploy();
-  return contract.getAddress();
+  const { viem } = await hre.network.getOrCreate();
+  const contract = await viem.deployContract("WrappedGoatBitcoin");
+  return contract.address;
 };

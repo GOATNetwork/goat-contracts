@@ -1,89 +1,117 @@
-import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { expect } from "chai";
-import { ethers } from "hardhat";
+import { network } from "hardhat";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { encodeFunctionData, getAddress, parseEther } from "viem";
 
 describe("GoatFoundation", async () => {
-  const receiver = ethers.getAddress(
-    "0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf",
-  );
+  const { viem, networkHelpers } = await network.create();
+  const receiver = getAddress("0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf");
 
   async function fixture() {
-    const [owner, ...others] = await ethers.getSigners();
-    const factory = await ethers.getContractFactory("GoatFoundation");
-    const goatfdn = await factory.deploy(owner);
-
-    const tokenFactory = await ethers.getContractFactory("TestToken");
-    const testToken = await tokenFactory.deploy();
-
-    return {
-      owner,
-      others,
-      goatfdn,
-      testToken,
-    };
+    const [owner, ...others] = await viem.getWalletClients();
+    const goatFoundation = await viem.deployContract("GoatFoundation", [
+      owner.account.address,
+    ]);
+    const testToken = await viem.deployContract("TestToken");
+    return { owner, others, goatFoundation, testToken };
   }
 
   it("transfer", async () => {
-    const { owner, goatfdn, others } = await loadFixture(fixture);
-    const grant = ethers.parseEther("10");
-    await expect(await owner.sendTransaction({ to: goatfdn, value: grant }))
-      .emit(goatfdn, "Donate")
-      .withArgs(owner, grant);
+    const { owner, goatFoundation, others } =
+      await networkHelpers.loadFixture(fixture);
+    const grant = parseEther("10");
+    await viem.assertions.emitWithArgs(
+      owner.sendTransaction({ to: goatFoundation.address, value: grant }),
+      goatFoundation,
+      "Donate",
+      [owner.account.address, grant],
+    );
 
     const amount = 1n;
-    await expect(
-      goatfdn.connect(others[0]).transfer(others[0], amount),
-    ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
-    await expect(await goatfdn.transfer(receiver, amount))
-      .emit(goatfdn, "Transfer")
-      .withArgs(receiver, amount);
-    expect(await ethers.provider.getBalance(receiver)).eq(amount);
+    await viem.assertions.revertWithCustomError(
+      goatFoundation.write.transfer([others[0].account.address, amount], {
+        account: others[0].account,
+      }),
+      goatFoundation,
+      "OwnableUnauthorizedAccount",
+    );
+    await viem.assertions.emitWithArgs(
+      goatFoundation.write.transfer([receiver, amount]),
+      goatFoundation,
+      "Transfer",
+      [receiver, amount],
+    );
+    const publicClient = await viem.getPublicClient();
+    assert.equal(await publicClient.getBalance({ address: receiver }), amount);
   });
 
   it("transfer token", async () => {
-    const { goatfdn, others, testToken } = await loadFixture(fixture);
-
+    const { goatFoundation, others, testToken } =
+      await networkHelpers.loadFixture(fixture);
     const amount = 1n;
-    await testToken.mint(goatfdn, amount);
+    await testToken.write.mint([goatFoundation.address, amount]);
 
-    await expect(
-      goatfdn.connect(others[0]).transferERC20(testToken, receiver, amount),
-    ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
-
-    await expect(await goatfdn.transferERC20(testToken, receiver, amount))
-      .emit(testToken, "Transfer")
-      .withArgs(goatfdn, receiver, amount);
-    expect(await testToken.balanceOf(receiver)).eq(amount);
+    await viem.assertions.revertWithCustomError(
+      goatFoundation.write.transferERC20(
+        [testToken.address, receiver, amount],
+        { account: others[0].account },
+      ),
+      goatFoundation,
+      "OwnableUnauthorizedAccount",
+    );
+    await viem.assertions.emitWithArgs(
+      goatFoundation.write.transferERC20([testToken.address, receiver, amount]),
+      testToken,
+      "Transfer",
+      [goatFoundation.address, receiver, amount],
+    );
+    assert.equal(await testToken.read.balanceOf([receiver]), amount);
   });
 
   it("invoke", async () => {
-    const { owner, goatfdn, others, testToken } = await loadFixture(fixture);
-
+    const { owner, goatFoundation, others, testToken } =
+      await networkHelpers.loadFixture(fixture);
     const number = 100n;
-    const calldata = testToken.interface.encodeFunctionData("setNumber", [
-      number,
-    ]);
+    const calldata = encodeFunctionData({
+      abi: testToken.abi,
+      functionName: "setNumber",
+      args: [number],
+    });
 
-    await expect(goatfdn.invoke(owner, calldata, 0)).revertedWith("!owner");
-
-    await expect(
-      goatfdn.connect(others[0]).invoke(testToken, calldata, 0),
-    ).revertedWithCustomError(goatfdn, "OwnableUnauthorizedAccount");
-
-    await expect(goatfdn.invoke(others[0], calldata, 0))
-      .revertedWithCustomError(goatfdn, "AddressEmptyCode")
-      .withArgs(others[0]);
+    await viem.assertions.revertWith(
+      goatFoundation.write.invoke([owner.account.address, calldata, 0n]),
+      "!owner",
+    );
+    await viem.assertions.revertWithCustomError(
+      goatFoundation.write.invoke([testToken.address, calldata, 0n], {
+        account: others[0].account,
+      }),
+      goatFoundation,
+      "OwnableUnauthorizedAccount",
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      goatFoundation.write.invoke([others[0].account.address, calldata, 0n]),
+      goatFoundation,
+      "AddressEmptyCode",
+      [others[0].account.address],
+    );
 
     const amount = 1n;
+    await goatFoundation.write.invoke([testToken.address, calldata, amount], {
+      value: amount,
+    });
+    await owner.sendTransaction({ to: goatFoundation.address, value: amount });
+    await goatFoundation.write.invoke([testToken.address, calldata, amount]);
 
-    await goatfdn.invoke(testToken, calldata, amount, { value: amount });
-
-    await owner.sendTransaction({ to: goatfdn, value: amount });
-    await goatfdn.invoke(testToken, calldata, amount);
-
-    expect(await testToken.num()).eq(number);
-
-    expect(await ethers.provider.getBalance(goatfdn)).eq(0n);
-    expect(await ethers.provider.getBalance(testToken)).eq(amount * 2n);
+    assert.equal(await testToken.read.num(), number);
+    const publicClient = await viem.getPublicClient();
+    assert.equal(
+      await publicClient.getBalance({ address: goatFoundation.address }),
+      0n,
+    );
+    assert.equal(
+      await publicClient.getBalance({ address: testToken.address }),
+      amount * 2n,
+    );
   });
 });

@@ -1,45 +1,43 @@
-import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { RateLimiterTest } from "../typechain-types";
+import { network } from "hardhat";
+import { describe, it } from "node:test";
 
 describe("RateLimiter", async () => {
+  const { viem, networkHelpers } = await network.create();
+
   async function fixture() {
-    const [owner] = await ethers.getSigners();
-    const factory = await ethers.getContractFactory("RateLimiterTest");
-    const rateLimiter: RateLimiterTest = await factory.deploy();
-    return {
-      owner,
-      rateLimiter,
-    };
+    return { rateLimiter: await viem.deployContract("RateLimiterTest") };
   }
 
   it("pass", async () => {
-    const { rateLimiter } = await loadFixture(fixture);
-    await rateLimiter.pass1();
-    await rateLimiter.pass2();
-    await rateLimiter.pass3();
-    await rateLimiter.pass4();
-    await rateLimiter.pass5();
-    await rateLimiter.pass6();
-    await rateLimiter.pass7();
+    const { rateLimiter } = await networkHelpers.loadFixture(fixture);
+    await rateLimiter.write.pass1();
+    await rateLimiter.write.pass2();
+    await rateLimiter.write.pass3();
+    await rateLimiter.write.pass4();
+    await rateLimiter.write.pass5();
+    await rateLimiter.write.pass6();
+    await rateLimiter.write.pass7();
   });
 
   it("fail", async () => {
-    const { rateLimiter } = await loadFixture(fixture);
-    await expect(rateLimiter.fail1()).revertedWithCustomError(
+    const { rateLimiter } = await networkHelpers.loadFixture(fixture);
+    await viem.assertions.revertWithCustomError(
+      rateLimiter.write.fail1(),
       rateLimiter,
       "TooManyRequest",
     );
-    await expect(rateLimiter.fail2()).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      rateLimiter.write.fail2(),
       rateLimiter,
       "RateLimitExceeded",
     );
-    await expect(rateLimiter.fail3()).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      rateLimiter.write.fail3(),
       rateLimiter,
       "TooManyRequest",
     );
-    await expect(rateLimiter.fail4()).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      rateLimiter.write.fail4(),
       rateLimiter,
       "RateLimitExceeded",
     );

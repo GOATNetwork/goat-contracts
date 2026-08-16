@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
+    "target": "es2023",
+    "lib": ["es2023"],
+    "module": "nodenext",
+    "verbatimModuleSyntax": true,
+    "types": ["node"],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

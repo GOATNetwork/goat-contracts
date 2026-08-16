@@ -1,67 +1,81 @@
-import { task } from "hardhat/config";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import { stdin, stdout } from "node:process";
 import readline from "node:readline/promises";
-import { PredployedAddress } from "../common/constants";
-import { hash160, trimPubKeyPrefix } from "../common/utils";
+import {
+  formatEther,
+  getAddress,
+  getContract,
+  parseAbi,
+  zeroAddress,
+} from "viem";
 
-task("locking:create")
-  .setDescription("Create a new validator")
-  .addParam("validator", "the validator address")
-  .addParam("owner", "the validator owner")
-  .addParam(
-    "pubkey",
-    "the validator pubkey in hex format, which is used to prove the ownership",
-  )
-  .addParam("signature", "the signature for proving the validator's ownership")
-  .setAction(async (args, hre) => {
-    if (!hre.ethers.isAddress(args.validator)) {
-      throw new Error(`validator ${args.validator} is not address`);
-    }
+import { PredployedAddress } from "../common/constants.js";
+import {
+  parseValidatorPublicKey,
+  parseValidatorSignature,
+} from "../common/utils.js";
 
-    // parse the pubkey
-    const uncompressed = trimPubKeyPrefix(
-      hre.ethers.SigningKey.computePublicKey(args.pubkey, false),
+const erc20Abi = parseAbi([
+  "function symbol() view returns (string)",
+  "function balanceOf(address account) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+]);
+
+interface LockingCreateArguments {
+  validator?: string;
+  owner?: string;
+  pubkey?: string;
+  signature?: string;
+}
+
+export async function lockingCreateAction(
+  args: LockingCreateArguments,
+  hre: HardhatRuntimeEnvironment,
+) {
+  if (
+    args.validator === undefined ||
+    args.owner === undefined ||
+    args.pubkey === undefined ||
+    args.signature === undefined
+  ) {
+    throw new Error("validator, owner, pubkey and signature are required");
+  }
+
+  const validator = getAddress(args.validator);
+  const ownerAddress = getAddress(args.owner);
+  const { coordinates, validatorAddress } = parseValidatorPublicKey(
+    args.pubkey,
+  );
+  const signature = parseValidatorSignature(args.signature);
+  if (validatorAddress.toLowerCase() !== validator.toLowerCase()) {
+    throw new Error(
+      `Validator address mismatched: want ${validator} but got ${validatorAddress}`,
     );
-    const pubkey: any = [
-      uncompressed.subarray(0, 32),
-      uncompressed.subarray(32),
-    ];
+  }
 
-    // parse the signature
-    const sig = hre.ethers.Signature.from(args.signature);
-    const validatorPubkey = trimPubKeyPrefix(
-      hre.ethers.SigningKey.computePublicKey(args.pubkey, true),
-    );
-    const validatorAddress = hre.ethers.getAddress(hash160(validatorPubkey));
-    if (validatorAddress.toLowerCase() !== args.validator.toLowerCase()) {
-      throw new Error(
-        `Validator address mismatched: want ${args.validator} bug got ${validatorAddress}`,
-      );
-    }
+  const { viem } = await hre.network.getOrCreate();
+  const [signer] = await viem.getWalletClients();
+  if (signer.account.address.toLowerCase() !== ownerAddress.toLowerCase()) {
+    throw new Error(`owner ${ownerAddress} is not current wallet owner`);
+  }
+  const publicClient = await viem.getPublicClient();
+  const contract = await viem.getContractAt(
+    "Locking",
+    PredployedAddress.locking,
+  );
 
-    const [signer] = await hre.ethers.getSigners();
-    if (signer.address.toLowerCase() !== args.owner.toLowerCase()) {
-      throw new Error(`owner ${args.owner} is not current wallet owner`);
-    }
-
-    const contract = await hre.ethers.getContractAt(
-      "Locking",
-      PredployedAddress.locking,
-    );
-
-    // check if the validator is approved
-    let approved = await contract.approvals(args.validator);
+  let approved = await contract.read.approvals([validator]);
+  if (!approved) {
+    approved = await contract.read.approvals([zeroAddress]);
     if (!approved) {
-      // if the zero address is approved
-      // it means you don't require the approval to create a validator
-      approved = await contract.approvals(hre.ethers.ZeroAddress);
-      if (!approved) {
-        throw new Error("validator not approved");
-      }
+      throw new Error("validator not approved");
     }
+  }
 
-    console.log("I'm sure that my node is fully synced");
-    const prompt = readline.createInterface({ input: stdin, output: stdout });
+  console.log("I'm sure that my node is fully synced");
+  const prompt = readline.createInterface({ input: stdin, output: stdout });
+  try {
     const answer = await prompt.question(
       "Do you want to continue? (Only 'yes' will be accepted to approve) ",
     );
@@ -69,50 +83,59 @@ task("locking:create")
       console.log("Okay, I will exit");
       return;
     }
+  } finally {
+    prompt.close();
+  }
 
-    // check if you have enough balance to create a validator
-    const threshold = await contract.creationThreshold();
-    let native = 0n;
-    for (const { token, amount } of threshold) {
-      // the zero address represents the native token(btc)
-      if (token === hre.ethers.ZeroAddress) {
-        native = amount;
-        const balance = await hre.ethers.provider.getBalance(signer.address);
-        if (balance < amount) {
-          throw new Error(
-            `not enough btc balance: min ${hre.ethers.formatEther(amount)} have ${hre.ethers.formatEther(balance)}`,
-          );
-        }
-      } else {
-        const erc20 = await hre.ethers.getContractAt("ERC20", token);
-        const symbol = await erc20.symbol();
-        const balance = await erc20.balanceOf(signer.address);
-        if (balance < amount) {
-          throw new Error(
-            `not enough ${symbol} balance: min ${hre.ethers.formatEther(amount)} have ${hre.ethers.formatEther(balance)}`,
-          );
-        }
-        // approve the contract to transfer the token
-        const allowance = await erc20.allowance(
-          signer.address,
-          PredployedAddress.relayer,
+  const threshold = await contract.read.creationThreshold();
+  let native = 0n;
+  for (const { token, amount } of threshold) {
+    if (token === zeroAddress) {
+      native = amount;
+      const balance = await publicClient.getBalance({
+        address: signer.account.address,
+      });
+      if (balance < amount) {
+        throw new Error(
+          `not enough btc balance: min ${formatEther(amount)} have ${formatEther(balance)}`,
         );
-        if (allowance < amount) {
-          console.log(`approve ${symbol} token to relayer`);
-          const tx = await erc20.approve(
-            PredployedAddress.relayer,
-            allowance - amount,
-          );
-          await tx.wait(2);
-        }
+      }
+    } else {
+      const erc20 = getContract({
+        address: token,
+        abi: erc20Abi,
+        client: { public: publicClient, wallet: signer },
+      });
+      const symbol = await erc20.read.symbol();
+      const balance = await erc20.read.balanceOf([signer.account.address]);
+      if (balance < amount) {
+        throw new Error(
+          `not enough ${symbol} balance: min ${formatEther(amount)} have ${formatEther(balance)}`,
+        );
+      }
+      const allowance = await erc20.read.allowance([
+        signer.account.address,
+        PredployedAddress.relayer,
+      ]);
+      if (allowance < amount) {
+        console.log(`approve ${symbol} token to relayer`);
+        const hash = await erc20.write.approve([
+          PredployedAddress.relayer,
+          amount,
+        ]);
+        await publicClient.waitForTransactionReceipt({
+          hash,
+          confirmations: 2,
+        });
       }
     }
+  }
 
-    // create the validator
-    console.log(`create validator`);
-    const tx = await contract.create(pubkey, sig.r, sig.s, sig.v, {
-      value: native,
-    });
-    await tx.wait(2);
-    console.log(`done: ${tx.hash}`);
-  });
+  console.log("create validator");
+  const hash = await contract.write.create(
+    [coordinates, signature.r, signature.s, signature.v],
+    { value: native },
+  );
+  await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  console.log(`done: ${hash}`);
+}

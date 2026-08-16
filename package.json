@@ -1,12 +1,12 @@
 {
   "name": "goat-contracts",
+  "type": "module",
   "license": "Apache License 2.0",
   "author": "Goat Foundation",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@nomiclabs/hardhat-solhint": "^4.0.1",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
     "@types/node": "^24.10.0",
-    "hardhat": "^2.24.1",
+    "hardhat": "^3.13.0",
     "prettier": "^3.5.3",
     "prettier-plugin-organize-imports": "^4.1.0",
     "prettier-plugin-solidity": "^2.0.0"
@@ -17,12 +17,11 @@
   "scripts": {
     "fmt:check": "prettier --check .",
     "fmt": "prettier --write .",
-    "lint": "hardhat check",
-    "compile": "hardhat compile",
-    "build": "hardhat compile",
+    "compile": "hardhat build",
+    "build": "hardhat build",
     "test": "hardhat test",
     "pregenesis": "docker compose down && docker compose up -d --wait",
-    "genesis": "hardhat compile && hardhat create:genesis --network genesis --force true",
+    "genesis": "hardhat build && hardhat create:genesis --network genesis --force true",
     "postgenesis": "docker compose down"
   },
   "prettier": {
@@ -34,7 +33,7 @@
   },
   "engines": {
     "npm": ">=10.0.0",
-    "node": ">=20.0.0"
+    "node": ">=22.13.0"
   },
   "devEngines": {
     "runtime": {

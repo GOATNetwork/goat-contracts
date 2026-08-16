@@ -1,10 +1,11 @@
 import { gunzipSync, gzipSync } from "node:zlib";
+import type { Hex } from "viem";
 
 interface IAccountState {
   balance: string;
   nonce: number;
-  code: string;
-  storage: { [slot: string]: string };
+  code: Hex;
+  storage: { [slot: string]: Hex };
 }
 
 export interface IAnvilState {

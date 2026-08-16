@@ -1,7 +1,7 @@
-import { writeFileSync } from "fs";
-import { PredployedAddress } from "../common/constants";
-import { Param } from "../task/deploy/param";
-import { BitcoinToken, dayToHours, toSatoshi, toWei } from "./utils";
+import { writeFileSync } from "node:fs";
+import { PredployedAddress } from "../common/constants.js";
+import type { Param } from "../task/deploy/param.js";
+import { BitcoinToken, dayToHours, toSatoshi, toWei } from "./utils.js";
 
 // anvil --auto-impersonate --chain-id=2345
 // npx hardhat create:genesis --force true --network genesis --name mainnet

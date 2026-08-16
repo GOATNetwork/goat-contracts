@@ -1,15 +1,17 @@
-import "@nomicfoundation/hardhat-toolbox";
-import "@nomiclabs/hardhat-solhint";
-import { HardhatUserConfig } from "hardhat/config";
-import "./task";
+import hardhatToolboxViem from "@nomicfoundation/hardhat-toolbox-viem";
+import { configVariable, defineConfig } from "hardhat/config";
 
-const config: HardhatUserConfig = {
+import { projectTasks } from "./task/index.js";
+
+export default defineConfig({
+  plugins: [hardhatToolboxViem],
+  tasks: projectTasks,
   solidity: {
     version: "0.8.28",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1000000,
+        runs: 1_000_000,
       },
       evmVersion: "cancun",
       metadata: {
@@ -18,47 +20,78 @@ const config: HardhatUserConfig = {
       },
     },
   },
+  paths: {
+    tests: {
+      nodejs: "./test",
+    },
+  },
   networks: {
+    default: {
+      type: "edr-simulated",
+      chainType: "generic",
+      hardfork: "cancun",
+    },
     genesis: {
-      url: "http://localhost:8545",
+      type: "http",
+      chainType: "generic",
+      url: configVariable("GENESIS_RPC_URL", {
+        default: "http://localhost:8545",
+      }),
       accounts: "remote",
     },
     testnet3: {
+      type: "http",
+      chainType: "generic",
       url: "https://rpc.testnet3.goat.network",
       accounts: [],
     },
     goat: {
+      type: "http",
+      chainType: "generic",
       url: "https://rpc.goat.network",
       accounts: [],
     },
   },
-  etherscan: {
-    apiKey: "placeholder",
-    customChains: [
-      {
-        network: "testnet3",
-        chainId: 48816,
-        urls: {
-          apiURL: "https://explorer.testnet3.goat.network/api",
-          browserURL: "https://explorer.testnet3.goat.network",
+  verify: {
+    etherscan: {
+      apiKey: "placeholder",
+    },
+    sourcify: {
+      enabled: false,
+    },
+  },
+  chainDescriptors: {
+    48816: {
+      name: "GOAT Testnet3",
+      blockExplorers: {
+        etherscan: {
+          name: "GOAT Testnet3 Explorer",
+          apiUrl: "https://explorer.testnet3.goat.network/api",
+          url: "https://explorer.testnet3.goat.network",
         },
       },
-      {
-        network: "goat",
-        chainId: 2345,
-        urls: {
-          apiURL: "https://explorer.goat.network/api",
-          browserURL: "https://explorer.goat.network",
+    },
+    2345: {
+      name: "GOAT Network",
+      blockExplorers: {
+        etherscan: {
+          name: "GOAT Explorer",
+          apiUrl: "https://explorer.goat.network/api",
+          url: "https://explorer.goat.network",
         },
       },
-    ],
+    },
   },
-  sourcify: {
-    enabled: false,
+  test: {
+    solidity: {
+      fuzz: {
+        runs: 4,
+      },
+      invariant: {
+        runs: 4,
+        depth: 4,
+        failOnRevert: true,
+      },
+    },
   },
-  gasReporter: {
-    enabled: process.env.GAS_REPORT === "true",
-  },
-};
-
-export default config;
+});
