@@ -2,9 +2,7 @@
 pragma solidity =0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,19 +16,12 @@ contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
 
     constructor(address owner) Ownable(owner) {}
 
-    function transfer(
-        address payable to,
-        uint256 amount
-    ) external override onlyOwner {
+    function transfer(address payable to, uint256 amount) external override onlyOwner {
         to.sendValue(amount);
         emit Transfer(to, amount);
     }
 
-    function transferERC20(
-        address token,
-        address to,
-        uint256 amount
-    ) external override onlyOwner {
+    function transferERC20(address token, address to, uint256 amount) external override onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 
@@ -40,11 +31,12 @@ contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
      * @param data contract call data
      * @param value contract call with value, owner can grant the value
      */
-    function invoke(
-        address payable target,
-        bytes calldata data,
-        uint256 value
-    ) external payable onlyOwner returns (bytes memory) {
+    function invoke(address payable target, bytes calldata data, uint256 value)
+        external
+        payable
+        onlyOwner
+        returns (bytes memory)
+    {
         require(target != owner(), "!owner"); // ensures reentrant is impossible
         return target.functionCallWithValue(data, value);
     }
@@ -54,11 +46,7 @@ contract GoatFoundation is Ownable, IERC165, IGoatFoundation {
         emit Donate(msg.sender, msg.value);
     }
 
-    function supportsInterface(
-        bytes4 id
-    ) external view virtual override returns (bool) {
-        return
-            id == type(IERC165).interfaceId ||
-            id == type(IGoatFoundation).interfaceId;
+    function supportsInterface(bytes4 id) external view virtual override returns (bool) {
+        return id == type(IERC165).interfaceId || id == type(IGoatFoundation).interfaceId;
     }
 }

@@ -7,16 +7,14 @@
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
     "@types/node": "^24.10.0",
     "hardhat": "^3.13.0",
-    "prettier": "^3.5.3",
-    "prettier-plugin-organize-imports": "^4.1.0",
-    "prettier-plugin-solidity": "^2.0.0"
+    "prettier": "^3.9.6"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.2.0"
   },
   "scripts": {
-    "fmt:check": "prettier --check .",
-    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check . && forge fmt --check contracts",
+    "fmt": "prettier --write . && forge fmt contracts",
     "compile": "hardhat build",
     "build": "hardhat build",
     "test": "hardhat test",
@@ -25,11 +23,7 @@
     "postgenesis": "docker compose down"
   },
   "prettier": {
-    "trailingComma": "all",
-    "plugins": [
-      "prettier-plugin-solidity",
-      "prettier-plugin-organize-imports"
-    ]
+    "trailingComma": "all"
   },
   "engines": {
     "npm": ">=10.0.0",

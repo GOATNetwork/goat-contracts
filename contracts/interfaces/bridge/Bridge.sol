@@ -2,21 +2,10 @@
 pragma solidity =0.8.28;
 
 interface IBridge {
-    event Deposit(
-        address indexed target,
-        bytes32 txHash,
-        uint32 txout,
-        uint256 amount,
-        uint256 tax
-    );
+    event Deposit(address indexed target, bytes32 txHash, uint32 txout, uint256 amount, uint256 tax);
 
     event Withdraw(
-        uint256 indexed id,
-        address indexed from,
-        uint256 amount,
-        uint256 tax,
-        uint16 maxTxPrice,
-        string receiver
+        uint256 indexed id, address indexed from, uint256 amount, uint256 tax, uint16 maxTxPrice, string receiver
     );
 
     event Canceling(uint256 indexed id);
@@ -49,23 +38,11 @@ interface IBridge {
         uint256 updatedAt;
     }
 
-    function isDeposited(
-        bytes32 txHash,
-        uint32 txout
-    ) external view returns (bool);
+    function isDeposited(bytes32 txHash, uint32 txout) external view returns (bool);
 
-    function deposit(
-        bytes32 txHash,
-        uint32 txout,
-        address target,
-        uint256 amount,
-        uint256 tax
-    ) external;
+    function deposit(bytes32 txHash, uint32 txout, address target, uint256 amount, uint256 tax) external;
 
-    function withdraw(
-        string calldata receiver,
-        uint16 maxTxPrice
-    ) external payable;
+    function withdraw(string calldata receiver, uint16 maxTxPrice) external payable;
 
     function replaceByFee(uint256 id, uint16 maxTxPrice) external;
 
@@ -75,10 +52,5 @@ interface IBridge {
 
     function cancel2(uint256 id) external;
 
-    function paid(
-        uint256 id,
-        bytes32 txHash,
-        uint32 txout,
-        uint256 received
-    ) external;
+    function paid(uint256 id, bytes32 txHash, uint32 txout, uint256 received) external;
 }

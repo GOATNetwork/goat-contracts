@@ -9,9 +9,5 @@ interface IGoatFoundation {
 
     function transferERC20(address token, address to, uint256 amount) external;
 
-    function invoke(
-        address payable target,
-        bytes calldata data,
-        uint256 value
-    ) external payable returns (bytes memory);
+    function invoke(address payable target, bytes calldata data, uint256 value) external payable returns (bytes memory);
 }

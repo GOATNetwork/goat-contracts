@@ -33,9 +33,7 @@ contract Bitcoin is RelayerGuard, IBitcoin {
         emit NewBlockHash(height);
     }
 
-    function blockHash(
-        uint256 height
-    ) external view override returns (bytes32) {
+    function blockHash(uint256 height) external view override returns (bytes32) {
         return blocks[height];
     }
 }
