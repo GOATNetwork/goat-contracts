@@ -1,89 +1,99 @@
-import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { LockingTokenWrapper } from "../typechain-types";
+import hre, { network } from "hardhat";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  encodeDeployData,
+  getAddress,
+  getCreate2Address,
+  keccak256,
+  maxUint256,
+  zeroAddress,
+  zeroHash,
+} from "viem";
 
 describe("LockingWrapper", async () => {
+  const { viem, networkHelpers } = await network.create();
+
   async function fixture() {
-    const [owner, ...others] = await ethers.getSigners();
-    const dpFactory = await ethers.getContractFactory("LockingTokenFactory");
-    const factory = await dpFactory.deploy();
-
-    const tokenFactory = await ethers.getContractFactory("TestToken");
-    const testToken = await tokenFactory.deploy();
-    const testToken2 = await tokenFactory.deploy();
-    await testToken2.setDecimal(8);
-
-    return {
-      owner,
-      others,
-      factory,
-      testToken,
-      testToken2,
-    };
+    const [owner] = await viem.getWalletClients();
+    const factory = await viem.deployContract("LockingTokenFactory");
+    const testToken = await viem.deployContract("TestToken");
+    const testToken2 = await viem.deployContract("TestToken");
+    await testToken2.write.setDecimal([8]);
+    return { owner, factory, testToken, testToken2 };
   }
 
   it("wrap", async () => {
     const { factory, testToken, owner, testToken2 } =
-      await loadFixture(fixture);
+      await networkHelpers.loadFixture(fixture);
 
-    await expect(factory.wrap(testToken)).to.be.rejectedWith(
+    await viem.assertions.revertWith(
+      factory.write.wrap([testToken.address]),
       "invalid decimals",
     );
 
-    const testToken2Address = await testToken2.getAddress();
-    const wpFactory = await ethers.getContractFactory("LockingTokenWrapper");
-    const wrappedAddress = ethers.getCreate2Address(
-      await factory.getAddress(),
-      ethers.ZeroHash,
-      ethers.keccak256(
-        wpFactory.bytecode + testToken2Address.slice(2).padStart(64, "00"),
-      ),
+    const artifact = await hre.artifacts.readArtifact("LockingTokenWrapper");
+    const initCode = encodeDeployData({
+      abi: artifact.abi,
+      bytecode: artifact.bytecode,
+      args: [testToken2.address],
+    });
+    const wrappedAddress = getCreate2Address({
+      from: factory.address,
+      salt: zeroHash,
+      bytecodeHash: keccak256(initCode),
+    });
+
+    await viem.assertions.emitWithArgs(
+      factory.write.wrap([testToken2.address]),
+      factory,
+      "Created",
+      [testToken2.address, wrappedAddress],
     );
+    await viem.assertions.revert(factory.write.wrap([testToken2.address]));
 
-    await expect(await factory.wrap(testToken2))
-      .to.emit(factory, "Created")
-      .withArgs(testToken2, wrappedAddress);
-
-    // can't be create it again
-    await expect(factory.wrap(testToken2)).to.be.reverted;
-
-    const wrapped: LockingTokenWrapper = await ethers.getContractAt(
+    const wrapped = await viem.getContractAt(
       "LockingTokenWrapper",
       wrappedAddress,
     );
+    assert.equal(await wrapped.read.name(), "Test Stub Standard Wrapper");
+    assert.equal(await wrapped.read.symbol(), "TESTSW");
+    assert.equal(
+      getAddress(await wrapped.read.underlying()),
+      getAddress(testToken2.address),
+    );
+    assert.equal(await wrapped.read.exchangeRate(), 10n ** 10n);
 
-    await expect(await wrapped.name()).to.eq("Test Stub Standard Wrapper");
-    await expect(await wrapped.symbol()).to.eq("TESTSW");
-    await expect(await wrapped.underlying()).to.eq(testToken2);
-    await expect(await wrapped.exchangeRate()).to.eq(1e10);
-
-    await expect(wrapped.deposit(0)).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      wrapped.write.deposit([0n]),
       wrapped,
       "InvalidValue",
     );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      wrapped.write.deposit([1n]),
+      wrapped,
+      "ERC20InsufficientAllowance",
+      [wrapped.address, 0n, 1n],
+    );
 
-    await expect(wrapped.deposit(1))
-      .revertedWithCustomError(wrapped, "ERC20InsufficientAllowance")
-      .withArgs(wrapped, 0, 1);
+    await testToken2.write.approve([wrapped.address, maxUint256]);
+    await viem.assertions.emitWithArgs(
+      wrapped.write.deposit([1n]),
+      wrapped,
+      "Transfer",
+      [zeroAddress, owner.account.address, 10n ** 10n],
+    );
 
-    await testToken2.approve(wrapped, ethers.MaxUint256);
-
-    await expect(await wrapped.deposit(1))
-      .emit(testToken2, "Transfer")
-      .withArgs(owner, wrapped, 1)
-      .emit(wrapped, "Transfer")
-      .withArgs(ethers.ZeroAddress, owner, 1e10);
-
-    await expect(wrapped.withdraw(1)).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      wrapped.write.withdraw([1n]),
       wrapped,
       "InvalidValue",
     );
-
-    await expect(await wrapped.withdraw(1e10))
-      .emit(testToken2, "Transfer")
-      .withArgs(wrapped, owner, 1)
-      .emit(wrapped, "Transfer")
-      .withArgs(owner, ethers.ZeroAddress, 1e10);
+    await viem.assertions.emitWithArgs(
+      wrapped.write.withdraw([10n ** 10n]),
+      wrapped,
+      "Transfer",
+      [owner.account.address, zeroAddress, 10n ** 10n],
+    );
   });
 });

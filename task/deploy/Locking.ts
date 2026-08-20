@@ -1,34 +1,37 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { PredployedAddress } from "../../common/constants";
-import { hash160, trimPubKeyPrefix } from "../../common/utils";
-import { Locking } from "../../typechain-types";
-import { LockingParam } from "./param";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+import { getAddress, zeroAddress } from "viem";
+
+import { PredployedAddress } from "../../common/constants.js";
+import {
+  parseValidatorPublicKey,
+  parseValidatorSignature,
+} from "../../common/utils.js";
+import type { LockingParam } from "./param.js";
 
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,
   param: LockingParam,
 ) => {
-  console.log("Deploy Locking contact");
+  console.log("Deploy Locking contract");
+  const { viem } = await hre.network.getOrCreate();
+  const [signer] = await viem.getWalletClients();
+  const publicClient = await viem.getPublicClient();
+  const testClient = await viem.getTestClient();
 
-  const factory = await hre.ethers.getContractFactory("Locking");
-
-  const [signer] = await hre.ethers.getSigners();
-
-  const goatToken = await hre.ethers.getContractAt(
+  const goatToken = await viem.getContractAt(
     "GoatToken",
     PredployedAddress.goatToken,
   );
-  const reward = await goatToken.balanceOf(PredployedAddress.locking);
+  const reward = await goatToken.read.balanceOf([PredployedAddress.locking]);
   console.log("Initial reward", reward);
 
-  console.log("Deploying Locking contract");
-  const locking: Locking = await factory.deploy(
-    signer,
+  const locking = await viem.deployContract("Locking", [
+    signer.account.address,
     PredployedAddress.goatToken,
     reward,
-  );
+  ]);
 
-  if (param.tokens.length == 0) {
+  if (param.tokens.length === 0) {
     throw new Error("no token config");
   }
 
@@ -38,41 +41,38 @@ export const deploy = async (
     if (threshold < 0n) {
       throw new Error(`threshold ${item.threshold} can't be negative`);
     }
-    const token = item.address.toLowerCase();
-    if (token === hre.ethers.ZeroAddress) {
+    const token = getAddress(item.address);
+    if (token === zeroAddress) {
       if (threshold === 0n) {
         throw new Error("native token should have threshold value");
       }
-    } else {
-      if (threshold != 0n) {
-        throw new Error(`erc20 ${token} can't have threshold value in genesis`);
-      }
+    } else if (threshold !== 0n) {
+      throw new Error(`erc20 ${token} can't have threshold value in genesis`);
     }
 
-    await locking.addToken(
-      item.address,
+    await locking.write.addToken([
+      token,
       BigInt(item.weight),
       BigInt(item.limit),
-      BigInt(item.threshold),
-    );
+      threshold,
+    ]);
   }
 
-  const native = await locking.tokens(hre.ethers.ZeroAddress);
-  if (!native.exist) {
+  const [nativeExists, , , nativeThreshold] = await locking.read.tokens([
+    zeroAddress,
+  ]);
+  if (!nativeExists) {
     throw new Error("no native token config");
   }
 
   for (const config of param.validators) {
     console.log("Add validator", config);
-    if (!hre.ethers.isAddress(config.owner)) {
-      throw new Error(`owner ${config.owner} is not address`);
-    }
-
-    const balance = await hre.ethers.provider.getBalance(config.owner);
+    const ownerAddress = getAddress(config.owner);
+    const balance = await publicClient.getBalance({ address: ownerAddress });
     if (param.strict) {
-      if (balance != native.threshold) {
+      if (balance !== nativeThreshold) {
         throw new Error(
-          `Deposit value for genesis validator owner ${config.owner} is not equal to threshold ${native.threshold}, got ${balance}`,
+          `Deposit value for genesis validator owner ${config.owner} is not equal to threshold ${nativeThreshold}, got ${balance}`,
         );
       }
     } else {
@@ -81,51 +81,41 @@ export const deploy = async (
         config.owner,
       );
       await signer.sendTransaction({
-        to: config.owner,
-        value: native.threshold,
+        to: ownerAddress,
+        value: nativeThreshold,
       });
     }
 
-    // send gas
-    await signer.sendTransaction({ to: config.owner, value: BigInt(1e18) });
-    const owner = await hre.ethers.getImpersonatedSigner(config.owner);
-    const uncompressed = trimPubKeyPrefix(
-      hre.ethers.SigningKey.computePublicKey(config.pubkey, false),
+    await signer.sendTransaction({ to: ownerAddress, value: 10n ** 18n });
+    await testClient.impersonateAccount({ address: ownerAddress });
+    const owner = await viem.getWalletClient(ownerAddress);
+    const { coordinates, validatorAddress } = parseValidatorPublicKey(
+      config.pubkey,
     );
-    const pubkey: any = [
-      uncompressed.subarray(0, 32),
-      uncompressed.subarray(32),
-    ];
-    const sig = hre.ethers.Signature.from(config.signature);
-    const validatorPubkey = trimPubKeyPrefix(
-      hre.ethers.SigningKey.computePublicKey(config.pubkey, true),
-    );
-    const validatorAddress = hre.ethers.getAddress(hash160(validatorPubkey));
+    const signature = parseValidatorSignature(config.signature);
     if (validatorAddress.toLowerCase() !== config.validator.toLowerCase()) {
       throw new Error(
-        `Validator address mismatched: want ${config.validator} bug got ${validatorAddress}`,
+        `Validator address mismatched: want ${config.validator} but got ${validatorAddress}`,
       );
     }
-    await locking.approve(validatorAddress);
-    await locking
-      .connect(owner)
-      .create(pubkey, sig.r, sig.s, sig.v, { value: native.threshold });
+    await locking.write.approve([validatorAddress]);
+    await locking.write.create(
+      [coordinates, signature.r, signature.s, signature.v],
+      { account: owner.account, value: nativeThreshold },
+    );
   }
 
   for (const validator of param.allowList) {
     console.log("Add address", validator, "to allow list");
-    if (!hre.ethers.isAddress(validator)) {
-      throw new Error(`${validator} is not valid address`);
-    }
-    await locking.approve(validator);
+    await locking.write.approve([getAddress(validator)]);
   }
 
   if (param.claimable) {
     console.log("Open claim");
-    await locking.openClaim();
+    await locking.write.openClaim();
   }
 
   console.log("Transfer back owner", param.owner);
-  await locking.transferOwnership(param.owner);
-  return locking.getAddress();
+  await locking.write.transferOwnership([getAddress(param.owner)]);
+  return locking.address;
 };

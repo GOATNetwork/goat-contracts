@@ -1,75 +1,66 @@
-import {
-  impersonateAccount,
-  loadFixture,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { Executors } from "../common/constants";
-import { Bitcoin } from "../typechain-types";
+import { network } from "hardhat";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { parseEther } from "viem";
+
+import { Executors } from "../common/constants.js";
 
 describe("Bitcoin", async () => {
+  const { viem, networkHelpers } = await network.create();
   const blockHash100 =
     "0x5b91046f23af72766172aa28929d1124f23595ab81da63d1849a4e77704a30cd";
-
   const blockHash101 =
     "0x393cc15d9c3860e02fc55b2e5a49e1c3e68ef829213f39e3fecd1dc2b0d75267";
-
   const networkName = "mainnet";
 
-  const relayer = Executors.relayer;
-
   async function fixture() {
-    const [owner, payer, ...others] = await ethers.getSigners();
-
-    const factory = await ethers.getContractFactory("Bitcoin");
-
-    const bitcoin: Bitcoin = await factory.deploy(
-      100,
+    const [, payer, ...others] = await viem.getWalletClients();
+    const bitcoin = await viem.deployContract("Bitcoin", [
+      100n,
       blockHash100,
       networkName,
-    );
-
-    await impersonateAccount(relayer);
-
+    ]);
+    await networkHelpers.impersonateAccount(Executors.relayer);
     await payer.sendTransaction({
-      to: relayer,
-      value: ethers.parseEther("10"),
+      to: Executors.relayer,
+      value: parseEther("10"),
     });
-
     return {
-      owner,
       others,
       bitcoin,
-      relayer: await ethers.getSigner(relayer),
+      relayer: await viem.getWalletClient(Executors.relayer),
     };
   }
 
   it("init", async () => {
-    const { bitcoin } = await loadFixture(fixture);
-    expect(await bitcoin.startHeight()).eq(100);
-    expect(await bitcoin.latestHeight()).eq(100);
-    expect(await bitcoin.blockHash(100)).eq(blockHash100);
+    const { bitcoin } = await networkHelpers.loadFixture(fixture);
+    assert.equal(await bitcoin.read.startHeight(), 100n);
+    assert.equal(await bitcoin.read.latestHeight(), 100n);
+    assert.equal(await bitcoin.read.blockHash([100n]), blockHash100);
   });
 
   it("networkName", async () => {
-    const { bitcoin } = await loadFixture(fixture);
-    expect(await bitcoin.networkName()).eq(networkName);
+    const { bitcoin } = await networkHelpers.loadFixture(fixture);
+    assert.equal(await bitcoin.read.networkName(), networkName);
   });
 
   it("newBlockHash", async () => {
-    const { bitcoin, relayer } = await loadFixture(fixture);
-
-    await expect(bitcoin.newBlockHash(blockHash101)).revertedWithCustomError(
+    const { bitcoin, relayer } = await networkHelpers.loadFixture(fixture);
+    await viem.assertions.revertWithCustomError(
+      bitcoin.write.newBlockHash([blockHash101]),
       bitcoin,
       "AccessDenied",
     );
-
-    await expect(await bitcoin.connect(relayer).newBlockHash(blockHash101))
-      .emit(bitcoin, "NewBlockHash")
-      .withArgs(101n);
-
-    expect(await bitcoin.startHeight()).eq(100);
-    expect(await bitcoin.latestHeight()).eq(101);
-    expect(await bitcoin.blockHash(101)).eq(blockHash101);
+    await viem.assertions.emitWithArgs(
+      bitcoin.write.newBlockHash([blockHash101], {
+        account: relayer.account,
+      }),
+      bitcoin,
+      "NewBlockHash",
+      [101n],
+    );
+    assert.equal(await bitcoin.read.startHeight(), 100n);
+    assert.equal(await bitcoin.read.latestHeight(), 101n);
+    assert.equal(await bitcoin.read.blockHash([101n]), blockHash101);
   });
 });

@@ -1,6 +1,7 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { Bitcoin } from "../../typechain-types";
-import { BitcoinParam } from "./param";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+import { bytesToHex } from "viem";
+
+import type { BitcoinParam } from "./param.js";
 
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,
@@ -10,12 +11,12 @@ export const deploy = async (
     throw new Error("block hash has 0x prefix");
   }
   console.log("Deploy bitcoin with", param);
-  const blockHash = Buffer.from(param.hash, "hex").reverse();
-  const factory = await hre.ethers.getContractFactory("Bitcoin");
-  const contrat: Bitcoin = await factory.deploy(
-    param.height,
+  const blockHash = bytesToHex(Buffer.from(param.hash, "hex").reverse());
+  const { viem } = await hre.network.getOrCreate();
+  const contract = await viem.deployContract("Bitcoin", [
+    BigInt(param.height),
     blockHash,
     param.network,
-  );
-  return contrat.getAddress();
+  ]);
+  return contract.address;
 };

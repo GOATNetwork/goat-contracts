@@ -1,454 +1,536 @@
-import {
-  impersonateAccount,
-  loadFixture,
-  setNextBlockBaseFeePerGas,
-  time as timeHelper,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { Executors, PredployedAddress } from "../common/constants";
-import { Bridge } from "../typechain-types";
+import { network } from "hardhat";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { bytesToHex, getAddress, parseEther } from "viem";
 
-const MaxBp = BigInt(1e4);
+import { Executors, PredployedAddress } from "../common/constants.js";
+
+const maxBasisPoints = 10_000n;
 
 describe("Bridge", async () => {
-  const addr1 =
+  const { viem, networkHelpers } = await network.create();
+  const address1 =
     "bc1qen5kv3c0epd9yfqvu2q059qsjpwu9hdjywx2v9p5p9l8msxn88fs9y5kx6";
-  const addr2 = "invalid";
-
-  const prefix = Buffer.from("GTV0");
-
-  const relayer = Executors.relayer;
+  const invalidAddress = "invalid";
+  const prefix = bytesToHex(Buffer.from("GTV0"));
 
   async function fixture() {
-    const [owner, payer, ...others] = await ethers.getSigners();
-
-    const bridgeFactory = await ethers.getContractFactory("Bridge");
-
-    const bridge: Bridge = await bridgeFactory.deploy(owner, prefix);
-
-    await impersonateAccount(relayer);
-
+    const [owner, payer, ...others] = await viem.getWalletClients();
+    const bridge = await viem.deployContract("Bridge", [
+      owner.account.address,
+      prefix,
+    ]);
+    await networkHelpers.impersonateAccount(Executors.relayer);
     await payer.sendTransaction({
-      to: relayer,
-      value: ethers.parseEther("10"),
+      to: Executors.relayer,
+      value: parseEther("10"),
     });
-
     return {
       owner,
       others,
       bridge,
-      relayer: await ethers.getSigner(relayer),
+      relayer: await viem.getWalletClient(Executors.relayer),
     };
   }
 
   describe("deposit", async () => {
-    const tx1 = {
+    const deposit = {
       id: "0xd825c1ec7b47a63f9e0fdc1379bd0ec9284468d7ce12d183b05718bd1b4e27ee",
-      txout: 1n,
-      amount: BigInt(1e18),
+      txout: 1,
+      amount: 10n ** 18n,
       tax: 0n,
-    };
+    } as const;
 
     it("default", async () => {
-      const { bridge, owner } = await loadFixture(fixture);
-      const param = await bridge.depositParam();
-      await expect(param.prefix).eq("0x" + prefix.toString("hex"));
-      await expect(await bridge.owner()).eq(owner);
-      await expect(await bridge.REQUEST_PER_BLOCK()).eq(32);
+      const { bridge, owner } = await networkHelpers.loadFixture(fixture);
+      const [actualPrefix] = await bridge.read.depositParam();
+      assert.equal(actualPrefix, prefix);
+      assert.equal(
+        getAddress(await bridge.read.owner()),
+        getAddress(owner.account.address),
+      );
+      assert.equal(await bridge.read.REQUEST_PER_BLOCK(), 32n);
     });
 
     it("setConfirmationNumber", async () => {
-      const { bridge, others } = await loadFixture(fixture);
-      await expect(bridge.connect(others[0]).setConfirmationNumber(1))
-        .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
-        .withArgs(others[0]);
-      await expect(bridge.setConfirmationNumber(0)).revertedWith(
+      const { bridge, others } = await networkHelpers.loadFixture(fixture);
+      await viem.assertions.revertWithCustomErrorWithArgs(
+        bridge.write.setConfirmationNumber([1], {
+          account: others[0].account,
+        }),
+        bridge,
+        "OwnableUnauthorizedAccount",
+        [others[0].account.address],
+      );
+      await viem.assertions.revertWith(
+        bridge.write.setConfirmationNumber([0]),
         "number too low",
       );
-      await expect(bridge.setConfirmationNumber(1))
-        .emit(bridge, "ConfirmationNumberUpdated")
-        .withArgs(1);
-      const param = await bridge.depositParam();
-      expect(param.confirmations).eq(1);
+      await viem.assertions.emitWithArgs(
+        bridge.write.setConfirmationNumber([1]),
+        bridge,
+        "ConfirmationNumberUpdated",
+        [1],
+      );
+      const [, , , , confirmations] = await bridge.read.depositParam();
+      assert.equal(confirmations, 1);
     });
 
     it("setMinDeposit", async () => {
-      const { bridge, others } = await loadFixture(fixture);
-      await expect(bridge.connect(others[0]).setMinDeposit(1))
-        .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
-        .withArgs(others[0]);
-      await expect(bridge.setMinDeposit(0)).revertedWithCustomError(
+      const { bridge, others } = await networkHelpers.loadFixture(fixture);
+      await viem.assertions.revertWithCustomErrorWithArgs(
+        bridge.write.setMinDeposit([1n], { account: others[0].account }),
+        bridge,
+        "OwnableUnauthorizedAccount",
+        [others[0].account.address],
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setMinDeposit([0n]),
         bridge,
         "InvalidThreshold",
       );
-      await expect(bridge.setMinDeposit(1e10 + 1)).revertedWithCustomError(
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setMinDeposit([10n ** 10n + 1n]),
         bridge,
         "InvalidThreshold",
       );
-      const min = BigInt(1e15);
-      await expect(bridge.setMinDeposit(min))
-        .emit(bridge, "MinDepositUpdated")
-        .withArgs(min);
-      const param = await bridge.depositParam();
-      expect(param.min).eq(min);
+      const minimum = 10n ** 15n;
+      await viem.assertions.emitWithArgs(
+        bridge.write.setMinDeposit([minimum]),
+        bridge,
+        "MinDepositUpdated",
+        [minimum],
+      );
+      const [, actualMinimum] = await bridge.read.depositParam();
+      assert.equal(actualMinimum, minimum);
     });
 
     it("setDepositTax", async () => {
-      const { bridge, others } = await loadFixture(fixture);
-      await expect(bridge.connect(others[0]).setDepositTax(1, 1))
-        .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
-        .withArgs(others[0]);
-      await expect(bridge.setDepositTax(101, 1)).revertedWithCustomError(
+      const { bridge, others } = await networkHelpers.loadFixture(fixture);
+      await viem.assertions.revertWithCustomErrorWithArgs(
+        bridge.write.setDepositTax([1, 1n], { account: others[0].account }),
+        bridge,
+        "OwnableUnauthorizedAccount",
+        [others[0].account.address],
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setDepositTax([101, 1n]),
         bridge,
         "InvalidTax",
       );
-      await expect(bridge.setDepositTax(1, 1e10 + 1)).revertedWithCustomError(
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setDepositTax([1, 10n ** 10n + 1n]),
         bridge,
         "InvalidTax",
       );
-      const bp = 2n;
-      const max = BigInt(1e13);
-      await expect(bridge.setDepositTax(bp, max))
-        .emit(bridge, "DepositTaxUpdated")
-        .withArgs(bp, max);
-      const param = await bridge.depositParam();
-      expect(param.taxRate).eq(bp);
-      expect(param.maxTax).eq(max);
+      const basisPoints = 2;
+      const maximum = 10n ** 13n;
+      await viem.assertions.emitWithArgs(
+        bridge.write.setDepositTax([basisPoints, maximum]),
+        bridge,
+        "DepositTaxUpdated",
+        [basisPoints, maximum],
+      );
+      const [, , actualBasisPoints, actualMaximum] =
+        await bridge.read.depositParam();
+      assert.equal(actualBasisPoints, basisPoints);
+      assert.equal(actualMaximum, maximum);
     });
 
     it("invalid", async () => {
-      const { bridge, owner } = await loadFixture(fixture);
-      await expect(
-        bridge.deposit(tx1.id, tx1.txout, owner, tx1.amount, 0),
-        "deposit by non-relayer",
-      ).revertedWithCustomError(bridge, "AccessDenied");
+      const { bridge, owner } = await networkHelpers.loadFixture(fixture);
+      await viem.assertions.revertWithCustomError(
+        bridge.write.deposit([
+          deposit.id,
+          deposit.txout,
+          owner.account.address,
+          deposit.amount,
+          0n,
+        ]),
+        bridge,
+        "AccessDenied",
+      );
     });
 
     it("no tax", async () => {
-      const { bridge, owner, relayer } = await loadFixture(fixture);
-
-      await expect(
-        await bridge
-          .connect(relayer)
-          .deposit(tx1.id, tx1.txout, owner, tx1.amount, tx1.tax),
-      )
-        .emit(bridge, "Deposit")
-        .withArgs(owner.address, tx1.id, tx1.txout, tx1.amount, tx1.tax);
-
-      await expect(await bridge.isDeposited(tx1.id, tx1.txout)).to.be.true;
-
-      await expect(
-        bridge
-          .connect(relayer)
-          .deposit(tx1.id, tx1.txout, owner, BigInt(1e18), 0n),
-      ).to.be.revertedWith("duplicated");
+      const { bridge, owner, relayer } =
+        await networkHelpers.loadFixture(fixture);
+      await viem.assertions.emitWithArgs(
+        bridge.write.deposit(
+          [
+            deposit.id,
+            deposit.txout,
+            owner.account.address,
+            deposit.amount,
+            deposit.tax,
+          ],
+          { account: relayer.account },
+        ),
+        bridge,
+        "Deposit",
+        [
+          owner.account.address,
+          deposit.id,
+          deposit.txout,
+          deposit.amount,
+          deposit.tax,
+        ],
+      );
+      assert.equal(
+        await bridge.read.isDeposited([deposit.id, deposit.txout]),
+        true,
+      );
+      await viem.assertions.revertWith(
+        bridge.write.deposit(
+          [deposit.id, deposit.txout, owner.account.address, 10n ** 18n, 0n],
+          { account: relayer.account },
+        ),
+        "duplicated",
+      );
     });
   });
 
   describe("withdraw", async () => {
     it("invalid", async () => {
-      const { bridge } = await loadFixture(fixture);
-
-      await bridge.setWithdrawalTax(0, 0);
-
-      const amount = BigInt(1e10 * 1e5);
-      const txPrice = 1n;
-
-      await expect(
-        bridge.withdraw(addr2, txPrice, { value: amount }),
-      ).revertedWith("invalid address");
-
-      await expect(bridge.withdraw(addr1, 1, { value: 1n })).revertedWith(
+      const { bridge } = await networkHelpers.loadFixture(fixture);
+      await bridge.write.setWithdrawalTax([0, 0n]);
+      const amount = 10n ** 15n;
+      await viem.assertions.revertWith(
+        bridge.write.withdraw([invalidAddress, 1], { value: amount }),
+        "invalid address",
+      );
+      await viem.assertions.revertWith(
+        bridge.write.withdraw([address1, 1], { value: 1n }),
         "amount too low",
       );
-
-      await expect(bridge.withdraw(addr1, 0, { value: amount })).revertedWith(
+      await viem.assertions.revertWith(
+        bridge.write.withdraw([address1, 0], { value: amount }),
         "invalid tx price",
       );
-
-      await expect(bridge.withdraw(addr1, 400, { value: amount })).revertedWith(
+      await viem.assertions.revertWith(
+        bridge.write.withdraw([address1, 400], { value: amount }),
         "unaffordable",
       );
     });
 
     it("tax without limit", async () => {
-      const { owner, bridge } = await loadFixture(fixture);
-      const txPrice = 1n;
-      const amount = BigInt(1e18);
-      const taxRate = 20n;
-
-      await bridge.setWithdrawalTax(taxRate, 0);
-      const tax = (amount * taxRate) / MaxBp;
-      await expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
-        .emit(bridge, "Withdraw")
-        .withArgs(0, owner.address, amount - tax, tax, txPrice, addr1);
+      const { owner, bridge } = await networkHelpers.loadFixture(fixture);
+      const amount = 10n ** 18n;
+      const taxRate = 20;
+      await bridge.write.setWithdrawalTax([taxRate, 0n]);
+      const tax = (amount * BigInt(taxRate)) / maxBasisPoints;
+      await viem.assertions.emitWithArgs(
+        bridge.write.withdraw([address1, 1], { value: amount }),
+        bridge,
+        "Withdraw",
+        [0n, owner.account.address, amount - tax, tax, 1, address1],
+      );
     });
 
     it("default tax", async () => {
-      const { bridge, owner, relayer } = await loadFixture(fixture);
+      const { bridge, owner, relayer } =
+        await networkHelpers.loadFixture(fixture);
+      const [, taxRate, maximumTax] = await bridge.read.withdrawParam();
+      assert.equal(taxRate, 20);
+      assert.equal(maximumTax, 10n ** 9n * 2_000_000n);
 
-      const param = await bridge.withdrawParam();
-      expect(param.taxRate).eq(20n);
-      expect(param.maxTax).eq(BigInt(1e9) * 2_000_000n);
+      const withdrawalId = 0n;
+      const amount = 5n * 10n ** 19n;
+      const transactionPrice = 1;
+      let tax = (amount * BigInt(taxRate)) / maxBasisPoints;
+      if (tax > maximumTax) tax = maximumTax;
 
-      const wid = 0n;
-      const amount = BigInt(5e19);
-      const txPrice = 1n;
+      await viem.assertions.emitWithArgs(
+        bridge.write.withdraw([address1, transactionPrice], { value: amount }),
+        bridge,
+        "Withdraw",
+        [
+          withdrawalId,
+          owner.account.address,
+          amount - tax,
+          tax,
+          transactionPrice,
+          address1,
+        ],
+      );
 
-      let tax = (amount * param.taxRate) / MaxBp;
-      if (tax > param.maxTax) {
-        tax = param.maxTax;
-      }
-
-      await expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
-        .emit(bridge, "Withdraw")
-        .withArgs(wid, owner.address, amount - tax, tax, txPrice, addr1);
-
-      // pending
+      const publicClient = await viem.getPublicClient();
       {
-        const withdrawal = await bridge.withdrawals(wid);
-        expect(withdrawal.sender).eq(owner.address);
-        expect(withdrawal.amount).eq(amount - tax);
-        expect(withdrawal.tax).eq(tax);
-        expect(withdrawal.maxTxPrice).eq(txPrice);
-        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-        expect(withdrawal.status).eq(1);
-        expect(withdrawal.amount + withdrawal.tax, "actual + tax = amount").eq(
+        const [sender, maxTxPrice, status, actualAmount, actualTax, updatedAt] =
+          await bridge.read.withdrawals([withdrawalId]);
+        assert.equal(getAddress(sender), getAddress(owner.account.address));
+        assert.equal(actualAmount, amount - tax);
+        assert.equal(actualTax, tax);
+        assert.equal(maxTxPrice, transactionPrice);
+        assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
+        assert.equal(status, 1);
+        assert.equal(actualAmount + actualTax, amount);
+        assert.equal(
+          await publicClient.getBalance({ address: bridge.address }),
           amount,
         );
-
-        expect(
-          await ethers.provider.getBalance(await bridge.getAddress()),
-          "bridge balance",
-        ).eq(amount);
       }
 
-      // rbf
+      await networkHelpers.time.increase(301);
+      const newTransactionPrice = transactionPrice + 1;
+      await viem.assertions.emitWithArgs(
+        bridge.write.replaceByFee([withdrawalId, newTransactionPrice]),
+        bridge,
+        "RBF",
+        [withdrawalId, newTransactionPrice],
+      );
       {
-        await timeHelper.increase(300n + 1n);
-
-        const newTxPrice = txPrice + 1n;
-        await expect(await bridge.replaceByFee(wid, txPrice + 1n))
-          .emit(bridge, "RBF")
-          .withArgs(wid, newTxPrice);
-
-        const withdrawal = await bridge.withdrawals(wid);
-        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-        expect(withdrawal.maxTxPrice).eq(newTxPrice);
-        expect(withdrawal.status).eq(1);
+        const [, maxTxPrice, status, , , updatedAt] =
+          await bridge.read.withdrawals([withdrawalId]);
+        assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
+        assert.equal(maxTxPrice, newTransactionPrice);
+        assert.equal(status, 1);
       }
 
-      // paid
+      const transactionId =
+        "0xf52fe3ace5eff20c3d2edd6559bd160f2f91f7db297d39a9ce15e836bda75e7b";
+      const fee = 1000n;
+      const paid = amount - tax - fee;
+      await viem.assertions.emitWithArgs(
+        bridge.write.paid([withdrawalId, transactionId, 0, paid], {
+          account: relayer.account,
+        }),
+        bridge,
+        "Paid",
+        [withdrawalId, transactionId, 0, paid],
+      );
       {
-        const txid =
-          "0xf52fe3ace5eff20c3d2edd6559bd160f2f91f7db297d39a9ce15e836bda75e7b";
-        const txout = 0n;
-        const txfee = 1000n;
-
-        const paid = amount - tax - txfee;
-        await expect(await bridge.connect(relayer).paid(wid, txid, txout, paid))
-          .emit(bridge, "Paid")
-          .withArgs(wid, txid, txout, paid);
-
-        const withdrawal = await bridge.withdrawals(wid);
-        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-        expect(withdrawal.status).eq(5);
-
-        expect(
-          await ethers.provider.getBalance(await bridge.getAddress()),
-          "bridge balance",
-        ).eq(0);
-
-        expect(
-          await ethers.provider.getBalance(PredployedAddress.goatFoundation),
-          "gf balance",
-        ).eq(tax);
+        const [, , status, , , updatedAt] = await bridge.read.withdrawals([
+          withdrawalId,
+        ]);
+        assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
+        assert.equal(status, 5);
+        assert.equal(
+          await publicClient.getBalance({ address: bridge.address }),
+          0n,
+        );
+        assert.equal(
+          await publicClient.getBalance({
+            address: PredployedAddress.goatFoundation,
+          }),
+          tax,
+        );
       }
     });
 
     it("no tax", async () => {
-      const { bridge, owner } = await loadFixture(fixture);
-
-      await bridge.setWithdrawalTax(0, 0);
-
-      const amount = BigInt(1e18);
-      const txPrice = 1n;
-      await expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
-        .emit(bridge, "Withdraw")
-        .withArgs(0n, owner.address, amount, 0, txPrice, addr1);
-
-      const withdrawal = await bridge.withdrawals(0n);
-      expect(withdrawal.sender).eq(owner.address);
-      expect(withdrawal.amount).eq(amount);
-      expect(withdrawal.tax).eq(0n);
-      expect(withdrawal.maxTxPrice).eq(txPrice);
-      expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.status).eq(1);
+      const { bridge, owner } = await networkHelpers.loadFixture(fixture);
+      await bridge.write.setWithdrawalTax([0, 0n]);
+      const amount = 10n ** 18n;
+      await viem.assertions.emitWithArgs(
+        bridge.write.withdraw([address1, 1], { value: amount }),
+        bridge,
+        "Withdraw",
+        [0n, owner.account.address, amount, 0n, 1, address1],
+      );
+      const [sender, maxTxPrice, status, actualAmount, tax, updatedAt] =
+        await bridge.read.withdrawals([0n]);
+      assert.equal(getAddress(sender), getAddress(owner.account.address));
+      assert.equal(actualAmount, amount);
+      assert.equal(tax, 0n);
+      assert.equal(maxTxPrice, 1);
+      assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
+      assert.equal(status, 1);
     });
 
     it("no tax but dust", async () => {
-      const { bridge, owner } = await loadFixture(fixture);
-
-      await bridge.setWithdrawalTax(0, 0);
-
+      const { bridge, owner } = await networkHelpers.loadFixture(fixture);
+      await bridge.write.setWithdrawalTax([0, 0n]);
       const dust = 100n;
-      const amount = BigInt(1e18) + dust;
-      const txPrice = 1n;
-      await expect(await bridge.withdraw(addr1, txPrice, { value: amount }))
-        .emit(bridge, "Withdraw")
-        .withArgs(0n, owner.address, amount - dust, dust, txPrice, addr1);
-
-      const withdrawal = await bridge.withdrawals(0n);
-      expect(withdrawal.sender).eq(owner.address);
-      expect(withdrawal.amount).eq(amount - dust);
-      expect(withdrawal.tax).eq(dust);
-      expect(withdrawal.maxTxPrice).eq(txPrice);
-      expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-      expect(withdrawal.status).eq(1);
+      const amount = 10n ** 18n + dust;
+      await viem.assertions.emitWithArgs(
+        bridge.write.withdraw([address1, 1], { value: amount }),
+        bridge,
+        "Withdraw",
+        [0n, owner.account.address, amount - dust, dust, 1, address1],
+      );
+      const [sender, maxTxPrice, status, actualAmount, tax, updatedAt] =
+        await bridge.read.withdrawals([0n]);
+      assert.equal(getAddress(sender), getAddress(owner.account.address));
+      assert.equal(actualAmount, amount - dust);
+      assert.equal(tax, dust);
+      assert.equal(maxTxPrice, 1);
+      assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
+      assert.equal(status, 1);
     });
 
     it("cancel", async () => {
-      const { bridge, owner, others, relayer } = await loadFixture(fixture);
+      const { bridge, owner, others, relayer } =
+        await networkHelpers.loadFixture(fixture);
+      const amount = 10n ** 18n;
+      const withdrawalId = 0n;
+      await bridge.write.withdraw([address1, 1], { value: amount });
 
-      const amount = BigInt(1e18);
-      const txPrice = 1n;
-      const wid = 0n;
-      await bridge.withdraw(addr1, txPrice, { value: amount });
+      await viem.assertions.revertWithCustomError(
+        bridge.write.cancel1([withdrawalId], { account: others[0].account }),
+        bridge,
+        "AccessDenied",
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.cancel1([withdrawalId]),
+        bridge,
+        "RequestTooFrequent",
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.cancel2([withdrawalId]),
+        bridge,
+        "AccessDenied",
+      );
 
-      // invalid
+      await networkHelpers.time.increase(301);
+      await viem.assertions.emitWithArgs(
+        bridge.write.cancel1([withdrawalId]),
+        bridge,
+        "Canceling",
+        [withdrawalId],
+      );
       {
-        await expect(
-          bridge.connect(others[0]).cancel1(wid),
-        ).revertedWithCustomError(bridge, "AccessDenied");
-
-        await expect(bridge.cancel1(wid)).revertedWithCustomError(
-          bridge,
-          "RequestTooFrequent",
-        );
-
-        await expect(bridge.cancel2(wid)).revertedWithCustomError(
-          bridge,
-          "AccessDenied",
-        );
+        const [, , status, , , updatedAt] = await bridge.read.withdrawals([
+          withdrawalId,
+        ]);
+        assert.equal(status, 2);
+        assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
       }
 
+      await viem.assertions.revertWithCustomError(
+        bridge.write.cancel1([withdrawalId]),
+        bridge,
+        "Forbidden",
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.refund([withdrawalId]),
+        bridge,
+        "Forbidden",
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.cancel2([withdrawalId]),
+        bridge,
+        "AccessDenied",
+      );
+      await viem.assertions.emitWithArgs(
+        bridge.write.cancel2([withdrawalId], { account: relayer.account }),
+        bridge,
+        "Canceled",
+        [withdrawalId],
+      );
       {
-        await timeHelper.increase(300n + 1n);
-
-        await expect(await bridge.cancel1(wid))
-          .emit(bridge, "Canceling")
-          .withArgs(wid);
-
-        const withdrawal = await bridge.withdrawals(wid);
-
-        expect(withdrawal.status).eq(2);
-        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
+        const [, , status, , , updatedAt] = await bridge.read.withdrawals([
+          withdrawalId,
+        ]);
+        assert.equal(status, 3);
+        assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
       }
+      await viem.assertions.revert(
+        bridge.write.cancel2([withdrawalId], { account: relayer.account }),
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.refund([withdrawalId], { account: others[0].account }),
+        bridge,
+        "AccessDenied",
+      );
 
-      // refund
+      const publicClient = await viem.getPublicClient();
+      const bridgeBalanceBefore = await publicClient.getBalance({
+        address: bridge.address,
+      });
+      const ownerBalanceBefore = await publicClient.getBalance({
+        address: owner.account.address,
+      });
+      await networkHelpers.setNextBlockBaseFeePerGas(0n);
+      await viem.assertions.emitWithArgs(
+        bridge.write.refund([withdrawalId], { gasPrice: 0n }),
+        bridge,
+        "Refund",
+        [withdrawalId],
+      );
+      const bridgeBalanceAfter = await publicClient.getBalance({
+        address: bridge.address,
+      });
+      const ownerBalanceAfter = await publicClient.getBalance({
+        address: owner.account.address,
+      });
+      assert.equal(bridgeBalanceBefore - bridgeBalanceAfter, amount);
+      assert.equal(ownerBalanceAfter - ownerBalanceBefore, amount);
       {
-        await expect(bridge.cancel1(wid)).revertedWithCustomError(
-          bridge,
-          "Forbidden",
-        );
-
-        await expect(bridge.refund(wid)).revertedWithCustomError(
-          bridge,
-          "Forbidden",
-        );
+        const [, , status, , , updatedAt] = await bridge.read.withdrawals([
+          withdrawalId,
+        ]);
+        assert.equal(status, 4);
+        assert.equal(updatedAt, BigInt(await networkHelpers.time.latest()));
       }
-
-      // cancel2
-      {
-        await expect(bridge.cancel2(wid)).revertedWithCustomError(
-          bridge,
-          "AccessDenied",
-        );
-
-        await expect(await bridge.connect(relayer).cancel2(wid))
-          .emit(bridge, "Canceled")
-          .withArgs(wid);
-
-        const withdrawal = await bridge.withdrawals(wid);
-
-        expect(withdrawal.status).eq(3);
-        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-
-        await expect(
-          bridge.connect(relayer).cancel2(wid),
-        ).revertedWithoutReason();
-      }
-
-      // refund
-      {
-        await expect(
-          bridge.connect(others[0]).refund(wid),
-        ).revertedWithCustomError(bridge, "AccessDenied");
-
-        const bb1 = await ethers.provider.getBalance(bridge);
-        const ob1 = await ethers.provider.getBalance(owner);
-        await setNextBlockBaseFeePerGas(0);
-        await expect(await bridge.refund(wid, { gasPrice: 0 }))
-          .emit(bridge, "Refund")
-          .withArgs(wid);
-        const bb2 = await ethers.provider.getBalance(bridge);
-        const ob2 = await ethers.provider.getBalance(owner);
-        expect(bb1 - bb2, "refund include tax").eq(amount);
-        expect(ob2 - ob1, "refund include tax").eq(amount);
-
-        const withdrawal = await bridge.withdrawals(wid);
-        expect(withdrawal.status).eq(4);
-        expect(withdrawal.updatedAt).eq(await timeHelper.latest());
-
-        await expect(bridge.refund(wid)).revertedWithCustomError(
-          bridge,
-          "Forbidden",
-        );
-      }
+      await viem.assertions.revertWithCustomError(
+        bridge.write.refund([withdrawalId]),
+        bridge,
+        "Forbidden",
+      );
     });
 
     it("setMinWithdrawal", async () => {
-      const { bridge, others } = await loadFixture(fixture);
-      await expect(bridge.connect(others[0]).setMinWithdrawal(1))
-        .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
-        .withArgs(others[0]);
-      await expect(bridge.setMinWithdrawal(0)).revertedWithCustomError(
+      const { bridge, others } = await networkHelpers.loadFixture(fixture);
+      await viem.assertions.revertWithCustomErrorWithArgs(
+        bridge.write.setMinWithdrawal([1n], { account: others[0].account }),
+        bridge,
+        "OwnableUnauthorizedAccount",
+        [others[0].account.address],
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setMinWithdrawal([0n]),
         bridge,
         "InvalidThreshold",
       );
-      await expect(bridge.setMinWithdrawal(1e10 + 1)).revertedWithCustomError(
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setMinWithdrawal([10n ** 10n + 1n]),
         bridge,
         "InvalidThreshold",
       );
-      const min = BigInt(1e15);
-      await expect(await bridge.setMinWithdrawal(min))
-        .emit(bridge, "MinWithdrawalUpdated")
-        .withArgs(min);
-      const param = await bridge.withdrawParam();
-      expect(param.min).eq(min);
+      const minimum = 10n ** 15n;
+      await viem.assertions.emitWithArgs(
+        bridge.write.setMinWithdrawal([minimum]),
+        bridge,
+        "MinWithdrawalUpdated",
+        [minimum],
+      );
+      const [actualMinimum] = await bridge.read.withdrawParam();
+      assert.equal(actualMinimum, minimum);
     });
 
     it("setWithdrawalTax", async () => {
-      const { bridge, others } = await loadFixture(fixture);
-      await expect(bridge.connect(others[0]).setWithdrawalTax(1, 1))
-        .revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
-        .withArgs(others[0]);
-      await expect(bridge.setWithdrawalTax(101, 1)).revertedWithCustomError(
+      const { bridge, others } = await networkHelpers.loadFixture(fixture);
+      await viem.assertions.revertWithCustomErrorWithArgs(
+        bridge.write.setWithdrawalTax([1, 1n], {
+          account: others[0].account,
+        }),
+        bridge,
+        "OwnableUnauthorizedAccount",
+        [others[0].account.address],
+      );
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setWithdrawalTax([101, 1n]),
         bridge,
         "InvalidTax",
       );
-      await expect(
-        bridge.setWithdrawalTax(1, 1e10 + 1),
-      ).revertedWithCustomError(bridge, "InvalidTax");
-      const bp = 2n;
-      const max = BigInt(1e13);
-      await expect(await bridge.setWithdrawalTax(bp, max))
-        .emit(bridge, "WithdrawalTaxUpdated")
-        .withArgs(bp, max);
-      const param = await bridge.withdrawParam();
-      expect(param.taxRate).eq(bp);
-      expect(param.maxTax).eq(max);
+      await viem.assertions.revertWithCustomError(
+        bridge.write.setWithdrawalTax([1, 10n ** 10n + 1n]),
+        bridge,
+        "InvalidTax",
+      );
+      const basisPoints = 2;
+      const maximum = 10n ** 13n;
+      await viem.assertions.emitWithArgs(
+        bridge.write.setWithdrawalTax([basisPoints, maximum]),
+        bridge,
+        "WithdrawalTaxUpdated",
+        [basisPoints, maximum],
+      );
+      const [, actualBasisPoints, actualMaximum] =
+        await bridge.read.withdrawParam();
+      assert.equal(actualBasisPoints, basisPoints);
+      assert.equal(actualMaximum, maximum);
     });
   });
 });

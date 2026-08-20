@@ -37,10 +37,7 @@ contract RateLimiter {
 
     function _checkLimiting(address target, uint256 count) internal {
         if (CHECK_SENDER) {
-            require(
-                rateLimit.callers[target] != block.number,
-                TooManyRequest()
-            );
+            require(rateLimit.callers[target] != block.number, TooManyRequest());
             rateLimit.callers[target] = block.number;
         }
 

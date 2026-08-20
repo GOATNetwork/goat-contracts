@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { parseEther, zeroAddress } from "viem";
 
 export function toSatoshi(value: number) {
   value = value * 1e8;
@@ -9,10 +9,10 @@ export function toSatoshi(value: number) {
 }
 
 export function toWei(value: number) {
-  return ethers.parseEther(value.toString(10)).toString(10);
+  return parseEther(value.toString(10)).toString(10);
 }
 
-export const BitcoinToken = "0x0000000000000000000000000000000000000000";
+export const BitcoinToken = zeroAddress;
 
 export function dayToHours(value: number) {
   if (!Number.isInteger(value)) {

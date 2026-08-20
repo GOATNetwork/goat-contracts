@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: Apache 2.0
 pragma solidity =0.8.28;
 
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    IERC20Metadata
-} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ILocking} from "../interfaces/Locking.sol";
@@ -50,8 +46,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
 
     // locking values
     mapping(address token => uint256 amount) public totalLocking;
-    mapping(address validator => mapping(address token => uint256 amount))
-        public locking;
+    mapping(address validator => mapping(address token => uint256 amount)) public locking;
 
     // the unclaimed goat balances before goat token is enabled
     mapping(address owner => uint256 amount) public unclaimed;
@@ -63,11 +58,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
 
     uint256 public constant MAX_TOKEN_SIZE = 8;
 
-    constructor(
-        address owner,
-        address goat,
-        uint256 totalReward
-    ) Ownable(owner) RateLimiter(32, true) {
+    constructor(address owner, address goat, uint256 totalReward) Ownable(owner) RateLimiter(32, true) {
         goatToken = goat;
         remainReward = totalReward;
     }
@@ -114,27 +105,14 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * The $CONSENSUS_REST_URL param is the consensus rest rpc
      * The $YOUR_VALIDATOR_ADDRESS param is your validator address
      */
-    function create(
-        bytes32[2] calldata pubkey,
-        bytes32 sigR,
-        bytes32 sigS,
-        uint8 sigV
-    ) external payable override {
+    function create(bytes32[2] calldata pubkey, bytes32 sigR, bytes32 sigS, uint8 sigV) external payable override {
         require(threshold.length > 0, LockingNotStarted());
 
         address validator = pubkey.ConsAddress();
-        bytes32 hash = keccak256(
-            abi.encodePacked(block.chainid, validator, msg.sender)
-        );
-        require(
-            pubkey.EthAddress() == ECDSA.recover(hash, sigV, sigR, sigS),
-            SignatureMismatch()
-        );
+        bytes32 hash = keccak256(abi.encodePacked(block.chainid, validator, msg.sender));
+        require(pubkey.EthAddress() == ECDSA.recover(hash, sigV, sigR, sigS), SignatureMismatch());
         require(owners[validator] == address(0), DuplicateValidator(validator));
-        require(
-            approvals[validator] || approvals[address(0)],
-            UnapprovedValidator(validator)
-        );
+        require(approvals[validator] || approvals[address(0)], UnapprovedValidator(validator));
         _checkLimiting(validator, threshold.length + 1);
 
         owners[validator] = msg.sender;
@@ -152,20 +130,14 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * the lock uses transferFrom for ERC20s, you should approve Locking contract to transfer the tokens first
      * the native token address is address(0), you should add the amount to your tx.
      */
-    function lock(
-        address validator,
-        Locking[] calldata values
-    )
+    function lock(address validator, Locking[] calldata values)
         external
         payable
         override
         OnlyValidatorOwner(validator)
         RateLimiting2(validator, values.length)
     {
-        require(
-            values.length > 0 && values.length <= MAX_TOKEN_SIZE,
-            InvalidTokenListSize()
-        );
+        require(values.length > 0 && values.length <= MAX_TOKEN_SIZE, InvalidTokenListSize());
         _lock(validator, values);
     }
 
@@ -174,10 +146,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param validator the validator address
      * @param newOwner the new owner address, the new owner can have a validator before
      */
-    function changeValidatorOwner(
-        address validator,
-        address newOwner
-    ) external override OnlyValidatorOwner(validator) {
+    function changeValidatorOwner(address validator, address newOwner) external override OnlyValidatorOwner(validator) {
         require(newOwner != address(0), InvalidZeroAddress());
         owners[validator] = newOwner;
         emit ChangeValidatorOwner(validator, newOwner);
@@ -206,20 +175,13 @@ contract Locking is Ownable, RateLimiter, ILocking {
      *
      * After the waiting period has passed, the consensus layer will send back a `completeUnlock` tx
      */
-    function unlock(
-        address validator,
-        address recipient,
-        Locking[] calldata values
-    )
+    function unlock(address validator, address recipient, Locking[] calldata values)
         external
         override
         OnlyValidatorOwner(validator)
         RateLimiting2(validator, values.length)
     {
-        require(
-            values.length > 0 && values.length <= MAX_TOKEN_SIZE,
-            InvalidTokenListSize()
-        );
+        require(values.length > 0 && values.length <= MAX_TOKEN_SIZE, InvalidTokenListSize());
         require(recipient != address(0), InvalidZeroAddress());
         for (uint256 i = 0; i < values.length; i++) {
             Locking memory d = values[i];
@@ -237,12 +199,11 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param token the goat reward
      * @param amount the amount to send back
      */
-    function completeUnlock(
-        uint64 id,
-        address recipient,
-        address token,
-        uint256 amount
-    ) external override ConsensusGuard {
+    function completeUnlock(uint64 id, address recipient, address token, uint256 amount)
+        external
+        override
+        ConsensusGuard
+    {
         if (token != address(0) && amount > 0) {
             IERC20(token).safeTransfer(recipient, amount);
         }
@@ -274,10 +235,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      *
      * the consensus layer will send back a `distributeReward` tx for it
      */
-    function claim(
-        address validator,
-        address recipient
-    )
+    function claim(address validator, address recipient)
         external
         override
         OnlyValidatorOwner(validator)
@@ -294,12 +252,11 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param goat the goat reward
      * @param gasReward the gas fee reward
      */
-    function distributeReward(
-        uint64 id,
-        address recipient,
-        uint256 goat,
-        uint256 gasReward
-    ) external override ConsensusGuard {
+    function distributeReward(uint64 id, address recipient, uint256 goat, uint256 gasReward)
+        external
+        override
+        ConsensusGuard
+    {
         if (remainReward < goat) {
             goat = remainReward;
         }
@@ -330,12 +287,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
     /**
      * creationThreshold is the threshold to create a new validator
      */
-    function creationThreshold()
-        public
-        view
-        override
-        returns (Locking[] memory)
-    {
+    function creationThreshold() public view override returns (Locking[] memory) {
         Locking[] memory res = new Locking[](threshold.length);
         for (uint256 i = 0; i < threshold.length; i++) {
             address addr = threshold[i];
@@ -375,17 +327,9 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * a token which has 18 decimals can be used in the Locking contracts
      * if not so, you should create a wrapped token for it
      */
-    function addToken(
-        address token,
-        uint64 weight,
-        uint256 limit,
-        uint256 thrs
-    ) external override onlyOwner {
+    function addToken(address token, uint64 weight, uint256 limit, uint256 thrs) external override onlyOwner {
         require(!tokens[token].exist, TokenExists());
-        require(
-            token == address(0) || IERC20Metadata(token).decimals() == 18,
-            NotStandardLockingToken()
-        );
+        require(token == address(0) || IERC20Metadata(token).decimals() == 18, NotStandardLockingToken());
 
         require(weight > 0 && weight < MAX_WEIGHT, InvalidTokenWeight());
         tokens[token] = Token(true, weight, limit, thrs);
@@ -393,10 +337,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         emit UpdateTokenLimit(token, limit);
 
         if (thrs > 0) {
-            require(
-                limit == 0 || limit >= thrs,
-                InvalidTokenLimit(limit, thrs)
-            );
+            require(limit == 0 || limit >= thrs, InvalidTokenLimit(limit, thrs));
             require(threshold.length < MAX_TOKEN_SIZE, InvalidTokenListSize());
             threshold.push(token);
             emit UpdateTokenThreshold(token, thrs);
@@ -409,10 +350,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param weight the weight for the validator power
      * if weight is 0, the token will be not able to lock
      */
-    function setTokenWeight(
-        address token,
-        uint64 weight
-    ) external override onlyOwner {
+    function setTokenWeight(address token, uint64 weight) external override onlyOwner {
         require(tokens[token].exist, TokenNotFound(token));
         require(weight < MAX_WEIGHT, InvalidTokenWeight());
 
@@ -449,10 +387,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param token the token address
      * @param limit the lock limit, 0 represents no limit
      */
-    function setTokenLimit(
-        address token,
-        uint256 limit
-    ) external override onlyOwner {
+    function setTokenLimit(address token, uint256 limit) external override onlyOwner {
         require(tokens[token].exist, TokenNotFound(token));
         tokens[token].limit = limit;
         emit UpdateTokenLimit(token, limit);
@@ -463,10 +398,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
      * @param token the locking token to update
      * @param amount the new amount, if the amount is 0, then removes it from the list
      */
-    function setThreshold(
-        address token,
-        uint256 amount
-    ) external override onlyOwner {
+    function setThreshold(address token, uint256 amount) external override onlyOwner {
         require(tokens[token].exist, TokenNotFound(token));
 
         uint256 thres = tokens[token].threshold;
@@ -499,9 +431,7 @@ contract Locking is Ownable, RateLimiter, ILocking {
         }
     }
 
-    function getAddressByPubkey(
-        bytes32[2] calldata pubkey
-    ) public pure override returns (address, address) {
+    function getAddressByPubkey(bytes32[2] calldata pubkey) public pure override returns (address, address) {
         return (pubkey.ConsAddress(), pubkey.EthAddress());
     }
 
@@ -525,17 +455,10 @@ contract Locking is Ownable, RateLimiter, ILocking {
                 require(msgValue == d.amount, InvalidMsgValue(d.amount));
                 msgValue = 0;
             } else {
-                IERC20(d.token).safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    d.amount
-                );
+                IERC20(d.token).safeTransferFrom(msg.sender, address(this), d.amount);
             }
             uint256 limit = totalLocking[d.token] + d.amount;
-            require(
-                t.limit == 0 || t.limit >= limit,
-                LockAmountExceed(d.token, t.limit)
-            );
+            require(t.limit == 0 || t.limit >= limit, LockAmountExceed(d.token, t.limit));
             totalLocking[d.token] = limit;
 
             locking[validator][d.token] += d.amount;

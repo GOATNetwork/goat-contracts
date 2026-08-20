@@ -4,7 +4,8 @@
     "editor.formatOnSave": true
   },
   "[solidity]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "NomicFoundation.hardhat-solidity",
     "editor.formatOnSave": true
-  }
+  },
+  "solidity.formatter": "forge"
 }

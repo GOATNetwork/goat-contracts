@@ -1,10 +1,13 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { LockingTokenFactory } from "../../typechain-types";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 
-export const deploy = async (hre: HardhatRuntimeEnvironment, param: any) => {
+import type { EmptyParam } from "./param.js";
+
+export const deploy = async (
+  hre: HardhatRuntimeEnvironment,
+  param: EmptyParam,
+) => {
   console.log("Deploy LockingTokenFactory contact", param);
-
-  const factory = await hre.ethers.getContractFactory("LockingTokenFactory");
-  const lockingTokenFactory: LockingTokenFactory = await factory.deploy();
-  return lockingTokenFactory.getAddress();
+  const { viem } = await hre.network.getOrCreate();
+  const contract = await viem.deployContract("LockingTokenFactory");
+  return contract.address;
 };

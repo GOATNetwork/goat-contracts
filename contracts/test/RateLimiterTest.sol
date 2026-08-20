@@ -4,17 +4,11 @@ pragma solidity =0.8.28;
 import {RateLimiter} from "../library/utils/RateLimiter.sol";
 
 contract RateLimiterCallee is RateLimiter {
-    constructor(
-        uint256 limit,
-        bool checkSender
-    ) RateLimiter(limit, checkSender) {}
+    constructor(uint256 limit, bool checkSender) RateLimiter(limit, checkSender) {}
 
     function test1() public RateLimiting {}
 
-    function test2(
-        address caller,
-        uint256 count
-    ) public RateLimiting2(caller, count) {}
+    function test2(address caller, uint256 count) public RateLimiting2(caller, count) {}
 }
 
 contract RateLimiterCaller {

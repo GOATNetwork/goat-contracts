@@ -1,37 +1,52 @@
+import { network } from "hardhat";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import {
-  impersonateAccount,
-  loadFixture,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { Executors } from "../common/constants";
-import { hash160, trimPubKeyPrefix } from "../common/utils";
-import { Locking } from "../typechain-types";
+  encodePacked,
+  getAddress,
+  keccak256,
+  maxUint256,
+  parseEther,
+  zeroAddress,
+  type Address,
+} from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+
+import { Executors } from "../common/constants.js";
+import {
+  parseValidatorPublicKey,
+  parseValidatorSignature,
+} from "../common/utils.js";
 
 describe("Locking", async () => {
+  const { viem, networkHelpers } = await network.create();
+
+  function assertAddressEqual(actual: Address, expected: Address) {
+    assert.equal(getAddress(actual), getAddress(expected));
+  }
+
   async function fixture() {
-    const [owner, payer, ...others] = await ethers.getSigners();
-    const factory = await ethers.getContractFactory("Locking");
+    const [owner, payer, ...others] = await viem.getWalletClients();
+    const goat = await viem.deployContract("GoatToken", [
+      owner.account.address,
+    ]);
+    const locking = await viem.deployContract("Locking", [
+      owner.account.address,
+      goat.address,
+      1000n,
+    ]);
+    await goat.write.transfer([locking.address, 1000n]);
+    await locking.write.addToken([zeroAddress, 12_000n, 0n, 0n]);
 
-    const goatFactory = await ethers.getContractFactory("GoatToken");
-    const goat = await goatFactory.deploy(owner);
-
-    const locking: Locking = await factory.deploy(owner, goat, 1000n);
-    await goat.transfer(locking, 1000n);
-
-    await locking.addToken(ethers.ZeroAddress, 12000, 0, 0);
-
-    await impersonateAccount(Executors.locking);
+    await networkHelpers.impersonateAccount(Executors.locking);
     await payer.sendTransaction({
-      // gas fee
       to: Executors.locking,
-      value: ethers.parseEther("1"),
+      value: parseEther("1"),
     });
 
-    const tokenFactory = await ethers.getContractFactory("TestToken");
-    const testToken = await tokenFactory.deploy();
-    const testToken2 = await tokenFactory.deploy();
-    await testToken2.setDecimal(8);
+    const testToken = await viem.deployContract("TestToken");
+    const testToken2 = await viem.deployContract("TestToken");
+    await testToken2.write.setDecimal([8]);
 
     return {
       owner,
@@ -40,583 +55,698 @@ describe("Locking", async () => {
       testToken,
       testToken2,
       goat,
-      executor: await ethers.getSigner(Executors.locking),
+      executor: await viem.getWalletClient(Executors.locking),
+    };
+  }
+
+  async function createValidator(owner: Address) {
+    const account = privateKeyToAccount(generatePrivateKey());
+    const { coordinates, validatorAddress } = parseValidatorPublicKey(
+      account.publicKey,
+    );
+    const publicClient = await viem.getPublicClient();
+    const hash = keccak256(
+      encodePacked(
+        ["uint256", "address", "address"],
+        [BigInt(await publicClient.getChainId()), validatorAddress, owner],
+      ),
+    );
+    const signature = parseValidatorSignature(await account.sign({ hash }));
+    return {
+      account,
+      pubkey: coordinates,
+      validator: validatorAddress,
+      ...signature,
     };
   }
 
   it("token", async () => {
     const { locking, others, testToken, testToken2 } =
-      await loadFixture(fixture);
+      await networkHelpers.loadFixture(fixture);
 
-    await expect(
-      locking.addToken(ethers.ZeroAddress, 1, 1, 0),
-    ).revertedWithCustomError(locking, "TokenExists");
-    await expect(
-      locking.connect(others[0]).addToken(testToken, 1, 1, 0),
-    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.addToken(testToken2, 1, 1, 0)).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      locking.write.addToken([zeroAddress, 1n, 1n, 0n]),
+      locking,
+      "TokenExists",
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.addToken([testToken.address, 1n, 1n, 0n], {
+        account: others[0].account,
+      }),
+      locking,
+      "OwnableUnauthorizedAccount",
+      [others[0].account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.addToken([testToken2.address, 1n, 1n, 0n]),
       locking,
       "NotStandardLockingToken",
     );
-    await expect(
-      locking.addToken(testToken, 0, 0, 1000),
-    ).revertedWithCustomError(locking, "InvalidTokenWeight");
+    await viem.assertions.revertWithCustomError(
+      locking.write.addToken([testToken.address, 0n, 0n, 1000n]),
+      locking,
+      "InvalidTokenWeight",
+    );
 
-    await expect(await locking.addToken(testToken, 1, 0, 1000))
-      .emit(locking, "UpdateTokenWeight")
-      .withArgs(testToken, 1)
-      .emit(locking, "UpdateTokenLimit")
-      .withArgs(testToken, 0)
-      .emit(locking, "UpdateTokenThreshold")
-      .withArgs(testToken, 1000);
+    await viem.assertions.emitWithArgs(
+      locking.write.addToken([testToken.address, 1n, 0n, 1000n]),
+      locking,
+      "UpdateTokenThreshold",
+      [testToken.address, 1000n],
+    );
 
-    let token = await locking.tokens(testToken);
-    expect(token.exist).to.be.true;
-    expect(token.weight).eq(1);
-    expect(token.limit).eq(0);
-    expect(token.threshold).eq(1000);
+    let token = await locking.read.tokens([testToken.address]);
+    assert.equal(token[0], true);
+    assert.equal(token[1], 1n);
+    assert.equal(token[2], 0n);
+    assert.equal(token[3], 1000n);
 
-    let threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(1);
-    expect(threshold[0].token).eq(testToken);
-    expect(threshold[0].amount).eq(1000);
+    let threshold = await locking.read.creationThreshold();
+    assert.equal(threshold.length, 1);
+    assertAddressEqual(threshold[0].token, testToken.address);
+    assert.equal(threshold[0].amount, 1000n);
 
-    await expect(
-      locking.connect(others[0]).setTokenWeight(testToken, 1),
-    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.setTokenWeight(others[0], 1))
-      .revertedWithCustomError(locking, "TokenNotFound")
-      .withArgs(others[0]);
-    await expect(
-      locking.setTokenWeight(ethers.ZeroAddress, 1e6),
-    ).revertedWithCustomError(locking, "InvalidTokenWeight");
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.setTokenWeight([testToken.address, 1n], {
+        account: others[0].account,
+      }),
+      locking,
+      "OwnableUnauthorizedAccount",
+      [others[0].account.address],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.setTokenWeight([others[0].account.address, 1n]),
+      locking,
+      "TokenNotFound",
+      [others[0].account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.setTokenWeight([zeroAddress, 1_000_000n]),
+      locking,
+      "InvalidTokenWeight",
+    );
 
-    // set weight to 10
-    await expect(await locking.setTokenWeight(testToken, 10))
-      .emit(locking, "UpdateTokenWeight")
-      .withArgs(testToken, 10);
-    token = await locking.tokens(testToken);
-    expect(token.exist).to.be.true;
-    expect(token.weight).eq(10);
-    expect(token.limit).eq(0);
-    expect(token.threshold).eq(1000);
+    await viem.assertions.emitWithArgs(
+      locking.write.setTokenWeight([testToken.address, 10n]),
+      locking,
+      "UpdateTokenWeight",
+      [testToken.address, 10n],
+    );
+    token = await locking.read.tokens([testToken.address]);
+    assert.deepEqual(token, [true, 10n, 0n, 1000n]);
 
-    // set weight to 0
-    await expect(await locking.setTokenWeight(testToken, 0))
-      .emit(locking, "UpdateTokenWeight")
-      .withArgs(testToken, 0);
-    token = await locking.tokens(testToken);
-    expect(token.exist).to.be.false;
-    expect(token.weight).eq(0);
-    expect(token.limit).eq(0);
-    expect(token.threshold).eq(0);
+    await viem.assertions.emitWithArgs(
+      locking.write.setTokenWeight([testToken.address, 0n]),
+      locking,
+      "UpdateTokenWeight",
+      [testToken.address, 0n],
+    );
+    assert.deepEqual(await locking.read.tokens([testToken.address]), [
+      false,
+      0n,
+      0n,
+      0n,
+    ]);
+    assert.equal((await locking.read.creationThreshold()).length, 0);
 
-    threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(0);
+    await viem.assertions.emitWithArgs(
+      locking.write.addToken([testToken.address, 100n, 100n, 0n]),
+      locking,
+      "UpdateTokenLimit",
+      [testToken.address, 100n],
+    );
+    assert.deepEqual(await locking.read.tokens([testToken.address]), [
+      true,
+      100n,
+      100n,
+      0n,
+    ]);
 
-    await expect(await locking.addToken(testToken, 100, 100, 0))
-      .emit(locking, "UpdateTokenWeight")
-      .withArgs(testToken, 100)
-      .emit(locking, "UpdateTokenLimit")
-      .withArgs(testToken, 100);
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.setTokenLimit([testToken.address, 0n], {
+        account: others[0].account,
+      }),
+      locking,
+      "OwnableUnauthorizedAccount",
+      [others[0].account.address],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.setTokenLimit([others[0].account.address, 1n]),
+      locking,
+      "TokenNotFound",
+      [others[0].account.address],
+    );
+    await viem.assertions.emitWithArgs(
+      locking.write.setTokenLimit([testToken.address, 0n]),
+      locking,
+      "UpdateTokenLimit",
+      [testToken.address, 0n],
+    );
 
-    token = await locking.tokens(testToken);
-    expect(token.exist).to.be.true;
-    expect(token.weight).eq(100);
-    expect(token.limit).eq(100);
-    expect(token.threshold).eq(0);
-
-    threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(0);
-
-    await expect(
-      locking.connect(others[0]).setTokenLimit(testToken, 0),
-    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.setTokenLimit(others[0], 1))
-      .revertedWithCustomError(locking, "TokenNotFound")
-      .withArgs(others[0]);
-    await expect(await locking.setTokenLimit(testToken, 0))
-      .emit(locking, "UpdateTokenLimit")
-      .withArgs(testToken, 0);
-
-    token = await locking.tokens(testToken);
-    expect(token.exist).to.be.true;
-    expect(token.weight).eq(100);
-    expect(token.limit).eq(0);
-    expect(token.threshold).eq(0);
-
-    threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(0);
-
-    await expect(
-      locking.connect(others[0]).setThreshold(testToken, 0),
-    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    await expect(locking.setThreshold(others[0], 1))
-      .revertedWithCustomError(locking, "TokenNotFound")
-      .withArgs(others[0]);
-    await expect(locking.setThreshold(testToken, 0)).revertedWithCustomError(
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.setThreshold([testToken.address, 0n], {
+        account: others[0].account,
+      }),
+      locking,
+      "OwnableUnauthorizedAccount",
+      [others[0].account.address],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.setThreshold([others[0].account.address, 1n]),
+      locking,
+      "TokenNotFound",
+      [others[0].account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.setThreshold([testToken.address, 0n]),
       locking,
       "NoChanges",
     );
-    await expect(await locking.setThreshold(testToken, 100))
-      .emit(locking, "UpdateTokenThreshold")
-      .withArgs(testToken, 100);
+    await viem.assertions.emitWithArgs(
+      locking.write.setThreshold([testToken.address, 100n]),
+      locking,
+      "UpdateTokenThreshold",
+      [testToken.address, 100n],
+    );
+    threshold = await locking.read.creationThreshold();
+    assert.equal(threshold.length, 1);
+    assertAddressEqual(threshold[0].token, testToken.address);
+    assert.equal(threshold[0].amount, 100n);
 
-    token = await locking.tokens(testToken);
-    expect(token.exist).to.be.true;
-    expect(token.weight).eq(100);
-    expect(token.limit).eq(0);
-    expect(token.threshold).eq(100);
+    await locking.write.setThreshold([testToken.address, 1000n]);
+    threshold = await locking.read.creationThreshold();
+    assert.equal(threshold[0].amount, 1000n);
 
-    threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(1);
-    expect(threshold[0].token).eq(testToken);
-    expect(threshold[0].amount).eq(100);
+    await testToken2.write.setDecimal([18]);
+    await viem.assertions.emitWithArgs(
+      locking.write.addToken([testToken2.address, 1n, 0n, 12n]),
+      locking,
+      "UpdateTokenThreshold",
+      [testToken2.address, 12n],
+    );
+    threshold = await locking.read.creationThreshold();
+    assert.equal(threshold.length, 2);
+    assertAddressEqual(threshold[1].token, testToken2.address);
+    assert.equal(threshold[1].amount, 12n);
 
-    await expect(await locking.setThreshold(testToken, 1000))
-      .emit(locking, "UpdateTokenThreshold")
-      .withArgs(testToken, 1000);
-
-    threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(1);
-    expect(threshold[0].token).eq(testToken);
-    expect(threshold[0].amount).eq(1000);
-
-    await testToken2.setDecimal(18);
-    await expect(await locking.addToken(testToken2, 1, 0, 12))
-      .emit(locking, "UpdateTokenWeight")
-      .withArgs(testToken2, 1)
-      .emit(locking, "UpdateTokenLimit")
-      .withArgs(testToken2, 0)
-      .emit(locking, "UpdateTokenThreshold")
-      .withArgs(testToken2, 12);
-
-    threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(2);
-    expect(threshold[1].token).eq(testToken2);
-    expect(threshold[1].amount).eq(12);
-
-    await expect(await locking.setThreshold(testToken, 0))
-      .emit(locking, "UpdateTokenThreshold")
-      .withArgs(testToken, 0);
-
-    threshold = await locking.creationThreshold();
-    expect(threshold.length).eq(1);
-    expect(threshold[0].token).eq(testToken2);
-    expect(threshold[0].amount).eq(12);
+    await locking.write.setThreshold([testToken.address, 0n]);
+    threshold = await locking.read.creationThreshold();
+    assert.equal(threshold.length, 1);
+    assertAddressEqual(threshold[0].token, testToken2.address);
   });
 
   it("get address by pubkey", async () => {
-    const { locking } = await loadFixture(fixture);
-    const wallet = ethers.Wallet.createRandom(ethers.provider);
-    const consAddress = ethers.getAddress(
-      hash160(trimPubKeyPrefix(wallet.publicKey)),
-    );
-    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
-    const res = await locking.getAddressByPubkey([
-      uncompressed.subarray(0, 32),
-      uncompressed.subarray(32),
-    ]);
-    expect(res[0], consAddress);
-    expect(res[1], wallet.address);
+    const { locking } = await networkHelpers.loadFixture(fixture);
+    const validator = await createValidator(zeroAddress);
+    const result = await locking.read.getAddressByPubkey([validator.pubkey]);
+    assertAddressEqual(result[0], validator.validator);
+    assertAddressEqual(result[1], validator.account.address);
   });
 
   it("create", async () => {
     const { locking, owner, others, testToken, goat } =
-      await loadFixture(fixture);
+      await networkHelpers.loadFixture(fixture);
+    const validator = await createValidator(owner.account.address);
 
-    const wallet = ethers.Wallet.createRandom(ethers.provider);
-    const validator = ethers.getAddress(
-      hash160(trimPubKeyPrefix(wallet.publicKey)),
+    await viem.assertions.revertWithCustomError(
+      locking.write.create(
+        [validator.pubkey, validator.r, validator.s, validator.v],
+        { value: 1000n },
+      ),
+      locking,
+      "LockingNotStarted",
     );
-    const network = await ethers.provider.getNetwork();
-    const sigmsg = ethers.solidityPackedKeccak256(
-      ["uint256", "address", "address"],
-      [network.chainId, validator, await owner.getAddress()],
+
+    await locking.write.setThreshold([zeroAddress, 1000n]);
+    await locking.write.addToken([testToken.address, 1n, 0n, 1000n]);
+    await testToken.write.approve([locking.address, maxUint256]);
+
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.create(
+        [validator.pubkey, validator.r, validator.s, validator.v],
+        { value: 1000n },
+      ),
+      locking,
+      "UnapprovedValidator",
+      [validator.validator],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.approve([validator.validator], {
+        account: others[0].account,
+      }),
+      locking,
+      "OwnableUnauthorizedAccount",
+      [others[0].account.address],
+    );
+    await viem.assertions.emitWithArgs(
+      locking.write.approve([validator.validator]),
+      locking,
+      "Approval",
+      [validator.validator],
+    );
+    assert.equal(await locking.read.approvals([validator.validator]), true);
+
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.create([
+        validator.pubkey,
+        validator.r,
+        validator.s,
+        validator.v,
+      ]),
+      locking,
+      "InvalidMsgValue",
+      [1000n],
+    );
+    await viem.assertions.emitWithArgs(
+      locking.write.create(
+        [validator.pubkey, validator.r, validator.s, validator.v],
+        { value: 1000n },
+      ),
+      locking,
+      "Create",
+      [validator.validator, owner.account.address, validator.pubkey],
     );
 
-    const sig = wallet.signingKey.sign(sigmsg);
-    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
-    const pubkey: any = [
-      uncompressed.subarray(0, 32),
-      uncompressed.subarray(32),
-    ];
-
-    await expect(
-      locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }),
-    ).revertedWithCustomError(locking, "LockingNotStarted");
-
-    await locking.setThreshold(ethers.ZeroAddress, 1000);
-    await locking.addToken(testToken, 1, 0, 1000);
-    await testToken.approve(locking, ethers.MaxUint256);
-
-    await expect(locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }))
-      .revertedWithCustomError(locking, "UnapprovedValidator")
-      .withArgs(validator);
-
-    await expect(
-      locking.connect(others[0]).approve(validator),
-    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-
-    await expect(await locking.approve(validator))
-      .emit(locking, "Approval")
-      .withArgs(validator);
-    await expect(await locking.approvals(validator)).to.be.true;
-
-    await expect(locking.create(pubkey, sig.r, sig.s, sig.v))
-      .revertedWithCustomError(locking, "InvalidMsgValue")
-      .withArgs(1000n);
-
-    await expect(
-      await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n }),
-    )
-      .emit(locking, "Create")
-      .withArgs(validator, owner, pubkey);
-
-    await expect(await ethers.provider.getBalance(locking)).eq(1000);
-    await expect(await testToken.balanceOf(locking)).eq(1000);
-
-    await expect(await locking.owners(validator)).eq(owner);
-    await expect(await locking.totalLocking(ethers.ZeroAddress)).eq(1000n);
-    await expect(await locking.totalLocking(testToken)).eq(1000n);
-    await expect(await locking.locking(validator, testToken)).eq(1000n);
-    await expect(await locking.locking(validator, ethers.ZeroAddress)).eq(
+    const publicClient = await viem.getPublicClient();
+    assert.equal(
+      await publicClient.getBalance({ address: locking.address }),
+      1000n,
+    );
+    assert.equal(await testToken.read.balanceOf([locking.address]), 1000n);
+    assertAddressEqual(
+      await locking.read.owners([validator.validator]),
+      owner.account.address,
+    );
+    assert.equal(await locking.read.totalLocking([zeroAddress]), 1000n);
+    assert.equal(await locking.read.totalLocking([testToken.address]), 1000n);
+    assert.equal(
+      await locking.read.locking([validator.validator, testToken.address]),
       1000n,
     );
 
-    await expect(locking.create(pubkey, sig.r, sig.s, sig.v))
-      .revertedWithCustomError(locking, "DuplicateValidator")
-      .withArgs(validator);
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.create([
+        validator.pubkey,
+        validator.r,
+        validator.s,
+        validator.v,
+      ]),
+      locking,
+      "DuplicateValidator",
+      [validator.validator],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.changeValidatorOwner(
+        [validator.validator, others[0].account.address],
+        { account: others[0].account },
+      ),
+      locking,
+      "NotValidatorOwner",
+      [owner.account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.changeValidatorOwner([validator.validator, zeroAddress]),
+      locking,
+      "InvalidZeroAddress",
+    );
+    await viem.assertions.emitWithArgs(
+      locking.write.changeValidatorOwner([
+        validator.validator,
+        others[0].account.address,
+      ]),
+      locking,
+      "ChangeValidatorOwner",
+      [validator.validator, others[0].account.address],
+    );
+    assertAddressEqual(
+      await locking.read.owners([validator.validator]),
+      others[0].account.address,
+    );
 
-    await expect(
-      locking.connect(others[0]).changeValidatorOwner(validator, others[0]),
-    )
-      .revertedWithCustomError(locking, "NotValidatorOwner")
-      .withArgs(owner);
-    await expect(
-      locking.changeValidatorOwner(validator, ethers.ZeroAddress),
-    ).revertedWithCustomError(locking, "InvalidZeroAddress");
-    await expect(await locking.changeValidatorOwner(validator, others[0]))
-      .emit(locking, "ChangeValidatorOwner")
-      .withArgs(validator, others[0]);
-    await expect(await locking.owners(validator)).eq(others[0]);
-
-    await goat.approve(locking, ethers.MaxUint256);
-    await expect(locking.connect(others[0]).grant(1n)).revertedWithCustomError(
+    await goat.write.approve([locking.address, maxUint256]);
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.grant([1n], { account: others[0].account }),
       locking,
       "OwnableUnauthorizedAccount",
+      [others[0].account.address],
     );
-    await expect(locking.grant(0n)).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      locking.write.grant([0n]),
       locking,
       "InvalidZeroAmount",
     );
-    await expect(await locking.grant(100n))
-      .emit(locking, "Grant")
-      .withArgs(100n)
-      .emit(goat, "Transfer")
-      .withArgs(owner, locking, 100n);
-
-    await expect(await locking.remainReward()).eq(1000n + 100n);
+    await viem.assertions.emitWithArgs(
+      locking.write.grant([100n]),
+      locking,
+      "Grant",
+      [100n],
+    );
+    assert.equal(await locking.read.remainReward(), 1100n);
   });
 
   it("lock", async () => {
-    const { locking, owner, others, testToken } = await loadFixture(fixture);
-    const wallet = ethers.Wallet.createRandom(ethers.provider);
-    const validator = ethers.getAddress(
-      hash160(trimPubKeyPrefix(wallet.publicKey)),
+    const { locking, owner, others, testToken } =
+      await networkHelpers.loadFixture(fixture);
+    const validator = await createValidator(owner.account.address);
+    await locking.write.setThreshold([zeroAddress, 1000n]);
+    await locking.write.addToken([testToken.address, 1n, 0n, 100n]);
+    await testToken.write.approve([locking.address, maxUint256]);
+    await locking.write.approve([zeroAddress]);
+    await locking.write.create(
+      [validator.pubkey, validator.r, validator.s, validator.v],
+      { value: 1000n },
     );
-    const network = await ethers.provider.getNetwork();
-    const sigmsg = ethers.solidityPackedKeccak256(
-      ["uint256", "address", "address"],
-      [network.chainId, validator, await owner.getAddress()],
+
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock([others[1].account.address, []]),
+      locking,
+      "NotValidatorOwner",
+      [zeroAddress],
     );
-
-    const sig = wallet.signingKey.sign(sigmsg);
-    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
-    const pubkey: any = [
-      uncompressed.subarray(0, 32),
-      uncompressed.subarray(32),
-    ];
-
-    await locking.setThreshold(ethers.ZeroAddress, 1000);
-    await locking.addToken(testToken, 1, 0, 100);
-    await testToken.approve(locking, ethers.MaxUint256);
-
-    await expect(await locking.approve(ethers.ZeroAddress))
-      .emit(locking, "Approval")
-      .withArgs(ethers.ZeroAddress);
-    await expect(await locking.approvals(ethers.ZeroAddress)).to.be.true;
-
-    await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
-    await expect(await ethers.provider.getBalance(locking)).eq(1000);
-    await expect(await testToken.balanceOf(locking)).eq(100);
-
-    await expect(locking.lock(others[1], []))
-      .revertedWithCustomError(locking, "NotValidatorOwner")
-      .withArgs(ethers.ZeroAddress);
-    await expect(locking.connect(others[0]).lock(validator, []))
-      .revertedWithCustomError(locking, "NotValidatorOwner")
-      .withArgs(owner);
-    await expect(locking.lock(validator, [])).revertedWithCustomError(
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock([validator.validator, []], {
+        account: others[0].account,
+      }),
+      locking,
+      "NotValidatorOwner",
+      [owner.account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.lock([validator.validator, []]),
       locking,
       "InvalidTokenListSize",
     );
-    await expect(locking.lock(validator, [{ token: others[1], amount: 1n }]))
-      .revertedWithCustomError(locking, "TokenNotFound")
-      .withArgs(others[1]);
-    await expect(
-      locking.lock(
-        validator,
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock([
+        validator.validator,
+        [{ token: others[1].account.address, amount: 1n }],
+      ]),
+      locking,
+      "TokenNotFound",
+      [others[1].account.address],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock(
         [
-          { token: ethers.ZeroAddress, amount: 1n },
-          { token: ethers.ZeroAddress, amount: 1n },
+          validator.validator,
+          [
+            { token: zeroAddress, amount: 1n },
+            { token: zeroAddress, amount: 1n },
+          ],
         ],
         { value: 1n },
       ),
-    )
-      .revertedWithCustomError(locking, "InvalidMsgValue")
-      .withArgs(1n);
-    await testToken.approve(locking, 0n);
-    await expect(
-      locking.lock(validator, [{ token: testToken, amount: 1n }], {
-        value: 1n,
-      }),
-    )
-      .revertedWithCustomError(testToken, "ERC20InsufficientAllowance")
-      .withArgs(locking, 0, 1n);
-    await testToken.approve(locking, ethers.MaxUint256);
-    await locking.setTokenLimit(testToken, 100);
-    await expect(
-      locking.lock(validator, [{ token: testToken, amount: 1n }], {
-        value: 1n,
-      }),
-    )
-      .revertedWithCustomError(locking, "LockAmountExceed")
-      .withArgs(testToken, 100n);
-    await locking.setTokenLimit(testToken, 0);
-    await expect(
-      locking.lock(validator, [{ token: testToken, amount: 1n }], {
-        value: 1n,
-      }),
-    )
-      .revertedWithCustomError(locking, "InvalidMsgValue")
-      .withArgs(0n);
+      locking,
+      "InvalidMsgValue",
+      [1n],
+    );
 
-    await expect(
-      await locking.lock(
-        validator,
+    await testToken.write.approve([locking.address, 0n]);
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock(
+        [validator.validator, [{ token: testToken.address, amount: 1n }]],
+        { value: 1n },
+      ),
+      testToken,
+      "ERC20InsufficientAllowance",
+      [locking.address, 0n, 1n],
+    );
+    await testToken.write.approve([locking.address, maxUint256]);
+    await locking.write.setTokenLimit([testToken.address, 100n]);
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock(
+        [validator.validator, [{ token: testToken.address, amount: 1n }]],
+        { value: 1n },
+      ),
+      locking,
+      "LockAmountExceed",
+      [testToken.address, 100n],
+    );
+    await locking.write.setTokenLimit([testToken.address, 0n]);
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock(
+        [validator.validator, [{ token: testToken.address, amount: 1n }]],
+        { value: 1n },
+      ),
+      locking,
+      "InvalidMsgValue",
+      [0n],
+    );
+
+    await viem.assertions.emitWithArgs(
+      locking.write.lock(
         [
-          { token: ethers.ZeroAddress, amount: 1n },
-          { token: testToken, amount: 1n },
+          validator.validator,
+          [
+            { token: zeroAddress, amount: 1n },
+            { token: testToken.address, amount: 1n },
+          ],
         ],
         { value: 1n },
       ),
-    )
-      .emit(locking, "Lock")
-      .withArgs(validator, ethers.ZeroAddress, 1)
-      .emit(locking, "Lock")
-      .withArgs(validator, testToken, 1);
+      locking,
+      "Lock",
+      [validator.validator, testToken.address, 1n],
+    );
 
-    await expect(await ethers.provider.getBalance(locking)).eq(1000 + 1);
-    await expect(await testToken.balanceOf(locking)).eq(100 + 1);
+    const publicClient = await viem.getPublicClient();
+    assert.equal(
+      await publicClient.getBalance({ address: locking.address }),
+      1001n,
+    );
+    assert.equal(await testToken.read.balanceOf([locking.address]), 101n);
 
-    await locking.setThreshold(ethers.ZeroAddress, 2000);
-    await expect(
-      locking.lock(validator, [{ token: ethers.ZeroAddress, amount: 100n }], {
-        value: 100n,
-      }),
-    )
-      .revertedWithCustomError(locking, "BelowThreshold")
-      .withArgs(ethers.ZeroAddress, 999n);
+    await locking.write.setThreshold([zeroAddress, 2000n]);
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.lock(
+        [validator.validator, [{ token: zeroAddress, amount: 100n }]],
+        { value: 100n },
+      ),
+      locking,
+      "BelowThreshold",
+      [zeroAddress, 999n],
+    );
   });
 
   it("unlock", async () => {
     const { locking, owner, others, testToken, executor } =
-      await loadFixture(fixture);
-    const wallet = ethers.Wallet.createRandom(ethers.provider);
-    const validator = ethers.getAddress(
-      hash160(trimPubKeyPrefix(wallet.publicKey)),
+      await networkHelpers.loadFixture(fixture);
+    const validator = await createValidator(owner.account.address);
+    await locking.write.setThreshold([zeroAddress, 1000n]);
+    await locking.write.addToken([testToken.address, 1n, 0n, 100n]);
+    await testToken.write.approve([locking.address, maxUint256]);
+    await locking.write.approve([zeroAddress]);
+    await locking.write.create(
+      [validator.pubkey, validator.r, validator.s, validator.v],
+      { value: 1000n },
     );
-    const network = await ethers.provider.getNetwork();
-    const sigmsg = ethers.solidityPackedKeccak256(
-      ["uint256", "address", "address"],
-      [network.chainId, validator, await owner.getAddress()],
-    );
-
-    const sig = wallet.signingKey.sign(sigmsg);
-    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
-    const pubkey: any = [
-      uncompressed.subarray(0, 32),
-      uncompressed.subarray(32),
-    ];
-
-    await locking.setThreshold(ethers.ZeroAddress, 1000);
-    await locking.addToken(testToken, 1, 0, 100);
-    await testToken.approve(locking, ethers.MaxUint256);
-    await locking.approve(ethers.ZeroAddress);
-
-    await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
-    await testToken.approve(locking, ethers.MaxUint256);
-    await locking.lock(
-      validator,
+    await locking.write.lock(
       [
-        { token: ethers.ZeroAddress, amount: 1n },
-        { token: testToken, amount: 1n },
+        validator.validator,
+        [
+          { token: zeroAddress, amount: 1n },
+          { token: testToken.address, amount: 1n },
+        ],
       ],
       { value: 1n },
     );
 
-    await expect(locking.unlock(others[1], owner, []))
-      .revertedWithCustomError(locking, "NotValidatorOwner")
-      .withArgs(ethers.ZeroAddress);
-    await expect(locking.connect(others[0]).unlock(validator, owner, []))
-      .revertedWithCustomError(locking, "NotValidatorOwner")
-      .withArgs(owner);
-    await expect(locking.unlock(validator, owner, [])).revertedWithCustomError(
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.unlock([
+        others[1].account.address,
+        owner.account.address,
+        [],
+      ]),
+      locking,
+      "NotValidatorOwner",
+      [zeroAddress],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.unlock([validator.validator, owner.account.address, []], {
+        account: others[0].account,
+      }),
+      locking,
+      "NotValidatorOwner",
+      [owner.account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.unlock([validator.validator, owner.account.address, []]),
       locking,
       "InvalidTokenListSize",
     );
-    await expect(
-      locking.unlock(validator, ethers.ZeroAddress, [
-        { token: ethers.ZeroAddress, amount: 1n },
+    await viem.assertions.revertWithCustomError(
+      locking.write.unlock([
+        validator.validator,
+        zeroAddress,
+        [{ token: zeroAddress, amount: 1n }],
       ]),
-    ).revertedWithCustomError(locking, "InvalidZeroAddress");
-
-    await expect(
-      locking.unlock(validator, owner, [
-        { token: ethers.ZeroAddress, amount: 0n },
+      locking,
+      "InvalidZeroAddress",
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.unlock([
+        validator.validator,
+        owner.account.address,
+        [{ token: zeroAddress, amount: 0n }],
       ]),
-    ).revertedWithCustomError(locking, "InvalidZeroAmount");
-    await expect(
-      await locking.unlock(validator, owner, [
-        { token: ethers.ZeroAddress, amount: 1n },
-        { token: testToken, amount: 1n },
+      locking,
+      "InvalidZeroAmount",
+    );
+
+    await viem.assertions.emitWithArgs(
+      locking.write.unlock([
+        validator.validator,
+        owner.account.address,
+        [
+          { token: zeroAddress, amount: 1n },
+          { token: testToken.address, amount: 1n },
+        ],
       ]),
-    )
-      .emit(locking, "Unlock")
-      .withArgs(0, validator, owner, ethers.ZeroAddress, 1n)
-      .emit(locking, "Unlock")
-      .withArgs(1, validator, owner, testToken, 1n);
-
-    await expect(
-      locking.completeUnlock(0, owner, ethers.ZeroAddress, 1),
-    ).revertedWithCustomError(locking, "NotConsensusLayer");
-    await expect(
-      await locking
-        .connect(executor)
-        .completeUnlock(0, owner, ethers.ZeroAddress, 1),
-    )
-      .emit(locking, "CompleteUnlock")
-      .withArgs(0, 1);
-
-    await expect(
-      await locking.connect(executor).completeUnlock(1, owner, testToken, 1),
-    )
-      .emit(locking, "CompleteUnlock")
-      .withArgs(1, 1);
-    await expect(await testToken.balanceOf(locking)).eq(100);
+      locking,
+      "Unlock",
+      [1n, validator.validator, owner.account.address, testToken.address, 1n],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.completeUnlock([
+        0n,
+        owner.account.address,
+        zeroAddress,
+        1n,
+      ]),
+      locking,
+      "NotConsensusLayer",
+    );
+    await viem.assertions.emitWithArgs(
+      locking.write.completeUnlock(
+        [0n, owner.account.address, zeroAddress, 1n],
+        {
+          account: executor.account,
+        },
+      ),
+      locking,
+      "CompleteUnlock",
+      [0n, 1n],
+    );
+    await viem.assertions.emitWithArgs(
+      locking.write.completeUnlock(
+        [1n, owner.account.address, testToken.address, 1n],
+        { account: executor.account },
+      ),
+      locking,
+      "CompleteUnlock",
+      [1n, 1n],
+    );
+    assert.equal(await testToken.read.balanceOf([locking.address]), 100n);
   });
 
   it("claim", async () => {
     const { locking, owner, others, testToken, executor, goat } =
-      await loadFixture(fixture);
-    const wallet = ethers.Wallet.createRandom(ethers.provider);
-    const validator = ethers.getAddress(
-      hash160(trimPubKeyPrefix(wallet.publicKey)),
+      await networkHelpers.loadFixture(fixture);
+    const validator = await createValidator(owner.account.address);
+    await locking.write.setThreshold([zeroAddress, 1000n]);
+    await locking.write.addToken([testToken.address, 1n, 0n, 100n]);
+    await testToken.write.approve([locking.address, maxUint256]);
+    await locking.write.approve([zeroAddress]);
+    await locking.write.create(
+      [validator.pubkey, validator.r, validator.s, validator.v],
+      { value: 1000n },
     );
-    const network = await ethers.provider.getNetwork();
-    const sigmsg = ethers.solidityPackedKeccak256(
-      ["uint256", "address", "address"],
-      [network.chainId, validator, await owner.getAddress()],
-    );
-
-    const sig = wallet.signingKey.sign(sigmsg);
-    const uncompressed = trimPubKeyPrefix(wallet.signingKey.publicKey);
-    const pubkey: any = [
-      uncompressed.subarray(0, 32),
-      uncompressed.subarray(32),
-    ];
-
-    await locking.setThreshold(ethers.ZeroAddress, 1000);
-    await locking.addToken(testToken, 1, 0, 100);
-    await testToken.approve(locking, ethers.MaxUint256);
-    await locking.approve(ethers.ZeroAddress);
-
-    await locking.create(pubkey, sig.r, sig.s, sig.v, { value: 1000n });
-    await testToken.approve(locking, ethers.MaxUint256);
-    await locking.lock(
-      validator,
+    await locking.write.lock(
       [
-        { token: ethers.ZeroAddress, amount: 1n },
-        { token: testToken, amount: 1n },
+        validator.validator,
+        [
+          { token: zeroAddress, amount: 1n },
+          { token: testToken.address, amount: 1n },
+        ],
       ],
       { value: 1n },
     );
 
-    await expect(locking.claim(others[1], owner))
-      .revertedWithCustomError(locking, "NotValidatorOwner")
-      .withArgs(ethers.ZeroAddress);
-    await expect(locking.connect(others[0]).claim(validator, owner))
-      .revertedWithCustomError(locking, "NotValidatorOwner")
-      .withArgs(owner);
-    await expect(
-      locking.claim(validator, ethers.ZeroAddress),
-    ).revertedWithCustomError(locking, "InvalidZeroAddress");
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.claim([others[1].account.address, owner.account.address]),
+      locking,
+      "NotValidatorOwner",
+      [zeroAddress],
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.claim([validator.validator, owner.account.address], {
+        account: others[0].account,
+      }),
+      locking,
+      "NotValidatorOwner",
+      [owner.account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.claim([validator.validator, zeroAddress]),
+      locking,
+      "InvalidZeroAddress",
+    );
+    await viem.assertions.revertWithCustomErrorWithArgs(
+      locking.write.openClaim({ account: others[0].account }),
+      locking,
+      "OwnableUnauthorizedAccount",
+      [others[0].account.address],
+    );
+    assert.equal(await locking.read.claimable(), false);
 
-    await expect(
-      locking.connect(others[0]).openClaim(),
-    ).revertedWithCustomError(locking, "OwnableUnauthorizedAccount");
-    expect(await locking.claimable()).to.be.false;
+    await viem.assertions.emitWithArgs(
+      locking.write.claim([validator.validator, owner.account.address]),
+      locking,
+      "Claim",
+      [0n, validator.validator, owner.account.address],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.distributeReward([0n, owner.account.address, 1n, 1n]),
+      locking,
+      "NotConsensusLayer",
+    );
 
-    await expect(await locking.claim(validator, owner))
-      .emit(locking, "Claim")
-      .withArgs(0, validator, owner);
+    assert.equal(await locking.read.remainReward(), 1000n);
+    await viem.assertions.emitWithArgs(
+      locking.write.distributeReward([0n, owner.account.address, 100n, 1000n], {
+        account: executor.account,
+      }),
+      locking,
+      "DistributeReward",
+      [0n, 100n, 1000n],
+    );
+    assert.equal(await locking.read.unclaimed([owner.account.address]), 100n);
+    assert.equal(await goat.read.balanceOf([locking.address]), 1000n);
+    assert.equal(await locking.read.remainReward(), 900n);
 
-    await expect(
-      locking.distributeReward(0, owner, 1, 1),
-    ).revertedWithCustomError(locking, "NotConsensusLayer");
-
-    expect(await locking.remainReward()).eq(1000);
-    await expect(
-      await locking.connect(executor).distributeReward(0, owner, 100, 1000),
-    )
-      .emit(locking, "DistributeReward")
-      .withArgs(0, 100, 1000);
-
-    await expect(await locking.unclaimed(owner)).eq(100);
-    await expect(await goat.balanceOf(locking)).eq(1000);
-    expect(await locking.remainReward()).eq(900);
-
-    await expect(locking.reclaim()).revertedWithCustomError(
+    await viem.assertions.revertWithCustomError(
+      locking.write.reclaim(),
       locking,
       "ClaimNotOpen",
     );
-
-    await expect(await locking.openClaim()).emit(locking, "OpenClaim");
-    await expect(locking.openClaim()).revertedWithCustomError(
+    await viem.assertions.emit(locking.write.openClaim(), locking, "OpenClaim");
+    await viem.assertions.revertWithCustomError(
+      locking.write.openClaim(),
       locking,
       "ClaimOpened",
     );
-    expect(await locking.claimable()).to.be.true;
+    assert.equal(await locking.read.claimable(), true);
 
-    await expect(await locking.reclaim())
-      .emit(goat, "Transfer")
-      .withArgs(locking, owner, 100);
-    await expect(locking.reclaim()).revertedWithCustomError(
+    await viem.assertions.emitWithArgs(
+      locking.write.reclaim(),
+      goat,
+      "Transfer",
+      [locking.address, owner.account.address, 100n],
+    );
+    await viem.assertions.revertWithCustomError(
+      locking.write.reclaim(),
       locking,
       "NoUnclaimed",
     );
 
-    await expect(await locking.claim(validator, owner))
-      .emit(locking, "Claim")
-      .withArgs(1, validator, owner);
-
-    await expect(
-      await locking.connect(executor).distributeReward(1, owner, 1000, 100),
-    )
-      .emit(locking, "DistributeReward")
-      .withArgs(1, 900, 100)
-      .emit(goat, "Transfer")
-      .withArgs(locking, owner, 900);
+    await locking.write.claim([validator.validator, owner.account.address]);
+    await viem.assertions.emitWithArgs(
+      locking.write.distributeReward([1n, owner.account.address, 1000n, 100n], {
+        account: executor.account,
+      }),
+      locking,
+      "DistributeReward",
+      [1n, 900n, 100n],
+    );
   });
 });

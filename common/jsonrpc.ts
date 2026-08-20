@@ -2,7 +2,7 @@ export interface IJsonRpcRequst {
   id: string | number;
   jsonrpc: string;
   method: string;
-  params: any[];
+  params: unknown[];
 }
 
 export interface IJsonRpcResponse<T> {
@@ -17,7 +17,7 @@ export interface IJsonRpcResponse<T> {
 
 export class JsonrpcClient {
   public url: URL;
-  private headers: any = {
+  private headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
   };
@@ -31,7 +31,7 @@ export class JsonrpcClient {
     }
   }
 
-  public async call<T>(method: string, ...params: any[]) {
+  public async call<T>(method: string, ...params: unknown[]): Promise<T> {
     const response = await fetch(this.url, {
       method: "POST",
       headers: this.headers,
@@ -45,7 +45,7 @@ export class JsonrpcClient {
     if (!response.ok) {
       throw new Error(`Response not ok: ${response.status}`);
     }
-    const body: IJsonRpcResponse<T> = await response.json();
+    const body = (await response.json()) as IJsonRpcResponse<T>;
     if (body.error) {
       throw new Error(`Response error: ${body.error.message}`);
     }

@@ -1,10 +1,12 @@
+export type EmptyParam = Record<string, never>;
+
 export interface Param {
   GoatToken: GoatTokenParam;
   GoatFoundation: GoatFoundationParam;
-  GoatDAO: {};
+  GoatDAO: EmptyParam;
   Bridge: BridgeParam;
   Bitcoin: BitcoinParam;
-  WrappedBitcoin: {};
+  WrappedBitcoin: EmptyParam;
   Relayer: RelayerParam;
   Locking: LockingParam;
   Consensus: ConsensusParam;
@@ -91,5 +93,5 @@ export interface ConsensusParam {
     halvingInterval: number;
     initialBlockReward: string;
   };
-  Goat?: {}; // the genesis block header, don't update it manually
+  Goat?: Record<string, unknown>; // the genesis block header, don't update it manually
 }

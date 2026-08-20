@@ -1,233 +1,239 @@
-import fs from "fs/promises";
-import { task, types } from "hardhat/config";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+import { constants } from "node:fs";
+import * as fs from "node:fs/promises";
+import { parseEther } from "viem";
 
-import { loadAnvilState } from "../common/anvil";
-import { PredployedAddress, sortTokenAddress } from "../common/constants";
-import { readJson, trim0xPrefix } from "../common/utils";
+import { loadAnvilState } from "../common/anvil.js";
+import { PredployedAddress, sortTokenAddress } from "../common/constants.js";
+import { readJson, trim0xPrefix } from "../common/utils.js";
 
-import { deploy as DeployBitcoin } from "./deploy/Bitcoin";
-import { deploy as DeployBridge } from "./deploy/Bridge";
-import { deploy as DeployGoatDAO } from "./deploy/GoatDAO";
-import { deploy as DeployGoatFoundation } from "./deploy/GoatFoundation";
-import { deploy as DeployGoatToken } from "./deploy/GoatToken";
-import { deploy as DeployLocking } from "./deploy/Locking";
-import { deploy as DeployLockingTokenFactory } from "./deploy/LockingTokenFactory";
-import { deploy as DeployRelayer } from "./deploy/Relayer";
-import { deploy as DeployWrappedBitcoin } from "./deploy/WrappedBitcoin";
-import { Param as GenesisParam } from "./deploy/param";
+import { deploy as deployBitcoin } from "./deploy/Bitcoin.js";
+import { deploy as deployBridge } from "./deploy/Bridge.js";
+import { deploy as deployGoatDAO } from "./deploy/GoatDAO.js";
+import { deploy as deployGoatFoundation } from "./deploy/GoatFoundation.js";
+import { deploy as deployGoatToken } from "./deploy/GoatToken.js";
+import { deploy as deployLocking } from "./deploy/Locking.js";
+import { deploy as deployLockingTokenFactory } from "./deploy/LockingTokenFactory.js";
+import { deploy as deployRelayer } from "./deploy/Relayer.js";
+import { deploy as deployWrappedBitcoin } from "./deploy/WrappedBitcoin.js";
+import type { Param as GenesisParam } from "./deploy/param.js";
 
-import GenesisTemplate from "./template.json";
+import GenesisTemplate from "./template.json" with { type: "json" };
 
-interface IGenesis {
-  config: IChainConfig;
-  alloc: IAccount;
+interface Genesis {
+  config: { chainId: number };
+  alloc: GenesisAccounts;
   timestamp: string;
 }
 
-interface IChainConfig {
-  chainId: number;
+interface GenesisAccounts {
+  [account: string]: GenesisAccountState;
 }
 
-interface IAccount {
-  [account: string]: IAccountState;
-}
-
-interface IAccountState {
+interface GenesisAccountState {
   balance?: string;
   nonce?: string;
   code?: string;
   storage?: { [slot: string]: string };
 }
 
-const $ = promisify(exec);
+interface CreateGenesisArguments {
+  name: string;
+  force: boolean;
+  param?: string;
+  gensrv: string;
+}
 
-task("create:genesis")
-  .addParam("name", "network name", "regtest")
-  .addParam("force", "force to rewrite", false, types.boolean)
-  .addOptionalParam("param", "optional parameter file path")
-  .addOptionalParam(
-    "gensrv",
-    "optional genesis server",
-    "http://localhost:8080",
-    types.string,
-  )
-  .setAction(async (args, hre) => {
-    const networkName = args["name"];
-    if (!networkName) {
-      throw new Error("empty network name");
+export async function createGenesisAction(
+  args: CreateGenesisArguments,
+  hre: HardhatRuntimeEnvironment,
+) {
+  const networkName = args.name;
+  if (networkName.length === 0) {
+    throw new Error("empty network name");
+  }
+
+  const outputFile = `./genesis/${networkName}.json`;
+  try {
+    await fs.access(outputFile, constants.R_OK);
+    if (!args.force) {
+      console.log("genesis has created");
+      return;
     }
+    console.warn("force to recreate genesis for " + networkName);
+  } catch {
+    console.log("generating genesis");
+  }
 
-    const outputFile = `./genesis/${networkName}.json`;
-    try {
-      await fs.access(outputFile, fs.constants.R_OK);
-      if (!args["force"]) {
-        return console.log("genesis has created");
-      }
-      console.warn("force to recreate genesis for " + networkName);
-    } catch {
-      console.log("generating genesis");
-    }
-
-    if (!args["param"]) {
-      const tsFilePath = `./genesis/${networkName}.ts`;
-      console.log("try to compile ts config", tsFilePath);
-      await fs
-        .access(tsFilePath, fs.constants.R_OK)
-        .then(() => $(`npx ts-node ${tsFilePath}`))
-        .then(() => console.log("compile config successed"))
-        .catch((err) => console.log("skip to compile ts config due to", err));
-    }
-
-    try {
-      await fetch(`${args["gensrv"]}`).then((res) => res.text());
-    } catch (err) {
-      throw new Error("genesis server is not available: " + err);
-    }
-
-    const paramFilePath =
-      args["param"] || `./genesis/${networkName}-config.json`;
-
-    const params = await readJson<GenesisParam>(paramFilePath);
-    const goatToken = await DeployGoatToken(hre, params.GoatToken);
-    const goatDao = await DeployGoatDAO(hre, params.GoatDAO);
-    const goatFoundation = await DeployGoatFoundation(
-      hre,
-      params.GoatFoundation,
+  if (args.param === undefined) {
+    const configModule = new URL(
+      `../genesis/${networkName}.js`,
+      import.meta.url,
     );
-    const btcBlock = await DeployBitcoin(hre, params.Bitcoin);
-    const wgbtc = await DeployWrappedBitcoin(hre, params.WrappedBitcoin);
-    const bridge = await DeployBridge(hre, params.Bridge);
-    const relayer = await DeployRelayer(hre, params.Relayer);
-    const locking = await DeployLocking(hre, params.Locking);
-    const lockingTokenFactory = await DeployLockingTokenFactory(hre, {});
-
-    const genesis: IGenesis = GenesisTemplate;
-    genesis.timestamp = "0x" + Math.floor(Date.now() / 1000).toString(16);
-
-    const { chainId } = await hre.ethers.provider.getNetwork();
-    console.log("Use chainId", chainId);
-    genesis.config.chainId = Number(chainId);
-
-    const dump = loadAnvilState(
-      await hre.ethers.provider.send("anvil_dumpState"),
-    );
-
-    const gcStates: IAccount = {};
-    for (const [address, state] of Object.entries(dump.accounts)) {
-      const stv = {
-        balance: state.balance,
-        nonce: "0x" + state.nonce.toString(16),
-        code: state.code,
-        storage: state.storage,
-      };
-
-      switch (address.toLowerCase()) {
-        case goatToken.toLowerCase():
-          console.log("Add genesis state for goat token from", address);
-          gcStates[trim0xPrefix(PredployedAddress.goatToken)] = stv;
-          break;
-        case goatFoundation.toLowerCase():
-          console.log("Add genesis state for goat foundation from", address);
-          gcStates[trim0xPrefix(PredployedAddress.goatFoundation)] = stv;
-          break;
-        case btcBlock.toLowerCase():
-          console.log("Add genesis state for bitcoin from", address);
-          gcStates[trim0xPrefix(PredployedAddress.btcBlock)] = stv;
-          break;
-        case wgbtc.toLowerCase():
-          console.log("Add genesis state for wgbtc from", address);
-          gcStates[trim0xPrefix(PredployedAddress.wgbtc)] = stv;
-          break;
-        case bridge.toLowerCase():
-          console.log("Add genesis state for bridge from", address);
-          gcStates[trim0xPrefix(PredployedAddress.bridge)] = stv;
-          break;
-        case relayer.toLowerCase():
-          console.log("Add genesis state for relayer from", address);
-          gcStates[trim0xPrefix(PredployedAddress.relayer)] = stv;
-          break;
-        case locking.toLowerCase():
-          console.log("Add genesis state for Locking from", address);
-          if (params.Locking.gas) {
-            console.log("!!!!!!!!!!!");
-            console.warn(
-              "Sending gas revenue to Locking contract",
-              params.Locking.gas,
-            );
-            console.log("!!!!!!!!!!!");
-            stv.balance =
-              "0x" +
-              (BigInt(stv.balance) + BigInt(params.Locking.gas)).toString(16);
-          }
-          gcStates[trim0xPrefix(PredployedAddress.locking)] = stv;
-          break;
-        case goatDao.toLowerCase():
-          console.log("Add genesis state for goat dao from", address);
-          gcStates[trim0xPrefix(PredployedAddress.goatDao)] = stv;
-          break;
-        case lockingTokenFactory.toLowerCase():
-          console.log("Add genesis state for locking token factory", address);
-          gcStates[trim0xPrefix(PredployedAddress.lockingTokenFactory)] = stv;
-          break;
-      }
+    console.log("try to compile ts config", configModule.pathname);
+    try {
+      await import(configModule.href);
+      console.log("compile config succeeded");
+    } catch (error) {
+      console.log("skip compiling ts config due to", error);
     }
+  }
 
-    const gcKeys = Object.keys(gcStates);
-    if (gcKeys.length != 9) {
-      throw new Error("Inconsistent deployment count");
-    }
+  try {
+    await fetch(args.gensrv).then((response) => response.text());
+  } catch (error) {
+    throw new Error("genesis server is not available: " + error);
+  }
 
-    const ordered = gcKeys.sort(sortTokenAddress).reduce((obj, key) => {
-      obj[key] = gcStates[key];
-      return obj;
-    }, {} as IAccount);
+  const paramFilePath = args.param ?? `./genesis/${networkName}-config.json`;
+  const params = await readJson<GenesisParam>(paramFilePath);
 
-    const balances = Object.entries(params.Balances || {}).reduce(
-      (prev, [address, { balance, nonce }]) => {
-        console.log(
-          "Add genesis balance to",
-          address,
-          "balance",
-          balance,
-          "nonce",
-          nonce,
-        );
-        let amount = 0n;
-        if (typeof balance === "string" && balance.endsWith("ether")) {
-          amount = hre.ethers.parseEther(balance.slice(0, -5));
-        } else {
-          amount = BigInt(balance);
+  const goatToken = await deployGoatToken(hre, params.GoatToken);
+  const goatDao = await deployGoatDAO(hre, params.GoatDAO);
+  const goatFoundation = await deployGoatFoundation(hre, params.GoatFoundation);
+  const btcBlock = await deployBitcoin(hre, params.Bitcoin);
+  const wgbtc = await deployWrappedBitcoin(hre, params.WrappedBitcoin);
+  const bridge = await deployBridge(hre, params.Bridge);
+  const relayer = await deployRelayer(hre, params.Relayer);
+  const locking = await deployLocking(hre, params.Locking);
+  const lockingTokenFactory = await deployLockingTokenFactory(hre, {});
+
+  const genesis = structuredClone(GenesisTemplate) as Genesis;
+  genesis.timestamp = "0x" + Math.floor(Date.now() / 1000).toString(16);
+
+  const { viem } = await hre.network.getOrCreate();
+  const publicClient = await viem.getPublicClient();
+  const testClient = await viem.getTestClient();
+  const chainId = await publicClient.getChainId();
+  console.log("Use chainId", chainId);
+  genesis.config.chainId = chainId;
+
+  const dump = loadAnvilState(await testClient.dumpState());
+  const genesisContractStates: GenesisAccounts = {};
+  for (const [address, state] of Object.entries(dump.accounts)) {
+    const accountState: GenesisAccountState = {
+      balance: state.balance,
+      nonce: "0x" + state.nonce.toString(16),
+      code: state.code,
+      storage: state.storage,
+    };
+
+    switch (address.toLowerCase()) {
+      case goatToken.toLowerCase():
+        console.log("Add genesis state for goat token from", address);
+        genesisContractStates[trim0xPrefix(PredployedAddress.goatToken)] =
+          accountState;
+        break;
+      case goatFoundation.toLowerCase():
+        console.log("Add genesis state for goat foundation from", address);
+        genesisContractStates[trim0xPrefix(PredployedAddress.goatFoundation)] =
+          accountState;
+        break;
+      case btcBlock.toLowerCase():
+        console.log("Add genesis state for bitcoin from", address);
+        genesisContractStates[trim0xPrefix(PredployedAddress.btcBlock)] =
+          accountState;
+        break;
+      case wgbtc.toLowerCase():
+        console.log("Add genesis state for wgbtc from", address);
+        genesisContractStates[trim0xPrefix(PredployedAddress.wgbtc)] =
+          accountState;
+        break;
+      case bridge.toLowerCase():
+        console.log("Add genesis state for bridge from", address);
+        genesisContractStates[trim0xPrefix(PredployedAddress.bridge)] =
+          accountState;
+        break;
+      case relayer.toLowerCase():
+        console.log("Add genesis state for relayer from", address);
+        genesisContractStates[trim0xPrefix(PredployedAddress.relayer)] =
+          accountState;
+        break;
+      case locking.toLowerCase():
+        console.log("Add genesis state for Locking from", address);
+        if (params.Locking.gas !== undefined) {
+          console.warn(
+            "Sending gas revenue to Locking contract",
+            params.Locking.gas,
+          );
+          accountState.balance =
+            "0x" +
+            (
+              BigInt(accountState.balance ?? 0) + BigInt(params.Locking.gas)
+            ).toString(16);
         }
-
-        prev[trim0xPrefix(address.toLowerCase())] = {
-          balance: "0x" + amount.toString(16),
-          nonce: "0x" + (nonce || 0).toString(16),
-        };
-        return prev;
-      },
-      {} as IAccount,
-    );
-
-    genesis.alloc = Object.assign(balances, genesis.alloc, ordered);
-
-    const genResp = await fetch(`${args["gensrv"]}/genesis`, {
-      method: "POST",
-      body: JSON.stringify(genesis),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (genResp.status !== 200) {
-      const err = await genResp.text();
-      throw new Error("genesis server error: " + err);
+        genesisContractStates[trim0xPrefix(PredployedAddress.locking)] =
+          accountState;
+        break;
+      case goatDao.toLowerCase():
+        console.log("Add genesis state for goat dao from", address);
+        genesisContractStates[trim0xPrefix(PredployedAddress.goatDao)] =
+          accountState;
+        break;
+      case lockingTokenFactory.toLowerCase():
+        console.log("Add genesis state for locking token factory", address);
+        genesisContractStates[
+          trim0xPrefix(PredployedAddress.lockingTokenFactory)
+        ] = accountState;
+        break;
     }
-    params.Consensus.Goat = await genResp.json();
+  }
 
-    console.log("Writing genesis", outputFile);
-    await fs.writeFile(outputFile, JSON.stringify(genesis, null, 2));
+  const contractStateKeys = Object.keys(genesisContractStates);
+  if (contractStateKeys.length !== 9) {
+    throw new Error("Inconsistent deployment count");
+  }
+  const orderedContractStates = contractStateKeys
+    .sort(sortTokenAddress)
+    .reduce<GenesisAccounts>((states, key) => {
+      states[key] = genesisContractStates[key];
+      return states;
+    }, {});
 
-    console.log("Updating parameter file", paramFilePath);
-    await fs.writeFile(paramFilePath, JSON.stringify(params, null, 2));
+  const balances = Object.entries(
+    params.Balances ?? {},
+  ).reduce<GenesisAccounts>((states, [address, { balance, nonce }]) => {
+    console.log(
+      "Add genesis balance to",
+      address,
+      "balance",
+      balance,
+      "nonce",
+      nonce,
+    );
+    const amount =
+      typeof balance === "string" && balance.endsWith("ether")
+        ? parseEther(balance.slice(0, -5))
+        : BigInt(balance);
+    states[trim0xPrefix(address.toLowerCase())] = {
+      balance: "0x" + amount.toString(16),
+      nonce: "0x" + (nonce ?? 0).toString(16),
+    };
+    return states;
+  }, {});
+
+  genesis.alloc = Object.assign(balances, genesis.alloc, orderedContractStates);
+
+  const genesisResponse = await fetch(`${args.gensrv}/genesis`, {
+    method: "POST",
+    body: JSON.stringify(genesis),
+    headers: { "Content-Type": "application/json" },
   });
+  if (!genesisResponse.ok) {
+    throw new Error("genesis server error: " + (await genesisResponse.text()));
+  }
+  const consensusGenesis = await genesisResponse.json();
+  if (
+    consensusGenesis === null ||
+    typeof consensusGenesis !== "object" ||
+    Array.isArray(consensusGenesis)
+  ) {
+    throw new Error("genesis server returned an invalid consensus genesis");
+  }
+  params.Consensus.Goat = consensusGenesis as Record<string, unknown>;
+
+  console.log("Writing genesis", outputFile);
+  await fs.writeFile(outputFile, JSON.stringify(genesis, null, 2));
+  console.log("Updating parameter file", paramFilePath);
+  await fs.writeFile(paramFilePath, JSON.stringify(params, null, 2));
+}

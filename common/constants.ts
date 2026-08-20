@@ -1,3 +1,5 @@
+import type { Address } from "viem";
+
 export const PredployedAddress = {
   goatDao: "0xBC10000000000000000000000000000000000Da0",
   wgbtc: "0xbC10000000000000000000000000000000000000",
@@ -8,12 +10,12 @@ export const PredployedAddress = {
   btcBlock: "0xbc10000000000000000000000000000000000005",
   relayer: "0xBC10000000000000000000000000000000000006",
   lockingTokenFactory: "0xBc10000000000000000000000000000000000007",
-};
+} as const satisfies Record<string, Address>;
 
 export const Executors = {
   relayer: "0xBc10000000000000000000000000000000001000",
   locking: "0xBC10000000000000000000000000000000001001",
-};
+} as const satisfies Record<string, Address>;
 
 export function sortTokenAddress(a: string, b: string): number {
   if (a.toLowerCase() < b.toLowerCase()) {
@@ -23,4 +25,4 @@ export function sortTokenAddress(a: string, b: string): number {
 }
 
 // 1 Satoshi = 10 gwei
-export const SATOSHI = BigInt(1e10);
+export const SATOSHI = 10n ** 10n;

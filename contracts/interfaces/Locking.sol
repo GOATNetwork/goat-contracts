@@ -51,13 +51,7 @@ interface ILocking {
 
     event Create(address validator, address owner, bytes32[2] pubkey);
     event Lock(address validator, address token, uint256 amount);
-    event Unlock(
-        uint64 id,
-        address validator,
-        address recipient,
-        address token,
-        uint256 amount
-    );
+    event Unlock(uint64 id, address validator, address recipient, address token, uint256 amount);
     event CompleteUnlock(uint64 id, uint256 amount);
 
     event Claim(uint64 id, address validator, address recipient);
@@ -65,39 +59,17 @@ interface ILocking {
 
     event ChangeValidatorOwner(address validator, address owner);
 
-    function create(
-        bytes32[2] calldata pubkey,
-        bytes32 sigR,
-        bytes32 sigS,
-        uint8 sigV
-    ) external payable;
+    function create(bytes32[2] calldata pubkey, bytes32 sigR, bytes32 sigS, uint8 sigV) external payable;
 
-    function lock(
-        address validator,
-        Locking[] calldata values
-    ) external payable;
+    function lock(address validator, Locking[] calldata values) external payable;
 
-    function unlock(
-        address validator,
-        address recipient,
-        Locking[] calldata values
-    ) external;
+    function unlock(address validator, address recipient, Locking[] calldata values) external;
 
-    function completeUnlock(
-        uint64 id,
-        address recipient,
-        address token,
-        uint256 amount
-    ) external;
+    function completeUnlock(uint64 id, address recipient, address token, uint256 amount) external;
 
     function claim(address validator, address recipient) external;
 
-    function distributeReward(
-        uint64 id,
-        address recipient,
-        uint256 goat,
-        uint256 gasReward
-    ) external;
+    function distributeReward(uint64 id, address recipient, uint256 goat, uint256 gasReward) external;
 
     function creationThreshold() external view returns (Locking[] memory);
 
@@ -105,12 +77,7 @@ interface ILocking {
 
     function approve(address validator) external;
 
-    function addToken(
-        address token,
-        uint64 weight,
-        uint256 limit,
-        uint256 thrs
-    ) external;
+    function addToken(address token, uint64 weight, uint256 limit, uint256 thrs) external;
 
     function setTokenWeight(address token, uint64 weight) external;
 
@@ -118,9 +85,7 @@ interface ILocking {
 
     function setThreshold(address token, uint256 amount) external;
 
-    function getAddressByPubkey(
-        bytes32[2] calldata pubkey
-    ) external pure returns (address, address);
+    function getAddressByPubkey(bytes32[2] calldata pubkey) external pure returns (address, address);
 
     function reclaim() external;
 

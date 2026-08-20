@@ -13,14 +13,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Bridge is
-    Ownable,
-    RelayerGuard,
-    RateLimiter,
-    IBridge,
-    IBridgeParam,
-    IERC165
-{
+contract Bridge is Ownable, RelayerGuard, RateLimiter, IBridge, IBridgeParam, IERC165 {
     using Address for address payable;
 
     DepositParam public depositParam;
@@ -45,10 +38,7 @@ contract Bridge is
     uint256 internal constant MAX_BASE_POINT = 1e4;
 
     // It is only for testing
-    constructor(
-        address owner,
-        bytes4 prefix
-    ) Ownable(owner) RateLimiter(32, false) {
+    constructor(address owner, bytes4 prefix) Ownable(owner) RateLimiter(32, false) {
         depositParam = DepositParam({
             prefix: prefix,
             min: 1_000_000 gwei, // 0.001 btc
@@ -73,13 +63,11 @@ contract Bridge is
      * @param amount the deposit amount without the tax
      * @param tax the deposit tax
      */
-    function deposit(
-        bytes32 txHash,
-        uint32 txout,
-        address target,
-        uint256 amount,
-        uint256 tax
-    ) external override OnlyRelayer {
+    function deposit(bytes32 txHash, uint32 txout, address target, uint256 amount, uint256 tax)
+        external
+        override
+        OnlyRelayer
+    {
         bytes32 depositHash = keccak256(abi.encodePacked(txHash, txout));
         require(!deposits[depositHash], "duplicated");
         deposits[depositHash] = true;
@@ -93,10 +81,7 @@ contract Bridge is
      * @param txHash the txHash(LE)
      * @param txout the txout index
      */
-    function isDeposited(
-        bytes32 txHash,
-        uint32 txout
-    ) external view override returns (bool) {
+    function isDeposited(bytes32 txHash, uint32 txout) external view override returns (bool) {
         bytes32 depositHash = keccak256(abi.encodePacked(txHash, txout));
         return deposits[depositHash];
     }
@@ -109,10 +94,7 @@ contract Bridge is
      * consensus layer has a complete validation for the receiver address
      * if it's invalid, the consensus layer will send back `cancel2` tx to reject it
      */
-    function withdraw(
-        string calldata receiver,
-        uint16 maxTxPrice
-    ) external payable override RateLimiting {
+    function withdraw(string calldata receiver, uint16 maxTxPrice) external payable override RateLimiting {
         uint256 addrLength = bytes(receiver).length;
         require(addrLength > 33 && addrLength < 91, "invalid address");
 
@@ -160,10 +142,7 @@ contract Bridge is
      * @param wid the withdrawal id
      * @param maxTxPrice the new max tx price
      */
-    function replaceByFee(
-        uint256 wid,
-        uint16 maxTxPrice
-    ) external override RateLimiting {
+    function replaceByFee(uint256 wid, uint16 maxTxPrice) external override RateLimiting {
         Withdrawal storage withdrawal = withdrawals[wid];
 
         if (withdrawal.status != WithdrawalStatus.Pending) {
@@ -174,17 +153,12 @@ contract Bridge is
             revert AccessDenied();
         }
 
-        if (
-            block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION
-        ) {
+        if (block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION) {
             revert RequestTooFrequent();
         }
 
         require(maxTxPrice > withdrawal.maxTxPrice, "invalid tx price");
-        require(
-            withdrawal.amount > DUST + maxTxPrice * BASE_TX_SIZE,
-            "unaffordable"
-        );
+        require(withdrawal.amount > DUST + maxTxPrice * BASE_TX_SIZE, "unaffordable");
 
         withdrawal.maxTxPrice = maxTxPrice;
         withdrawal.updatedAt = block.timestamp;
@@ -207,9 +181,7 @@ contract Bridge is
             revert AccessDenied();
         }
 
-        if (
-            block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION
-        ) {
+        if (block.timestamp - withdrawal.updatedAt < WITHDRAWAL_UPDATED_DURATION) {
             revert RequestTooFrequent();
         }
 
@@ -227,10 +199,7 @@ contract Bridge is
     function cancel2(uint256 wid) external OnlyRelayer {
         Withdrawal storage withdrawal = withdrawals[wid];
         WithdrawalStatus status = withdrawal.status;
-        require(
-            status == WithdrawalStatus.Pending ||
-                status == WithdrawalStatus.Canceling
-        );
+        require(status == WithdrawalStatus.Pending || status == WithdrawalStatus.Canceling);
         withdrawal.status = WithdrawalStatus.Canceled;
         withdrawal.updatedAt = block.timestamp;
         emit Canceled(wid);
@@ -267,19 +236,11 @@ contract Bridge is
      * @param txout the tx output index
      * @param received the actual paid amount
      */
-    function paid(
-        uint256 wid,
-        bytes32 txHash,
-        uint32 txout,
-        uint256 received
-    ) external OnlyRelayer {
+    function paid(uint256 wid, bytes32 txHash, uint32 txout, uint256 received) external OnlyRelayer {
         Withdrawal storage withdrawal = withdrawals[wid];
 
         WithdrawalStatus status = withdrawal.status;
-        require(
-            status == WithdrawalStatus.Pending ||
-                status == WithdrawalStatus.Canceling
-        );
+        require(status == WithdrawalStatus.Pending || status == WithdrawalStatus.Canceling);
 
         withdrawal.status = WithdrawalStatus.Paid;
         withdrawal.updatedAt = block.timestamp;
@@ -306,10 +267,7 @@ contract Bridge is
      * @param bp the basic point for the withdrawal tax rate
      * @param max the max tax in wei
      */
-    function setWithdrawalTax(
-        uint16 bp,
-        uint64 max
-    ) external override onlyOwner checkTax(bp, max) {
+    function setWithdrawalTax(uint16 bp, uint64 max) external override onlyOwner checkTax(bp, max) {
         withdrawParam.taxRate = bp;
         withdrawParam.maxTax = max;
         emit WithdrawalTaxUpdated(bp, max);
@@ -320,20 +278,14 @@ contract Bridge is
      * @param bp the basic point for the deposit tax rate
      * @param max the max tax in wei
      */
-    function setDepositTax(
-        uint16 bp,
-        uint64 max
-    ) external override onlyOwner checkTax(bp, max) {
+    function setDepositTax(uint16 bp, uint64 max) external override onlyOwner checkTax(bp, max) {
         depositParam.taxRate = bp;
         depositParam.maxTax = max;
         emit DepositTaxUpdated(bp, max);
     }
 
     modifier checkThreshold(uint64 amount) {
-        require(
-            amount < 1e18 && amount >= 1e14 && amount % SATOSHI == 0,
-            InvalidThreshold()
-        );
+        require(amount < 1e18 && amount >= 1e14 && amount % SATOSHI == 0, InvalidThreshold());
         _;
     }
 
@@ -341,9 +293,7 @@ contract Bridge is
      * setMinWithdrawal updates current min withdrawal amount
      * @param amount the amount in wei, the amount should be in range [0.0001 btc, 1btc)
      */
-    function setMinWithdrawal(
-        uint64 amount
-    ) external override onlyOwner checkThreshold(amount) {
+    function setMinWithdrawal(uint64 amount) external override onlyOwner checkThreshold(amount) {
         withdrawParam.min = amount;
         emit MinWithdrawalUpdated(amount);
     }
@@ -352,9 +302,7 @@ contract Bridge is
      * setMinDeposit updates the min deposit
      * @param amount the amount in wei, the amount should be in range [0.0001 btc, 1btc)
      */
-    function setMinDeposit(
-        uint64 amount
-    ) external override onlyOwner checkThreshold(amount) {
+    function setMinDeposit(uint64 amount) external override onlyOwner checkThreshold(amount) {
         depositParam.min = amount;
         emit MinDepositUpdated(amount);
     }
@@ -369,12 +317,8 @@ contract Bridge is
         emit ConfirmationNumberUpdated(number);
     }
 
-    function supportsInterface(
-        bytes4 id
-    ) external view virtual override returns (bool) {
+    function supportsInterface(bytes4 id) external view virtual override returns (bool) {
         return
-            id == type(IERC165).interfaceId ||
-            id == type(IBridge).interfaceId ||
-            id == type(IBridgeParam).interfaceId;
+            id == type(IERC165).interfaceId || id == type(IBridge).interfaceId || id == type(IBridgeParam).interfaceId;
     }
 }

@@ -1,10 +1,16 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { PredployedAddress } from "../../common/constants";
-import { GoatDAO } from "../../typechain-types";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 
-export const deploy = async (hre: HardhatRuntimeEnvironment, param: any) => {
+import { PredployedAddress } from "../../common/constants.js";
+import type { EmptyParam } from "./param.js";
+
+export const deploy = async (
+  hre: HardhatRuntimeEnvironment,
+  _param: EmptyParam,
+) => {
   console.log("Deploy goat DAO");
-  const factory = await hre.ethers.getContractFactory("GoatDAO");
-  const contract: GoatDAO = await factory.deploy(PredployedAddress.goatToken);
-  return contract.getAddress();
+  const { viem } = await hre.network.getOrCreate();
+  const contract = await viem.deployContract("GoatDAO", [
+    PredployedAddress.goatToken,
+  ]);
+  return contract.address;
 };

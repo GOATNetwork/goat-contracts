@@ -2,12 +2,8 @@
 pragma solidity =0.8.28;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {
-    IERC20Metadata
-} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract LockingTokenWrapper is ERC20 {
     using SafeERC20 for IERC20Metadata;
@@ -17,13 +13,8 @@ contract LockingTokenWrapper is ERC20 {
     IERC20Metadata public immutable underlying;
     uint256 public immutable exchangeRate;
 
-    constructor(
-        IERC20Metadata token
-    )
-        ERC20(
-            string.concat(token.name(), " ", "Standard Wrapper"),
-            string.concat(token.symbol(), "SW")
-        )
+    constructor(IERC20Metadata token)
+        ERC20(string.concat(token.name(), " ", "Standard Wrapper"), string.concat(token.symbol(), "SW"))
     {
         uint256 decimals = token.decimals();
         require(decimals < 18 && decimals > 0, "invalid decimals");

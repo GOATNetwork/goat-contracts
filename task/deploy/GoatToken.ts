@@ -1,72 +1,67 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { loadAnvilState } from "../../common/anvil";
-import { PredployedAddress } from "../../common/constants";
-import { GoatToken } from "../../typechain-types";
-import { GoatTokenParam } from "./param";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+import { formatEther, getAddress, isHex, parseEther } from "viem";
+
+import { loadAnvilState } from "../../common/anvil.js";
+import { PredployedAddress } from "../../common/constants.js";
+import type { GoatTokenParam } from "./param.js";
 
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,
   param: GoatTokenParam,
 ) => {
   console.log("Deploy goat token");
-
-  const [signer] = await hre.ethers.getSigners();
-  const factory = await hre.ethers.getContractFactory("GoatToken");
-
-  const goatToken: GoatToken = await factory.deploy(signer);
+  const { viem } = await hre.network.getOrCreate();
+  const [signer] = await viem.getWalletClients();
+  const goatToken = await viem.deployContract("GoatToken", [
+    signer.account.address,
+  ]);
 
   for (const item of param.transfers) {
-    let amount = 0n;
-    if (typeof item.value === "string" && item.value.endsWith("ether")) {
-      amount = hre.ethers.parseEther(item.value.slice(0, -5));
-    } else {
-      amount = BigInt(item.value);
-    }
-    console.log(
-      "transfer token to",
-      item.to,
-      "amount",
-      hre.ethers.formatEther(amount),
-    );
-    await goatToken.transfer(item.to, amount);
+    const amount =
+      typeof item.value === "string" && item.value.endsWith("ether")
+        ? parseEther(item.value.slice(0, -5))
+        : BigInt(item.value);
+    console.log("transfer token to", item.to, "amount", formatEther(amount));
+    await goatToken.write.transfer([getAddress(item.to), amount]);
   }
 
-  const balance = await goatToken.balanceOf(signer);
+  const balance = await goatToken.read.balanceOf([signer.account.address]);
   if (balance > 0n) {
     console.log(
       "Transfer remain goat tokens to owner",
       param.owner,
-      hre.ethers.formatEther(balance),
+      formatEther(balance),
     );
-    await goatToken.transfer(param.owner, balance);
+    await goatToken.write.transfer([getAddress(param.owner), balance]);
   }
 
-  const dump = loadAnvilState(
-    await hre.ethers.provider.send("anvil_dumpState"),
-  );
-  const goatTokenAddress = await goatToken.getAddress();
+  const testClient = await viem.getTestClient();
+  const dump = loadAnvilState(await testClient.dumpState());
   console.log("Apply state to canonical address", PredployedAddress.goatToken);
-  let init = false;
+  let initialized = false;
   for (const [address, state] of Object.entries(dump.accounts)) {
-    if (address.toLowerCase() === goatTokenAddress.toLowerCase()) {
+    if (address.toLowerCase() === goatToken.address.toLowerCase()) {
       console.log("Initialize state for canonical goat token");
-      await hre.ethers.provider.send("anvil_setCode", [
-        PredployedAddress.goatToken,
-        state.code,
-      ]);
-      for (const [slot, data] of Object.entries(state.storage)) {
-        await hre.ethers.provider.send("anvil_setStorageAt", [
-          PredployedAddress.goatToken,
-          slot,
-          data,
-        ]);
+      await testClient.setCode({
+        address: PredployedAddress.goatToken,
+        bytecode: state.code,
+      });
+      for (const [slot, value] of Object.entries(state.storage)) {
+        if (!isHex(slot)) {
+          throw new Error(`invalid storage slot ${slot}`);
+        }
+        await testClient.setStorageAt({
+          address: PredployedAddress.goatToken,
+          index: slot,
+          value,
+        });
       }
-      init = true;
+      initialized = true;
       break;
     }
   }
-  if (!init) {
+  if (!initialized) {
     throw new Error("canonical goat token is not initialized");
   }
-  return goatTokenAddress;
+  return goatToken.address;
 };
